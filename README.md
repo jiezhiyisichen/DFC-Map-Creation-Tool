@@ -5,6 +5,10 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.4.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+</p>
+
+<p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
   <img alt="Version" src="https://img.shields.io/badge/版本-3.4-FF6BD6?style=flat-square">
