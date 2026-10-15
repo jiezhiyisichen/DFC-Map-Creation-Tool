@@ -1,0 +1,79 @@
+# ===========================================================================
+# 节枝特效工具 JiezhiMod —— 仓库忽略规则
+# ===========================================================================
+
+# --- 构建产物 ---------------------------------------------------------------
+build/
+bin/
+out/
+*.class
+
+# --- Gradle -----------------------------------------------------------------
+.gradle/
+.gradle_local/
+gradle-app.setting
+
+# --- IDE --------------------------------------------------------------------
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.metadata/
+.classpath
+.project
+*.launch
+eclipse/
+
+# --- 运行时 / 日志（调试信息，不入库）----------------------------------------
+run/
+logs/
+crash-reports/
+*.log
+*.log.gz
+
+# --- 本地工具工作区（AI 助手 / 个人笔记，不入库）-----------------------------
+.workbuddy/
+AGENTS.md
+CLAUDE.md
+
+# --- 第三方二进制：ProGuard（请自行下载 7.4.2 到 tools/proguard-7.4.2/）------
+tools/proguard-7.4.2/
+tools/proguard-7.4.2.zip
+tools/obf.jar
+*.jar
+!gradle/wrapper/gradle-wrapper.jar
+
+# --- 临时 / 中间产物 ---------------------------------------------------------
+tools/seal_tmp/
+tools/tampered/
+tools/tmpprobe/
+tools/dfcprobe/
+tools/canvastest/out/
+tools/selftest/out/
+tools/selftest/sources.txt
+tools/selftest/last_result.txt
+tools/testmain/out/
+tools/fixframes/out/
+
+# --- 离屏渲染导出图（由 tools/canvastest 生成；精选版在 screenshots/）---------
+tools/canvastest/dump/
+
+# --- 反编译的 Minecraft / 第三方模组源码（版权原因，严禁入库）---------------
+net/
+
+# --- Forge MDK 原始样板文件（与本模组无关，避免与 LICENSE.md 冲突）-----------
+README.txt
+changelog.txt
+CREDITS.txt
+LICENSE.txt
+LICENSE-Paulscode IBXM Library.txt
+LICENSE-Paulscode SoundSystem CodecIBXM.txt
+build.bat
+
+# --- 系统垃圾 ---------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*.bak
+*.tmp

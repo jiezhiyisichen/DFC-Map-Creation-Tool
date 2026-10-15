@@ -1,0 +1,12 @@
+{
+  "parent": "block/cube",
+  "textures": {
+    "particle": "jiezhimod:blocks/delay_side_on",
+    "down": "jiezhimod:blocks/delay_side_on",
+    "up": "jiezhimod:blocks/delay_top_on",
+    "north": "jiezhimod:blocks/delay_side_on",
+    "east": "jiezhimod:blocks/delay_side_on",
+    "south": "jiezhimod:blocks/delay_side_on",
+    "west": "jiezhimod:blocks/delay_side_on"
+  }
+}

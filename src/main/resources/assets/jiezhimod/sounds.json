@@ -1,0 +1,11 @@
+{
+  "coil_equip": {
+    "category": "player",
+    "sounds": [
+      {
+        "name": "jiezhimod:coil_equip",
+        "stream": false
+      }
+    ]
+  }
+}

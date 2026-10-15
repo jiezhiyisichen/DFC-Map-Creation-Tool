@@ -1,0 +1,31 @@
+# 统一换行处理：源码用 LF 入库，Windows 检出时自动转换
+* text=auto eol=lf
+
+# Windows 批处理必须保持 CRLF
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# 源码
+*.java   text diff=java
+*.gradle text
+*.json   text
+*.lang   text
+*.md     text
+*.pro    text
+*.py     text
+
+# 二进制资源
+*.png  binary
+*.ogg  binary
+*.jar  binary
+*.zip  binary
+*.ttf  binary
+*.ttc  binary
+
+# 语言文件在 GitHub 上按 Java properties 高亮
+*.lang linguist-language=Properties
+
+# 构建脚本统计时归为 Java 生态
+tools/*.py linguist-detectable=true
+screenshots/*.png linguist-documentation
+docs/*.md linguist-documentation

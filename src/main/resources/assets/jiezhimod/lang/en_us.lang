@@ -1,0 +1,65 @@
+item.speed_coil.name=Speed Coil
+item.gravity_coil.name=Gravity Coil
+item.healing_coil.name=Healing Coil
+item.jetpack.name=Jetpack
+item.jet_switch.name=Jet Switch
+itemGroup.jiezhimod=jiezhimod Items
+tile.dfc_screen.name=DFC Monitor Panel
+tile.dfc_monitor.name=DFC Component Monitor
+tile.dfc_custom.name=DFC Custom Display
+item.dfc_remote.name=DFC Remote
+itemGroup.jiezhimod_screen=DFC Screens
+
+tile.delay_block.name=Redstone Delay Block
+itemGroup.jiezhimod_redstone=jiezhimod-Redstone
+
+# Notice UI
+key.categories.jiezhimod=jiezhimod
+key.jiezhimod.notice=Notice History (P by default)
+gui.jiezhimod.notice.title=Notice History
+gui.jiezhimod.notice.hint=Mouse wheel to scroll  /  Esc to close
+gui.jiezhimod.notice.empty=No notices yet
+
+# Redstone delay block UI
+gui.jiezhimod.delay.title=Redstone Delay
+gui.jiezhimod.delay.delay=Delay
+gui.jiezhimod.delay.unit=Unit
+gui.jiezhimod.delay.mode=Output
+gui.jiezhimod.delay.unit.0=tick
+gui.jiezhimod.delay.unit.1=sec
+gui.jiezhimod.delay.unit.2=min
+gui.jiezhimod.delay.mode.0=Front (straight)
+gui.jiezhimod.delay.mode.1=Left
+gui.jiezhimod.delay.mode.2=Right
+gui.jiezhimod.delay.mode.3=3-way
+gui.jiezhimod.delay.actual=Actual delay: %s
+gui.jiezhimod.delay.status=In %s / Out %s / left %s tick
+gui.jiezhimod.delay.on=ON
+gui.jiezhimod.delay.off=OFF
+gui.jiezhimod.delay.close=Close
+gui.jiezhimod.delay.io.in=In from: %s
+gui.jiezhimod.delay.io.out=Out: %s
+gui.jiezhimod.delay.io.none=none
+gui.jiezhimod.delay.hint=Directions are relative to the input face
+gui.jiezhimod.delay.redetect=Re-detect
+gui.jiezhimod.delay.hint2=Input face is locked (like a repeater). Move wires, then Re-detect.
+gui.jiezhimod.delay.dir.up=UP
+gui.jiezhimod.delay.dir.down=DOWN
+gui.jiezhimod.delay.dir.north=NORTH
+gui.jiezhimod.delay.dir.south=SOUTH
+gui.jiezhimod.delay.dir.east=EAST
+gui.jiezhimod.delay.dir.west=WEST
+gui.jiezhimod.delay.dir.none=-
+
+# ---- Custom display (opened by right-clicking the block) ----
+gui.jiezhimod.custom.title=DFC Custom Display
+gui.jiezhimod.custom.power.on=Power On
+gui.jiezhimod.custom.power.off=Power Off
+gui.jiezhimod.custom.state.on=State: ON
+gui.jiezhimod.custom.state.off=State: OFF
+gui.jiezhimod.custom.delete=Del
+gui.jiezhimod.custom.clear=Clear
+gui.jiezhimod.custom.close=Close
+gui.jiezhimod.custom.empty=(empty)
+gui.jiezhimod.custom.offline=offline
+gui.jiezhimod.custom.hint=Sneak + right-click a tank / battery with the DFC remote to record, then sneak + right-click this display (max 8)

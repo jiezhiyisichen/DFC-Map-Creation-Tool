@@ -1,0 +1,65 @@
+item.speed_coil.name=加速线圈
+item.gravity_coil.name=重力线圈
+item.healing_coil.name=治愈线圈
+item.jetpack.name=喷气背包
+item.jet_switch.name=喷气开关
+itemGroup.jiezhimod=jiezhimod物品
+tile.dfc_screen.name=DFC 监控显示器
+tile.dfc_monitor.name=DFC 部件监视器
+tile.dfc_custom.name=DFC 自定义显示屏
+item.dfc_remote.name=DFC 遥控器
+itemGroup.jiezhimod_screen=DFC显示器
+
+tile.delay_block.name=红石延时器
+itemGroup.jiezhimod_redstone=jiezhimod-红石
+
+# 通知界面
+key.categories.jiezhimod=jiezhimod
+key.jiezhimod.notice=通知历史 (默认 P)
+gui.jiezhimod.notice.title=通知历史
+gui.jiezhimod.notice.hint=滚轮滑动 / Esc 退出
+gui.jiezhimod.notice.empty=暂无通知
+
+# 红石延时器界面
+gui.jiezhimod.delay.title=红石延时器
+gui.jiezhimod.delay.delay=延时
+gui.jiezhimod.delay.unit=单位
+gui.jiezhimod.delay.mode=方向
+gui.jiezhimod.delay.unit.0=tick
+gui.jiezhimod.delay.unit.1=秒
+gui.jiezhimod.delay.unit.2=分
+gui.jiezhimod.delay.mode.0=向前(直通)
+gui.jiezhimod.delay.mode.1=向左
+gui.jiezhimod.delay.mode.2=向右
+gui.jiezhimod.delay.mode.3=三向
+gui.jiezhimod.delay.actual=实际延时: %s
+gui.jiezhimod.delay.status=输入 %s / 输出 %s / 剩余 %s tick
+gui.jiezhimod.delay.on=开
+gui.jiezhimod.delay.off=关
+gui.jiezhimod.delay.close=关闭
+gui.jiezhimod.delay.io.in=输入来自: %s
+gui.jiezhimod.delay.io.out=输出: %s
+gui.jiezhimod.delay.io.none=无输入
+gui.jiezhimod.delay.hint=方向以信号进入面为基准
+gui.jiezhimod.delay.redetect=重检方向
+gui.jiezhimod.delay.hint2=进入面已锁存（同中继器）。挪动线路后请点"重检方向"。
+gui.jiezhimod.delay.dir.up=上
+gui.jiezhimod.delay.dir.down=下
+gui.jiezhimod.delay.dir.north=北
+gui.jiezhimod.delay.dir.south=南
+gui.jiezhimod.delay.dir.east=东
+gui.jiezhimod.delay.dir.west=西
+gui.jiezhimod.delay.dir.none=-
+
+# ---- 自定义显示屏（右键方块打开） ----
+gui.jiezhimod.custom.title=DFC 自定义显示屏
+gui.jiezhimod.custom.power.on=开机
+gui.jiezhimod.custom.power.off=关机
+gui.jiezhimod.custom.state.on=当前：已开机
+gui.jiezhimod.custom.state.off=当前：已关机
+gui.jiezhimod.custom.delete=删除
+gui.jiezhimod.custom.clear=清空
+gui.jiezhimod.custom.close=关闭
+gui.jiezhimod.custom.empty=（空）
+gui.jiezhimod.custom.offline=离线
+gui.jiezhimod.custom.hint=用 DFC 遥控器蹲下右键储罐 / 电池记录，再蹲下右键本屏接入（最多 8 条）
