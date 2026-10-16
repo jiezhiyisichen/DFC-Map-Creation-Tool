@@ -77,7 +77,31 @@ public class SelfTest {
     private static int failed = 0;
     private static int skipped = 0;
 
+    /**
+     * 离线自测里没有 Minecraft 客户端，{@code I18n.i18nLocale} 是 null，
+     * 任何 {@code I18n.format} 都会 NPE（物品提示一改走语言文件就会撞上）。
+     *
+     * 这里反射塞一个**空的** Locale 进去：properties 为空时 formatMessage 原样返回 key，
+     * 于是工具提示的内容变成 "tooltip.jiezhimod.xxx.0" 这类**键名**。
+     * 这恰好是想要的断言口径 —— "这一行来自语言文件" 比 "这一行是英文" 有意义得多；
+     * 而"键在不在、中文写没写全"交给 run_selftest.py 去比对两个 .lang 文件。
+     */
+    private static void stubI18n() {
+        try {
+            Object loc = net.minecraft.client.resources.Locale.class
+                    .getDeclaredConstructor().newInstance();
+            java.lang.reflect.Method m = net.minecraft.client.resources.I18n.class
+                    .getDeclaredMethod("setLocale", net.minecraft.client.resources.Locale.class);
+            m.setAccessible(true);
+            m.invoke(null, loc);
+            System.out.println("[i18n] stub locale installed (format() 原样返回 key)");
+        } catch (Throwable t) {
+            System.out.println("[i18n] stub failed: " + t);
+        }
+    }
+
     public static void main(String[] args) throws Exception {
+        stubI18n();
         System.out.println("=== JiezhiMod offline self-test ===");
 
         testStrDecrypt();
@@ -114,6 +138,7 @@ public class SelfTest {
         testScreenStructure();
         testDfcSnapshotCodec();
         testDfcDeviceLookup();
+        testCustomScreenGuiLayout();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -713,9 +738,16 @@ public class SelfTest {
         List<String> tip = new ArrayList<>();
         addInfo.invoke(coil, new net.minecraft.item.ItemStack(coil), null, tip, null);
         check("tooltip is non-empty (" + tip.size() + " lines)", tip.size() >= 2);
-        String tipAll = String.join(" | ", tip);
-        check("tooltip advertises the x5 multiplier", tipAll.contains("x5"));
-        check("tooltip says it is not a potion effect", tipAll.toLowerCase().contains("potion"));
+        // 【断言方式变了，这是有意的】文案搬进语言文件之后，离线环境里
+        // I18n 没有 Locale（见 stubI18n()），format 会原样返回 key。
+        // 所以这里能验证的、也真正该验证的是：**这三行确实来自语言文件**，
+        // 而不是某处又写死了一句英文。中文写没写、键全不全，由 run_selftest.py 校验。
+        check("tooltip 第 1 行来自语言文件 tooltip.jiezhimod.coil_speed.0",
+                tip.get(0).endsWith("tooltip.jiezhimod.coil_speed.0"));
+        check("tooltip 第 2 行（含倍率）来自语言文件 ...coil_speed.1",
+                tip.get(1).contains("tooltip.jiezhimod.coil_speed.1"));
+        check("tooltip 第 3 行来自语言文件 ...coil_speed.2",
+                tip.get(2).endsWith("tooltip.jiezhimod.coil_speed.2"));
     }
 
     // =====================================================================
@@ -771,9 +803,13 @@ public class SelfTest {
             List<String> tip = new ArrayList<>();
             addInfo.invoke(coil, new net.minecraft.item.ItemStack(coil), null, tip, null);
             check("tooltip is non-empty (" + tip.size() + " lines)", tip.size() >= 2);
-            String all = String.join(" | ", tip);
-            check("tooltip mentions the ~6 block height", all.contains("6 blocks"));
-            check("tooltip says it is not a potion effect", all.toLowerCase().contains("potion"));
+            // 口径同 Speed Coil：文案在语言文件里，离线只能验"确实走了语言文件"
+            check("tooltip 第 1 行来自语言文件 ...coil_gravity.0",
+                    tip.get(0).endsWith("tooltip.jiezhimod.coil_gravity.0"));
+            check("tooltip 第 2 行（含跳跃高度）来自语言文件 ...coil_gravity.1",
+                    tip.get(1).contains("tooltip.jiezhimod.coil_gravity.1"));
+            check("tooltip 第 3 行来自语言文件 ...coil_gravity.2",
+                    tip.get(2).endsWith("tooltip.jiezhimod.coil_gravity.2"));
         } catch (Exception e) {
             check("gravity coil tooltip introspection (" + e + ")", false);
         }
@@ -832,9 +868,12 @@ public class SelfTest {
             List<String> tip = new ArrayList<>();
             addInfo.invoke(coil, new net.minecraft.item.ItemStack(coil), null, tip, null);
             check("tooltip is non-empty (" + tip.size() + " lines)", tip.size() >= 2);
-            String all = String.join(" | ", tip);
-            check("tooltip advertises +4 HP per second", all.contains("+4 HP") && all.contains("per second"));
-            check("tooltip says it is not a potion effect", all.toLowerCase().contains("potion"));
+            check("tooltip 第 1 行来自语言文件 ...coil_healing.0",
+                    tip.get(0).endsWith("tooltip.jiezhimod.coil_healing.0"));
+            check("tooltip 第 2 行（含每秒回血）来自语言文件 ...coil_healing.1",
+                    tip.get(1).contains("tooltip.jiezhimod.coil_healing.1"));
+            check("tooltip 第 3 行来自语言文件 ...coil_healing.2",
+                    tip.get(2).endsWith("tooltip.jiezhimod.coil_healing.2"));
         } catch (Exception e) {
             check("healing coil tooltip introspection (" + e + ")", false);
         }
@@ -1875,30 +1914,55 @@ public class SelfTest {
         double hx = JetPhysics.steerHorizontal(1.0D, 0.0D);
         check("目标 0 时水平速度被拉低", hx < 1.0D && hx > 0.0D);
 
-        // 前进：应向 FWD_SPEED 收敛
-        double fx = 0.0D;
+        // 前进：yaw=0（面朝 +Z/南）按 W，应向**世界 +Z** 收敛到 FWD_SPEED，
+        // 而世界 X 方向不该被推动。旧版正是错在这里：局部输入直接当了世界分量，
+        // 结果无论面朝哪儿都往世界 +X 飞，"转身改方向"完全失效。
+        double fz = 0.0D;
+        double xLeak = 0.0D;
         for (int i = 0; i < 400; i++) {
-            double[] cur = {fx, 0.0D, 0.0D};
-            double[] next = JetPhysics.step(cur, 1.0D, 0.0D, 0.0D, false);
-            fx = next[0];
+            double[] cur = {xLeak, 0.0D, fz};
+            double[] next = JetPhysics.step(cur, 0.0D, 1.0D, 0.0D, 0.0D, false);
+            xLeak = next[0];
+            fz = next[2];
         }
-        check("前进收敛到 FWD_SPEED 附近",
-                Math.abs(fx - JetPhysics.FWD_SPEED) < 0.02D);
+        check("yaw 0 按 W：世界 +Z 收敛到 FWD_SPEED",
+                Math.abs(fz - JetPhysics.FWD_SPEED) < 0.02D);
+        check("yaw 0 按 W：世界 X 不被推动（旧版就是错在这里）",
+                Math.abs(xLeak) < 0.02D);
+
+        // 原地转身 90 度，同一个 W 必须换到世界 -X 上去 —— 这条是"方向跟着视线走"的证明
+        double tx90 = 0.0D;
+        double tz90 = 0.0D;
+        for (int i = 0; i < 400; i++) {
+            double[] cur = {tx90, 0.0D, tz90};
+            double[] next = JetPhysics.step(cur, 90.0D, 1.0D, 0.0D, 0.0D, false);
+            tx90 = next[0];
+            tz90 = next[2];
+        }
+        check("yaw 90 按 W：世界 -X 收敛到 -FWD_SPEED",
+                Math.abs(tx90 + JetPhysics.FWD_SPEED) < 0.02D);
+        check("yaw 90 按 W：世界 Z 不被推动", Math.abs(tz90) < 0.02D);
 
         // 按跳跃（有上升）时应比不按更快
-        double fxUp = 0.0D;
+        double fzUp = 0.0D;
         for (int i = 0; i < 400; i++) {
-            double[] cur = {fxUp, 0.0D, 0.0D};
-            double[] next = JetPhysics.step(cur, 1.0D, 0.0D, 1.0D, true);
-            fxUp = next[0];
+            double[] cur = {0.0D, 0.0D, fzUp};
+            double[] next = JetPhysics.step(cur, 0.0D, 1.0D, 0.0D, 1.0D, true);
+            fzUp = next[2];
         }
-        check("上升时前进带额外推力", fxUp > fx);
+        check("上升时前进带额外推力", fzUp > fz);
+
+        // 斜着走（W+D）不该比直行快：输入长度必须先夹到 1
+        double[] diag = JetPhysics.worldTarget(0.0D, 1.0D, 1.0D, false);
+        double diagSpeed = Math.sqrt(diag[0] * diag[0] + diag[1] * diag[1]);
+        check("斜向输入不会比直行更快（长度已夹紧）",
+                diagSpeed <= JetPhysics.FWD_SPEED + 1.0E-6D);
 
         // 悬停时竖直速度必须为正（否则会下坠）
         double vy = 0.0D;
         for (int i = 0; i < 400; i++) {
             double[] cur = {0.0D, vy, 0.0D};
-            double[] next = JetPhysics.step(cur, 0.0D, 0.0D, 0.0D, false);
+            double[] next = JetPhysics.step(cur, 0.0D, 0.0D, 0.0D, 0.0D, false);
             vy = next[1];
         }
         check("只按住右键也能维持正升力（不会掉下来）", vy > 0.0D);
@@ -2906,6 +2970,46 @@ public class SelfTest {
         // 再大就容易把隔壁机器一起扫进来
         check("设备扫描半径 = 3",
                 com.jiezhimod.item.ItemDfcRemote.DEVICE_SCAN_RADIUS == 3);
+    }
+
+    /**
+     * 自定义屏 GUI 的版面不变量。
+     *
+     * 【为什么值得写】这个界面我**没法肉眼验证**（它要真跑起 MC 客户端才有像素），
+     * 只能把"哪些东西不许重叠、不许出框"变成断言。这些常量都是编译期常量，
+     * 上面引用时会被 javac 内联 —— 所以这里只做数学校验，连类都不会加载。
+     *
+     * 真正会踩的坑是：改了 PANEL_H 却没挪玩家背包 → 快捷栏直接跑出面板外；
+     * 或者把遥控器槽往下挪两格 → 压在数据列表第 1 行上。这两种都过不了下面这组检查。
+     */
+    private static void testCustomScreenGuiLayout() {
+        section("custom screen GUI layout");
+
+        final int W = com.jiezhimod.block.ContainerCustomScreen.PANEL_W;
+        final int H = com.jiezhimod.block.ContainerCustomScreen.PANEL_H;
+        final int rx = com.jiezhimod.block.ContainerCustomScreen.REMOTE_SLOT_X;
+        final int ry = com.jiezhimod.block.ContainerCustomScreen.REMOTE_SLOT_Y;
+        final int ix = com.jiezhimod.block.ContainerCustomScreen.INV_X;
+        final int iy = com.jiezhimod.block.ContainerCustomScreen.INV_Y;
+        final int hy = com.jiezhimod.block.ContainerCustomScreen.HOTBAR_Y;
+        final int slot = 18;
+
+        check("版面：遥控器槽左右都在面板内",
+                rx >= 0 && rx + slot <= W);
+        check("版面：遥控器槽高度在面板内（且不压到开机按钮那一行）",
+                ry >= 38 && ry + slot <= H);
+        check("版面：玩家背包 9 列不出右边框",
+                ix >= 0 && ix + 9 * slot <= W);
+        check("版面：背包 3 行 + 快捷栏都在面板内（改 PANEL_H 必查这条）",
+                iy + 3 * slot <= H && hy + slot <= H);
+        check("版面：背包在快捷栏上方、两者不重叠",
+                iy + 3 * slot <= hy);
+        // 列表第 1 行在 GUI 里画在 y=64；遥控器槽必须整体在它上面
+        check("版面：遥控器槽不与数据列表重叠",
+                ry + slot <= 64);
+        // 「添加」按钮摆在槽位右边 78 处、宽 60 —— 必须还在面板里
+        check("版面：添加按钮不出右边框",
+                rx + 78 + 60 <= W);
     }
 
     private static boolean copyIsIndependent(DfcSnapshot s) {        DfcSnapshot c = DfcSnapshot.copied(s);

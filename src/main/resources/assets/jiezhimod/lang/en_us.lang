@@ -62,4 +62,53 @@ gui.jiezhimod.custom.clear=Clear
 gui.jiezhimod.custom.close=Close
 gui.jiezhimod.custom.empty=(empty)
 gui.jiezhimod.custom.offline=offline
-gui.jiezhimod.custom.hint=Sneak + right-click a tank / battery with the DFC remote to record, then sneak + right-click this display (max 8)
+gui.jiezhimod.custom.hint=Put the DFC remote in the slot and click Add (max 8 readings).
+gui.jiezhimod.custom.add=Add
+gui.jiezhimod.custom.remote=Remote
+gui.jiezhimod.custom.remote.empty=Insert a remote into the slot
+gui.jiezhimod.custom.remote.count=%s / %s recorded
+
+# ---- Item / block tooltips ----
+tooltip.jiezhimod.coil_speed.0=Speed Coil
+tooltip.jiezhimod.coil_speed.1=Hold in either hand: movement speed x%s
+tooltip.jiezhimod.coil_speed.2=Raw attribute boost, not a potion effect
+tooltip.jiezhimod.coil_gravity.0=Gravity Coil
+tooltip.jiezhimod.coil_gravity.1=Hold in either hand: jump about %s blocks high
+tooltip.jiezhimod.coil_gravity.2=Raw physics boost, not a potion effect
+tooltip.jiezhimod.coil_healing.0=Healing Coil
+tooltip.jiezhimod.coil_healing.1=Hold in either hand: +%s HP per second
+tooltip.jiezhimod.coil_healing.2=Raw healing, not a potion effect
+tooltip.jiezhimod.jetpack.0=Jetpack
+tooltip.jiezhimod.jetpack.1=Wear in the chest slot, hold the Jet Switch and hold right-click to fly
+tooltip.jiezhimod.jetpack.2=Burn time: %s seconds per full tank
+tooltip.jiezhimod.jetpack.3=Release right-click to cool down; the tank overheats when it runs dry
+tooltip.jiezhimod.jetpack.4=Vanilla physics, stacks with potion effects
+tooltip.jiezhimod.jet_switch.0=Jet Switch
+tooltip.jiezhimod.jet_switch.1=Requires a Jetpack in the chest slot
+tooltip.jiezhimod.jet_switch.2=Hold right-click: fly / release: stop
+tooltip.jiezhimod.jet_switch.3=The heat bar is drawn under the crosshair while flying
+tooltip.jiezhimod.dfc_remote.0=No reactor source recorded
+tooltip.jiezhimod.dfc_remote.1=Right-click a DFC core / DFC stabilizer
+tooltip.jiezhimod.dfc_remote.2=Source: %s @ %s
+tooltip.jiezhimod.dfc_remote.3=Devices recorded: %s / %s
+tooltip.jiezhimod.dfc_remote.4=Sneak + right-click a tank / battery / flywheel to record
+tooltip.jiezhimod.dfc_remote.5=Right-click a display to bind the reactor source
+tooltip.jiezhimod.dfc_remote.6=Put it in the custom display slot, then click Add
+tooltip.jiezhimod.dfc_remote.7=Sneak + right-click air to clear everything
+tooltip.jiezhimod.dfc_screen.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
+tooltip.jiezhimod.dfc_screen.1=Place against the underside of a ceiling to hang it overhead
+tooltip.jiezhimod.dfc_screen.2=Tilt follows your look angle when placed
+tooltip.jiezhimod.dfc_screen.3=Right-click: power on / off
+tooltip.jiezhimod.dfc_screen.4=Right-click with the DFC remote: bind a core
+tooltip.jiezhimod.dfc_monitor.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
+tooltip.jiezhimod.dfc_monitor.1=Place against the underside of a ceiling to hang it overhead
+tooltip.jiezhimod.dfc_monitor.2=Shows: emitters / receivers / fuel tanks
+tooltip.jiezhimod.dfc_monitor.3=       injectors / stored energy / energy burst
+tooltip.jiezhimod.dfc_monitor.4=Right-click: power on / off
+tooltip.jiezhimod.dfc_monitor.5=Right-click with the DFC remote: bind a core
+tooltip.jiezhimod.dfc_custom.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
+tooltip.jiezhimod.dfc_custom.1=Place against the underside of a ceiling to hang it overhead
+tooltip.jiezhimod.dfc_custom.2=Right-click: open the panel (power + data list)
+tooltip.jiezhimod.dfc_custom.3=Shows up to %s readings from tanks / batteries / turbine parts
+tooltip.jiezhimod.dfc_custom.4=Put the DFC remote in the panel slot, then click Add
+tooltip.jiezhimod.dfc_custom.5=(Record devices first: sneak + right-click them with the remote)

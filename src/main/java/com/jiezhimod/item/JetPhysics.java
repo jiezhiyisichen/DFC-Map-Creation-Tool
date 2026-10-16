@@ -73,25 +73,58 @@ public final class JetPhysics {
     public static final double HORIZONTAL_ACCEL = 0.18D;
 
     /**
+     * 把玩家的**局部输入**（前后 / 左右）按朝向换算成**世界坐标**下的目标速度。
+     *
+     * 【为什么必须过这一步】玩家的 "W" 是"朝我视线方向前进"，不是"沿世界 +X 前进"。
+     * 早期版本直接把 forward 塞进 motionX、把 strafe 塞进 motionZ ——
+     * 结果无论面朝哪儿，喷气都往世界 +X 方向推，转身完全不起作用。
+     *
+     * 公式与 {@code EntityLivingBase.moveEntityWithHeading} 完全一致：
+     * <pre>
+     *   worldX += strafe * cos(yaw) - forward * sin(yaw)
+     *   worldZ += forward * cos(yaw) + strafe * sin(yaw)
+     * </pre>
+     * 校验点（可直接离线断言）：yaw = 0（面朝 +Z/南）时按 W → 目标速度指向 +Z；
+     * yaw = 90（面朝 -X/西）时按 W → 目标速度指向 -X。
+     *
+     * @param yawDeg  玩家 rotationYaw（度）
+     * @param forward 前后输入 -1..1（W 为正）
+     * @param strafe  左右输入 -1..1（D 为正）
+     * @param rising  是否正在按跳跃键（给一点额外前进推力，做出"抬头加速"的姿态）
+     * @return {目标 worldX 速度, 目标 worldZ 速度}
+     */
+    public static double[] worldTarget(double yawDeg, double forward, double strafe, boolean rising) {
+        // 斜着走（W+D）两轴各 1 的话速度会变成 √2 倍，先夹成长度 1
+        double len = Math.sqrt(forward * forward + strafe * strafe);
+        if (len > 1.0D) {
+            forward /= len;
+            strafe /= len;
+        }
+        double f = forward * (FWD_SPEED + (rising ? RISE_BONUS : 0.0D));
+        double s = strafe * STRAFE_SPEED;
+        double yaw = Math.toRadians(yawDeg);
+        double sin = Math.sin(yaw);
+        double cos = Math.cos(yaw);
+        return new double[]{s * cos - f * sin, f * cos + s * sin};
+    }
+
+    /**
      * 推进一 tick 的完整结果。
      *
-     * @param in      玩家本 tick 的输入：前后(-1/0/1)、左右(-1/0/1)、是否上升
      * @param current 玩家当前的速度 (vx, vy, vz)
-     * @return 新的速度
+     * @param yawDeg  朝向（度）—— 局部输入就是靠它转成世界方向的
+     * @param forward 前后输入 -1..1
+     * @param strafe  左右输入 -1..1
+     * @param up      上升输入（按跳跃键时给 1，否则 0）
+     * @param rising  是否正在上升（决定竖直目标取 RISE_V 还是 HOVER_V）
+     * @return 新的速度 (vx, vy, vz)
      */
-    public static double[] step(double[] current, double forward, double strafe,
+    public static double[] step(double[] current, double yawDeg, double forward, double strafe,
                                 double up, boolean rising) {
-        double vx = current[0];
-        double vy = current[1];
-        double vz = current[2];
-
-        // 上升键：额外给一点前进推力，做出"抬头加速"的姿态
-        double fwd = forward * (FWD_SPEED + (rising ? RISE_BONUS : 0.0D));
-
-        vx = steerHorizontal(vx, fwd);
-        vz = steerHorizontal(vz, strafe * STRAFE_SPEED);
-        vy = steerVertical(vy + up * VERTICAL_ACCEL, rising);
-
+        double[] target = worldTarget(yawDeg, forward, strafe, rising);
+        double vx = steerHorizontal(current[0], target[0]);
+        double vz = steerHorizontal(current[2], target[1]);
+        double vy = steerVertical(current[1] + up * VERTICAL_ACCEL, rising);
         return new double[]{vx, vy, vz};
     }
 }

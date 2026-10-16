@@ -1,6 +1,7 @@
 package com.jiezhimod.item;
 
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
@@ -24,10 +25,9 @@ public class ItemHealingCoil extends ItemCoil {
     @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<String> tooltip, ITooltipFlag flagIn) {
-        tooltip.add(TextFormatting.GREEN + "Healing Coil");
-        tooltip.add(TextFormatting.GRAY + "Hold in either hand: "
-                + TextFormatting.GREEN + "+" + (int) HealingCoilEffect.HEAL_PER_SECOND + " HP"
-                + TextFormatting.GRAY + " per second");
-        tooltip.add(TextFormatting.DARK_GRAY + "Raw healing, not a potion effect");
+        tooltip.add(TextFormatting.GREEN + I18n.format("tooltip.jiezhimod.coil_healing.0"));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.coil_healing.1",
+                (int) HealingCoilEffect.HEAL_PER_SECOND));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.coil_healing.2"));
     }
 }

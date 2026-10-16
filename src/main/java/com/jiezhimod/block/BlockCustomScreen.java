@@ -3,6 +3,7 @@ package com.jiezhimod.block;
 import com.jiezhimod.dfc.DfcWatch;
 import com.jiezhimod.dfc.ScreenStructure;
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -12,6 +13,8 @@ import net.minecraft.world.World;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * DFC **自定义显示屏** —— 第三块显示器，和 {@link BlockDfcScreen} 同一台硬件。
@@ -22,8 +25,11 @@ import java.util.List;
  *   2. 主界面画 {@link com.jiezhimod.dfc.ScreenLayout#PAGE_CUSTOM}：
  *      一张最多 8 行的数据列表，每行是一台外部设备（储罐 / 电池）的一个读数。
  *
- * 【数据怎么进来】用 DFC 遥控器：**蹲下右键设备**记录，再**蹲下右键这块屏**接入。
- * 详见 {@link com.jiezhimod.item.ItemDfcRemote}。
+ * 【数据怎么进来】**右键打开 GUI，把 DFC 遥控器放进槽位，点「添加」** ——
+ * 遥控器上记录的设备就全部接进来。
+ * （老手感也还在：蹲下右键本屏可以直接接入，两条路共用同一份导入实现。）
+ * 详见 {@link com.jiezhimod.item.ItemDfcRemote} 与
+ * {@link ContainerCustomScreen}。
  *
  * 【方块实体要换】前两块屏共用 {@link TileDfcScreen}，这一块必须换成
  * {@link TileCustomScreen}（它多存一份 8 槽配置），所以这里覆写 createTileEntity。
@@ -51,15 +57,16 @@ public class BlockCustomScreen extends BlockDfcScreen {
         return new TileCustomScreen();
     }
 
+    @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World world, List<String> tooltip, ITooltipFlag flag) {
-        tooltip.add(TextFormatting.GRAY + "Occupies 4 wide x 3 tall = " + ScreenStructure.PARTS
-                + " blocks (ceiling-mounted)");
-        tooltip.add(TextFormatting.GRAY + "Place against the underside of a ceiling to hang it overhead");
-        tooltip.add(TextFormatting.AQUA + "Right-click: open the panel (power + data list)");
-        tooltip.add(TextFormatting.AQUA + "Shows up to " + DfcWatch.MAX
-                + " readings from tanks / batteries");
-        tooltip.add(TextFormatting.GRAY + "Sneak + right-click a tank/battery with the DFC remote to record it,");
-        tooltip.add(TextFormatting.GRAY + "then sneak + right-click this display to hook it up");
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_custom.0",
+                ScreenStructure.PARTS));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_custom.1"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_custom.2"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_custom.3",
+                DfcWatch.MAX));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_custom.4"));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.dfc_custom.5"));
     }
 }

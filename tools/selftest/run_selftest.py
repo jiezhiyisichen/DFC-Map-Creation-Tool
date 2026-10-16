@@ -502,6 +502,128 @@ def main():
         return 1
     print("      熔毁报错页 + 重载重启 三处代码都在")
 
+    # ---- 自定义屏"遥控器放进槽位点添加"哨兵 ---------------------------------
+    # 需求原话："右键无法添加，改为把遥控器放入GUI的一个空，点击添加，添加记录的所有信息"。
+    # 这条链路有五处最容易在后续改动里被悄悄破坏，逐条钉住。
+    gui_path = os.path.join(java_src, "com", "jiezhimod", "client", "gui", "GuiCustomScreen.java")
+    gui_src = io.open(gui_path, encoding="utf-8").read()
+
+    # ① 必须是 GuiContainer。物品槽靠的是原版拖放机制，
+    #    用 GuiScreen 自己画个"长得像格子"的方块，玩家是拖不进去的。
+    if "extends GuiContainer" not in gui_src:
+        print("      GuiCustomScreen 不再是 GuiContainer（遥控器槽拖不进去了）")
+        return 1
+
+    # ② 槽位坐标**只能有一份**。GUI 画格子、Container 放 Slot，
+    #    两边各抄一遍数字，改一次版面就会错位一格 —— 玩家点到的和看到的不一样。
+    for need in ("ContainerCustomScreen.PANEL_W", "ContainerCustomScreen.REMOTE_SLOT_X",
+                 "ContainerCustomScreen.REMOTE_SLOT_Y", "ContainerCustomScreen.INV_X",
+                 "ContainerCustomScreen.INV_Y", "ContainerCustomScreen.HOTBAR_Y"):
+        if need not in gui_src:
+            print("      GuiCustomScreen 没有引用 %s（槽位坐标抄成两份必然错位）" % need)
+            return 1
+
+    # ③ 1.12.2 的背景层是**绝对坐标**、前景层是**被 translate 过**的。两层坐标系不同，
+    #    混着画最容易出"文字偏半屏"。约定：全部画背景层，前景层留空。
+    fg_at = gui_src.find("protected void drawGuiContainerForegroundLayer(")
+    if fg_at < 0:
+        print("      GuiCustomScreen 没有实现 drawGuiContainerForegroundLayer")
+        return 1
+    fg_body = gui_src[fg_at:gui_src.find("\n    }", fg_at)]
+    if "drawString" in fg_body or "GuiDraw." in fg_body:
+        print("      foreground 层里又在画画了 —— 那里坐标被 translate 过，会和背景层错开")
+        return 1
+
+    # ④ 遥控器必须由**服务端自己**从玩家的 openContainer 里取，
+    #    而不是信客户端包里传过来的东西（这套网络通道一贯"只发操作、不发数据"）。
+    msg_path = os.path.join(java_src, "com", "jiezhimod", "network", "msg",
+                            "MessageCustomScreenAction.java")
+    msg_src = io.open(msg_path, encoding="utf-8").read()
+    if "ACT_IMPORT = 3" not in msg_src or "player.openContainer" not in msg_src:
+        print("      ACT_IMPORT 没有从服务端的 openContainer 取遥控器（等于信任了客户端）")
+        return 1
+
+    # ⑤ 两个入口一套实现：屋里蹲下右键本屏、GUI 里点「添加」，
+    #    都必须落到 TileCustomScreen.importDevices。各写各的迟早给出不一样的结果。
+    tile_src = io.open(os.path.join(java_src, "com", "jiezhimod", "block", "TileCustomScreen.java"),
+                       encoding="utf-8").read()
+    if "public int[] importDevices(" not in tile_src:
+        print("      TileCustomScreen 没有 importDevices（导入逻辑没有单一实现）")
+        return 1
+    remote_src = io.open(os.path.join(java_src, "com", "jiezhimod", "item", "ItemDfcRemote.java"),
+                         encoding="utf-8").read()
+    if "screen.importDevices(" not in remote_src:
+        print("      ItemDfcRemote 没走 importDevices —— 两条入口的语义会分叉")
+        return 1
+    print("      自定义屏：遥控器槽位 + 添加按钮（两条入口共用同一份导入实现）")
+
+    # ---- 物品 / 方块文案：一律走语言文件，且中文必须齐全 -----------------------
+    # 需求原话："所有物品，方块，物品描述都为中文"。
+    # 硬编码在 Java 里就没法翻译，也没法被这里查；所以两条线一起钉：
+    #   ① 代码里出现的 I18n key 必须在 zh_cn / en_us 两份语言文件里都存在；
+    #   ② addInformation 里不许再出现拼接的字面串（那就是硬编码文案）。
+    def read_lang(name):
+        p = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod", "lang", name)
+        d = {}
+        for line in io.open(p, encoding="utf-8"):
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            d[k.strip()] = v
+        return d
+
+    zh = read_lang("zh_cn.lang")
+    en = read_lang("en_us.lang")
+
+    used_keys = set()
+    hardcoded = []
+    for root, dirs, files in os.walk(java_src):
+        for fn in files:
+            if not fn.endswith(".java"):
+                continue
+            p = os.path.join(root, fn)
+            src = io.open(p, encoding="utf-8").read()
+            for m in re.finditer(r'I18n\.format\(\s*"([^"]+)"', src):
+                used_keys.add(m.group(1))
+            for i, line in enumerate(src.splitlines(), 1):
+                s = line.strip()
+                # tooltip.add(TextFormatting.XXX + "字面串") —— 拼接了字面串就是硬编码
+                if s.startswith("tooltip.add(") and ' + "' in s:
+                    hardcoded.append("%s:%d" % (fn, i))
+
+    if hardcoded:
+        print("      addInformation 里还有硬编码文案（应改走 I18n）: %s" % hardcoded[:6])
+        return 1
+
+    # 有些 key 是拼出来的（"gui.jiezhimod.delay.unit." + i），正则只能取到前缀。
+    # 前缀不能直接比对，但可以要求"以它为前缀的键在两种语言里都存在至少一条"。
+    prefixes = sorted(k for k in used_keys if k.endswith("."))
+    full = sorted(k for k in used_keys if not k.endswith("."))
+    missing = [k for k in full if k not in zh or k not in en]
+    for p in prefixes:
+        if (not any(k.startswith(p) for k in zh)) or (not any(k.startswith(p) for k in en)):
+            missing.append(p + "*")
+    if missing:
+        print("      这些 I18n key 在语言文件里缺失: %s" % missing[:8])
+        return 1
+
+    tips = sorted(k for k in zh if k.startswith("tooltip.jiezhimod."))
+    if len(tips) < 30:
+        print("      tooltip 语言条目只有 %d 条，像是被删过" % len(tips))
+        return 1
+    orphan = [k for k in tips if k not in used_keys]
+    if orphan:
+        print("      语言文件里有代码没用到的 tooltip 键: %s" % orphan[:8])
+        return 1
+    # 中文条目里必须真的有汉字，不能是英文占位
+    non_cjk = [k for k in tips if not re.search(r"[\u4e00-\u9fff]", zh[k])]
+    if non_cjk:
+        print("      这些 tooltip 的中文条目里没有汉字: %s" % non_cjk[:8])
+        return 1
+    print("      物品/方块文案：%d 条 tooltip 全走语言文件，中英两份齐全、无硬编码"
+          % len(tips))
+
     print("ALL DONE")
     return 0
 

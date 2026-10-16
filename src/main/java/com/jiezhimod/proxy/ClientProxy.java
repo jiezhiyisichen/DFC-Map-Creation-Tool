@@ -51,8 +51,14 @@ public class ClientProxy extends CommonProxy {
         if (id == GUI_CUSTOM_SCREEN) {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
             if (te instanceof com.jiezhimod.block.TileCustomScreen) {
-                return new com.jiezhimod.client.gui.GuiCustomScreen(
-                        (com.jiezhimod.block.TileCustomScreen) te);
+                com.jiezhimod.block.TileCustomScreen tile =
+                        (com.jiezhimod.block.TileCustomScreen) te;
+                // 客户端**自己造一份同参数的容器**交给 GuiContainer：
+                // 槽位坐标、槽位顺序必须和服务端那份逐一对齐，否则点到的格子会错位。
+                // 槽里的物品由服务端通过 S2FPacketSetSlot 同步过来。
+                com.jiezhimod.block.ContainerCustomScreen container =
+                        new com.jiezhimod.block.ContainerCustomScreen(player.inventory, tile);
+                return new com.jiezhimod.client.gui.GuiCustomScreen(tile, container);
             }
         }
         return null;

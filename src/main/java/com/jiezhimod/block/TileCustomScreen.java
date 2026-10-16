@@ -3,8 +3,11 @@ package com.jiezhimod.block;
 import com.jiezhimod.dfc.DfcBridge;
 import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.DfcWatch;
+import com.jiezhimod.item.ItemDfcRemote;
+import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,6 +74,47 @@ public class TileCustomScreen extends TileDfcScreen {
             this.markDirty();
         }
         return added;
+    }
+
+    /**
+     * 把遥控器上记录到的设备**全部**接进来（"添加入口"只有这一份实现）。
+     *
+     * 两个入口共用它：GUI 里点「添加」、屋里蹲下右键本屏。
+     * 语义完全一致 —— 每台设备有几项可读数据就占几条槽，封顶 {@link DfcWatch#MAX}，
+     * 已在列表里的不重复加。所以两条路不会给出不一样的结果。
+     *
+     * @return {新接入的读数条数, 跳过条数（满了/已存在）, 失联台数（换维度或机器没了）}
+     */
+    public int[] importDevices(ItemStack remote) {
+        int added = 0;
+        int skipped = 0;
+        int missing = 0;
+        int n = ItemDfcRemote.deviceCount(remote);
+        int dim = this.world == null ? Integer.MIN_VALUE : this.world.provider.getDimension();
+        for (int i = 0; i < n; i++) {
+            BlockPos dp = ItemDfcRemote.deviceAt(remote, i);
+            if (dp == null) {
+                continue;
+            }
+            if (ItemDfcRemote.deviceDim(remote, i) != dim) {
+                missing++;
+                continue;
+            }
+            // 记录时存的是**设备自己的坐标**，但万一那台机器后来被换成了外壳块（多方块重装），
+            // 这里再代理解一次链，能救回来就救回来。
+            TileEntity dev = DfcBridge.resolveProxy(this.world.getTileEntity(dp));
+            if (!DfcBridge.isDevice(dev)) {
+                missing++;
+                continue;
+            }
+            int a = addDevice(dev);
+            if (a == 0) {
+                skipped++;   // 满了，或者这条已经接过了
+            } else {
+                added += a;
+            }
+        }
+        return new int[]{added, skipped, missing};
     }
 
     /** 删除一条（GUI 里的"删除"按钮）。返回是否真的删掉了 */

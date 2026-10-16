@@ -1,6 +1,7 @@
 package com.jiezhimod.item;
 
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
@@ -30,10 +31,9 @@ public class ItemSpeedCoil extends ItemCoil {
     @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<String> tooltip, ITooltipFlag flagIn) {
-        tooltip.add(TextFormatting.RED + "Speed Coil");
-        tooltip.add(TextFormatting.GRAY + "Hold in either hand: "
-                + TextFormatting.YELLOW + "x" + (int) SpeedCoilEffect.MULTIPLIER
-                + TextFormatting.GRAY + " movement speed");
-        tooltip.add(TextFormatting.DARK_GRAY + "Raw attribute boost, not a potion effect");
+        tooltip.add(TextFormatting.RED + I18n.format("tooltip.jiezhimod.coil_speed.0"));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.coil_speed.1",
+                (int) SpeedCoilEffect.MULTIPLIER));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.coil_speed.2"));
     }
 }

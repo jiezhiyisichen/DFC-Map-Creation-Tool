@@ -8,7 +8,7 @@
 #   · libraryjars 用 <user.home> 占位，Gradle 缓存目录按 artifact 版本固定，
 #     换机器同样成立（首次构建前先跑一次 gradlew 让缓存就绪）。
 
--injars ../build/libs/jiezhi-1.12.2-dfcmaptools-3.4.jar
+-injars ../build/libs/jiezhi-1.12.2-dfcmaptools-3.5.jar
 -outjars obf.jar
 
 -libraryjars <user.home>/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.12.2-14.23.5.2864_mapped_snapshot_20171003-1.12/forge-1.12.2-14.23.5.2864_mapped_snapshot_20171003-1.12.jar

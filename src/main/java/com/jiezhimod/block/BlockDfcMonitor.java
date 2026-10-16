@@ -2,6 +2,7 @@ package com.jiezhimod.block;
 
 import com.jiezhimod.dfc.ScreenStructure;
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
@@ -9,6 +10,8 @@ import net.minecraft.world.World;
 
 import javax.annotation.Nullable;
 import java.util.List;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * DFC **部件监视器** —— 第二块显示器，和 {@link BlockDfcScreen} 是同一台硬件。
@@ -41,14 +44,15 @@ public class BlockDfcMonitor extends BlockDfcScreen {
         return ModBlocks.ITEM_DFC_MONITOR;
     }
 
+    @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World world, List<String> tooltip, ITooltipFlag flag) {
-        tooltip.add(TextFormatting.GRAY + "Occupies 4 wide x 3 tall = " + ScreenStructure.PARTS
-                + " blocks (ceiling-mounted)");
-        tooltip.add(TextFormatting.GRAY + "Place against the underside of a ceiling to hang it overhead");
-        tooltip.add(TextFormatting.AQUA + "Shows: emitters / absorbers / fuel / injectors");
-        tooltip.add(TextFormatting.AQUA + "       stored energy / energy burst");
-        tooltip.add(TextFormatting.AQUA + "Right-click: power on / off");
-        tooltip.add(TextFormatting.AQUA + "Right-click with DFC remote: bind a core");
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_monitor.0",
+                ScreenStructure.PARTS));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_monitor.1"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_monitor.2"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_monitor.3"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_monitor.4"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_monitor.5"));
     }
 }

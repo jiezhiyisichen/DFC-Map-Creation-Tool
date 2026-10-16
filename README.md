@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.4.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.5.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-3.4-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-3.5-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -36,7 +36,7 @@
 - [DFC 监控显示器（重头戏）](#-dfc-监控显示器重头戏)
 - [物品：三种线圈 + 喷气背包 + DFC 遥控器](#-物品三种线圈--喷气背包--dfc-遥控器)
 - [方块：红石延时器](#-方块红石延时器)
-- [指令速查表](#-指令速查表)
+- [指令手册（详细）](#-指令手册详细)
 - [安装](#-安装)
 - [从源码构建](#-从源码构建)
 - [目录结构](#-目录结构)
@@ -197,11 +197,16 @@
 - **电池**：当前储能 / 满量
 - **模块化涡轮飞轮 / 叶片 / 轴 / 端口**：转速（rps）、输出功率
 
-**接入方法**
+**接入方法（把遥控器放进面板的槽位，点「添加」）**
 
 1. 拿 **DFC 遥控器**，**蹲下右键**一台设备 → 记录（支持储罐、电池、飞轮储能、涡轮部件）；
-2. **蹲下右键**自定义显示屏 → 一次性接入全部记录；
-3. **蹲下右键空气** → 清空全部记录（反应堆源 + 设备列表）。
+2. **右键**自定义显示屏 → 打开面板；
+3. 把遥控器**放进面板左侧的遥控器槽位**（Shift 点击或拖放都行）→ 面板上会显示「已记录 N / 8 台」；
+4. 点 **「添加」** → 遥控器记录到的设备**全部**接进来（面板满了或已接过的会自动跳过，并在聊天栏报数）。
+
+关面板时槽里的遥控器**自动还给你**（装不下就掉在脚下），不会忘在屏里。**蹲下右键空气** = 清空遥控器的全部记录（反应堆源 + 设备列表）。
+
+> 老手感仍在：手持遥控器**蹲下右键**本屏也能直接接入 —— 两条路走的是同一份导入实现，结果完全一致。
 
 同一台重复记录会被忽略。GUI 列表每行右侧有「删除」按钮，底部有「清空」；设备被拆后本条显示**离线**而不是继续报假读数。
 
@@ -293,73 +298,263 @@
 
 ---
 
-## ⌨️ 指令速查表
+## ⌨️ 指令手册（详细）
 
-> 特效指令权限等级统一为 **2**（OP 与命令方块都能用）；省略目标时：**玩家 → 只作用于自己**，**控制台 / 命令方块 → 作用于所有在线玩家**。
-> 方括号 `[ ]` 为可省略参数。
+> **权限等级统一为 2** —— OP 与命令方块都能执行。
+> **省略 `[@target]` 时**：玩家自己执行 → 只作用于自己；控制台 / 命令方块执行 → 作用于所有在线玩家。
+> 记号：`[ ]` 可省略，`< >` 必填，**粗体**为默认值。
 
-### 镜头与文字
+### 速查表
 
-| 指令 | 别名 | 用途 |
+| 指令 | 别名 | 作用 |
 |---|---|---|
-| `/shake [@target] <ticks> [intensity]` | `/cshake` | 视角抖动（默认强度 4.0，20 ticks = 1 秒） |
-| `/white [@target] <ticks> [alpha]` | `/whitescreen` | 白屏震撼弹（默认 alpha 1.0，自动追加余像） |
-| `/sub [@target] [ticks] <text...>` | `/subtitle` | 字幕（默认 80 ticks，支持 `\n` 与 `\u00a7`） |
-| `/subtitleclear [@target]` | `/subclear` | 立刻清空字幕队列 |
+| [`/shake`](#shake--视角抖动) | `/cshake` | 视角抖动 |
+| [`/white`](#white--白屏震撼弹) | `/whitescreen` | 白屏震撼弹（自动追加余像） |
+| [`/sub`](#sub--字幕) | `/subtitle` | 屏幕上方字幕 |
+| [`/subtitleclear`](#subtitleclear--清空字幕) | `/subclear`、`/clearsubtitle` | 立刻清空字幕 |
+| [`/countdown_add`](#countdown_add--新增倒计时) | — | 新增 / 覆盖一个倒计时 |
+| [`/countdown_remove`](#countdown_remove--删除) | `/countdown_re`、`/countdown_del` | 删除倒计时 |
+| [`/countdown_stop`](#countdown_stop--暂停--countdown_continue--继续) | — | 暂停 |
+| [`/countdown_continue`](#countdown_stop--暂停--countdown_continue--继续) | — | 继续 |
+| [`/countdown_test`](#countdown_test--红石比较器读取) | — | 剩余秒数落在区间内 → 供红石比较器读取 |
+| [`/notice`](#notice--右下角通知) | — | 右下角通知 |
+
+---
+
+### `/shake` —— 视角抖动
 
 ```
-/shake 40                   # 抖 2 秒，默认强度
-/shake @a 60 8              # 全场抖 3 秒，强度 8 度
-/white 30                   # 主闪 1.5 秒，满不透明
+/shake [@target] <ticks> [intensity]
+```
+
+| 参数 | 必填 | 默认 | 范围 | 说明 |
+|---|:--:|---|---|---|
+| `@target` | | 见上 | 任意目标选择器 | 受影响的玩家 |
+| `ticks` | ✅ | — | ≥ 1 | 持续时长，**20 ticks = 1 秒** |
+| `intensity` | | **4.0** | 0 ~ 90 | 抖动幅度（度）。填 0 = 完全不抖 |
+
+用**平滑噪声 + 三段式包络（主震 → 衰减 → 余震）**，观感是"镜头被震了一下"而不是随机抽搐；**不改变玩家最终的视角朝向**，抖完不会偏头。
+
+```mcfunction
+/shake 40                             # 自己抖 2 秒，默认强度
+/shake @a 60 8                        # 全场抖 3 秒，强度 8
+/shake @a[x=0,y=64,z=0,r=30] 20 2     # 只震半径 30 格内的玩家
+```
+
+---
+
+### `/white` —— 白屏震撼弹
+
+```
+/white [@target] <ticks> [alpha]
+```
+
+| 参数 | 必填 | 默认 | 范围 | 说明 |
+|---|:--:|---|---|---|
+| `@target` | | 见上 | 任意目标选择器 | 受影响的玩家 |
+| `ticks` | ✅ | — | ≥ 1 | **主闪**时长（20 ticks = 1 秒） |
+| `alpha` | | **1.0** | 0.0 ~ 1.0 | 白屏不透明度，1.0 = 全白 |
+
+主闪结束后会**自动追加 1 ~ 4.5 秒余像**（像视网膜残留一样慢慢消退）。模糊与散光**只出现在主闪阶段**，余像阶段是纯白渐隐 —— 低配机器也不会因为长余像掉帧。
+
+```mcfunction
+/white 30                             # 主闪 1.5 秒，满不透明
+/white @a 20 0.6                      # 全场主闪 1 秒，60% 不透明
+```
+
+---
+
+### `/sub` —— 字幕
+
+```
+/sub [@target] [ticks] <text...>
+```
+
+| 参数 | 必填 | 默认 | 说明 |
+|---|:--:|---|---|
+| `@target` | | 见上 | 受影响的玩家 |
+| `ticks` | | **80**（4 秒） | 显示时长；**只有纯数字才会被当作时长**，否则整段都算正文 |
+| `text...` | ✅ | — | 字幕正文。支持 `\n` 换行、`\u00a7` 颜色码、`"引号包起来"` |
+
+```mcfunction
+/sub 第一章 开始                        # 默认 4 秒
 /sub @a 100 \u00a7c警告\u00a7r：反应堆过载
-/sub @a 120 第一行\n第二行
+/sub @a 120 第一行\n第二行               # \n 会真的换行
 ```
 
-### 倒计时
+---
 
-| 指令 | 用途 |
-|---|---|
-| `/countdown_add <样式1-6> <名称> <秒数> [r] [g] [b]` | 新增 / 覆盖倒计时 |
-| `/countdown_remove <名称>` | 删除（别名 `/countdown_re`） |
-| `/countdown_stop <名称>` | 暂停 |
-| `/countdown_continue <名称>` | 继续 |
-| `/countdown_test <名称> <min> <max>` | 剩余秒数在区间内 → 命令方块可被红石比较器检测 |
+### `/subtitleclear` —— 清空字幕
 
 ```
-/countdown_add 6 bomb 30 255 90 60      # 样式6 + 进度条，30 秒，橙红色
-/countdown_test bomb 0 5                # 最后 5 秒 → 有信号（接 /shake）
-/countdown_test bomb 0 0                # 已结束 → 有信号（接 /white）
+/subtitleclear [@target]
 ```
 
-### 通知
+立刻清掉目标玩家**当前所有**字幕（不等自然结束）。别名 `/subclear`、`/clearsubtitle`。
 
-| 指令 | 用途 |
-|---|---|
-| `/notice <标题> <正文...>` | 向所有在线玩家右下角推送通知 |
+```mcfunction
+/subtitleclear @a
+```
+
+---
+
+### `/countdown_add` —— 新增倒计时
 
 ```
+/countdown_add <样式1-6> <名称> <秒数> [r] [g] [b]
+```
+
+| 参数 | 必填 | 默认 | 范围 | 说明 |
+|---|:--:|---|---|---|
+| `样式` | ✅ | — | 1 ~ 6 | 见下方[样式详解](#倒计时-6-种样式详解) |
+| `名称` | ✅ | — | — | 标识符，后续 `_stop` / `_remove` / `_test` 都用它。**重名会直接覆盖** |
+| `秒数` | ✅ | — | 1 ~ 999999 | 倒数时长 |
+| `r` `g` `b` | | **255 255 255** | 0 ~ 255 | 颜色。**三个必须一起给**，只给一两个会被忽略 |
+
+显示位置固定在**屏幕上方中央**，多个倒计时按添加顺序**从上往下排列**，每行 30 像素。
+
+```mcfunction
+/countdown_add 6 bomb 30 255 90 60    # 样式 6（带进度条），30 秒，橙红色
+/countdown_add 1 准备 10               # 样式 1，10 秒，默认白色
+```
+
+---
+
+### `/countdown_remove` —— 删除
+
+```
+/countdown_remove <名称>      别名：/countdown_re、/countdown_del
+/countdown_stop <名称>        暂停（时间冻结，画面保留）
+/countdown_continue <名称>    继续
+```
+
+```mcfunction
+/countdown_stop bomb
+/countdown_continue bomb
+/countdown_remove bomb
+```
+
+---
+
+### `/countdown_test` —— 红石比较器读取
+
+```
+/countdown_test <名称> <min> <max>
+```
+
+**剩余秒数落在 `[min, max]` 区间内时，命令方块可被红石比较器检测到信号**，区间外无信号。
+
+- 归零后倒计时**保留为 00:00**（不会消失），所以 `min=max=0` 就是"已结束"这条信号；
+- `remainingSeconds` 用**向上取整**，所以"剩 0.2 秒"也会先算成 1。
+
+```mcfunction
+/countdown_test bomb 0 5      # 最后 5 秒 → 有信号（接 /shake 做震动）
+/countdown_test bomb 0 0      # 已结束     → 有信号（接 /white 做爆闪）
+```
+
+配套命令方块写法：`/countdown_test` 放在一个命令方块里（方块本身不做事，只做"探测器"），
+再用红石比较器读取它 → 比较器 → 中继器 → 目标命令方块。
+
+---
+
+### `/notice` —— 右下角通知
+
+```
+/notice <标题> <正文...>
+```
+
+| 参数 | 必填 | 说明 |
+|---|:--:|---|
+| `标题` | ✅ | 第一行，粗体白字，单行不换行 |
+| `正文...` | ✅ | 第二行起，**自动按卡片宽度折行** |
+
+- 推给**所有在线玩家**；
+- 停留 **8 秒**后向右滑出淡出（进入 0.28 秒、淡出 0.9 秒）；
+- 同屏最多叠 **6 条**，**最新的在上方、先发的在下方**；超出一屏高度的旧通知会被自动让位；
+- 卡片是**半透明黑底（约 80% 不透明）+ 1px 淡描边**，文字带阴影 —— 压在亮色方块或水面上也读得清；
+- 卡片贴在**物品栏上方**（距屏幕底部 56 px），不会挡住快捷栏、经验条和血条；
+- 历史保留 **300 条**，短按 **P** 打开通知历史界面（滚轮滑动、Esc 退出）。
+
+```mcfunction
 /notice 副本开始 第一阶段：\u00a7a守住中央大厅
 /notice \u00a7c警告 \u00a7e30 秒后场地崩塌
 ```
 
+---
+
+### 倒计时 6 种样式详解
+
+样式决定"时间怎么画"。`样式4/5/6` 是**高精度**样式，时间带十分之一秒（`mm:ss.t`），
+小数位会随剩余时间变色；`样式1/2/3` 是整秒样式。
+
+| 样式 | 时间格式 | 外观 | 颜色规则 | 临期表现 |
+|:--:|---|---|---|---|
+| **1** | `mm:ss` | 时间 + 下方一条横线 | 用你给的 rgb | 剩余 ≤ 100 ticks（5 秒）整行脉冲放大 |
+| **2** | `mm:ss` | `\\\时间///`，两侧斜杠包裹 | **固定红色**，忽略 rgb | 斜杠从外向内逐个点亮 |
+| **3** | `mm:ss` | 时间被一个方框圈住 | 用你给的 rgb | 剩余 ≤ 100 ticks 整行脉冲放大 |
+| **4** | `mm:ss.t` | 纯高精度时间 | 主体 rgb；**≤ 10 秒小数位转黄**，**≤ 3 秒转红** | 小数位颜色即是提醒 |
+| **5** | `!mm:ss.t!` | 高精度时间被感叹号包裹 | 主体 rgb；≤ 3 秒整体转红 | **≤ 5 秒**感叹号脉冲闪动 |
+| **6** | `mm:ss.t` | 高精度时间 + **下方进度条** | 条的颜色从 rgb 渐变到黄、再转红；≤ 3 秒红色呼吸 | 条随剩余时间收缩，一眼看出还剩多少比例 |
+
+- 进度条宽度 = 屏幕宽度的 **28%**（夹在 64 ~ 180 px），高 3 px，带外框与暗色轨道；
+- `样式6` 的进度条分母是**添加时设定的总秒数**，所以暂停时条会停住而不是回缩；
+- 所有样式在**结束后**都会整体变灰（45% 亮度）保留在 00:00，方便 `/countdown_test` 检测"已结束"。
+
+```mcfunction
+/countdown_add 1 ready 10                     # 样式1：10 秒，白色 + 横线
+/countdown_add 2 alarm 30                     # 样式2：红色斜杠，30 秒
+/countdown_add 3 locked 60 255 200 60         # 样式3：橙黄方框，1 分钟
+/countdown_add 4 precise 45 120 200 255       # 样式4：高精度，天蓝
+/countdown_add 5 tense 20 255 120 180         # 样式5：感叹号包裹，粉紫
+/countdown_add 6 bomb 30 255 90 60            # 样式6：带进度条，橙红（最推荐做"爆炸倒计时"）
+```
+
+---
+
 ### 目标选择器
 
-`@p` 最近 / `@a` 所有 / `@r` 随机 / `@e` 实体 / `@s` 自己
-高级参数：`@a[c=3]`、`@a[lm=5]`、`@a[team=red]`、`@a[x=..,y=..,z=..,r=..]`
+`@p` 最近玩家 · `@a` 所有玩家 · `@r` 随机玩家 · `@e` 所有实体 · `@s` 自己
+
+高级参数（可组合）：
+
+| 参数 | 含义 |
+|---|---|
+| `c=3` | 最多选 3 个 |
+| `lm=5` | 只选"游戏模式为 5"（1.12.2 里 `lm` 是游戏模式过滤，`m=` 亦可） |
+| `team=red` | 只选红队 |
+| `x= y= z=` | 以该点为中心 |
+| `r=30` | 半径 30 格以内 |
+
+```mcfunction
+@a[x=100,y=64,z=100,r=50]        # 坐标 ±50 格内的所有玩家
+@a[c=1]                          # 只作用于 1 个人（通常配合 @r 用）
+```
+
+---
 
 ### 颜色码
 
-1.12.2 聊天框打不出分节号，写 **`\u00a7`**（模组会自动转成真正的分节号）：
+1.12.2 的聊天框打不出分节号 `§`，所以**写 `\u00a7`**（模组会自动转成真正的分节号）：
 
-`\u00a7c` 红 · `\u00a7a` 绿 · `\u00a79` 蓝 · `\u00a7e` 黄 · `\u00a76` 金 · `\u00a7l` 粗体 · `\u00a7r` 重置
+| 写法 | 效果 | 写法 | 效果 |
+|---|---|---|---|
+| `\u00a7c` | 红 | `\u00a7e` | 黄 |
+| `\u00a7a` | 绿 | `\u00a76` | 金 |
+| `\u00a79` | 蓝 | `\u00a7l` | **粗体** |
+| `\u00a7b` | 青 | `\u00a7r` | 重置 |
+
+```mcfunction
+/sub @a 80 \u00a7c红色标题 \u00a7a绿色副标题
+/notice \u00a76金色标题 正文用默认色
+```
 
 ---
 
 ## 🚀 安装
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
-2. 把 `jiezhi-1.12.2-dfcmaptools-3.4.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.4 is loading.` 即加载成功；
+2. 把 `jiezhi-1.12.2-dfcmaptools-3.5.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.5 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。
@@ -386,14 +581,14 @@ cd <仓库名>
 ```bat
 :: 1. 编译出基础 jar
 gradlew.bat build --offline
-::    -> build\libs\jiezhi-1.12.2-dfcmaptools-3.4.jar
+::    -> build\libs\jiezhi-1.12.2-dfcmaptools-3.5.jar
 
 :: 2. ProGuard 混淆
 java -jar tools\proguard-7.4.2\lib\proguard.jar @tools\proguard.pro
 ::    -> tools\obf.jar
 
 :: 3. 注入完整性封印（内含 ASM StackMapTable 补帧 + SealA/SealB 哈希注入）
-python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3.4.jar
+python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3.5.jar
 ```
 
 **为什么必须三步全跑？** jar 内置**双重完整性校验**：业务类的聚合哈希在构建期被固化进 Seal，运行时校验不过就直接崩溃。所以改了源码却不重跑三步，进游戏必定 `integrity check failed`。**纯资源改动（贴图 / mcmod.info / 语言文件）也要重跑**。
@@ -401,7 +596,7 @@ python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3
 ### 构建后必验
 
 ```bat
-python tools\check_stackmap.py build\libs\jiezhi-1.12.2-dfcmaptools-3.4.jar   :: 期望输出 OK
+python tools\check_stackmap.py build\libs\jiezhi-1.12.2-dfcmaptools-3.5.jar   :: 期望输出 OK
 python tools\selftest\run_selftest.py                                        :: 期望 ALL GREEN
 :: 编译并运行 tools\testmain\TestMain.java，期望输出 SEAL OK
 ```
@@ -535,6 +730,7 @@ jar 内置完整性校验，说明文件被改动过（反编译、二次打包�
 
 摘要（完整版见 [CHANGELOG.md](CHANGELOG.md)）：
 
+- **3.5** —— 修复喷气背包「按住右键不能飞」（`setActiveHand` 从未被调用）与飞行方向不跟随视线；自定义显示屏改为**把遥控器放进面板槽位后点「添加」**接入设备；**物品 / 方块 / 物品描述全部中文化**（43 条文案走语言文件）；通知抬到物品栏上方、收窄并加深色底；README 补全指令手册与倒计时样式详解。
 - **3.4.x** —— DFC 显示器全面重做：三块屏（核心页 / 部件页 / 自定义页）、崩溃告警、熔毁报错 301、存档重载重启屏幕、事件日志折行、单位对齐 SPK、部件页改用游戏官方中文名；通知历史快捷键改为 `P`；修复红石延时器方块不可见。
 - **3.4** —— 聊天栏动画时钟改为按真实时间推进、过期只淡出不删除、堆叠顺序对齐原版；通知快捷键 `N` → `Ctrl/Shift + N`。
 - **1.1** —— 新增倒计时样式 4/5/6、白屏余像、三件线圈、`/notice`、红石延时器、聊天栏动效。

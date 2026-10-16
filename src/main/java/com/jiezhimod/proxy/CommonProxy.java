@@ -2,7 +2,10 @@ package com.jiezhimod.proxy;
 
 import com.jiezhimod.block.ContainerCustomScreen;
 import com.jiezhimod.block.ContainerDelay;
+import com.jiezhimod.block.TileCustomScreen;
 import net.minecraft.entity.player.EntityPlayer;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
 import net.minecraftforge.fml.common.network.IGuiHandler;
 
@@ -32,7 +35,13 @@ public class CommonProxy implements IGuiHandler {
             return new ContainerDelay();
         }
         if (id == GUI_CUSTOM_SCREEN) {
-            return new ContainerCustomScreen();
+            // 容器现在要拿着方块实体（遥控器槽 / 导入 / 距离判定都要用）。
+            // 找不到方块实体就返回 null —— 宁可不打开，也不能开出一个功能残缺的面板。
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof TileCustomScreen) {
+                return new ContainerCustomScreen(player.inventory, (TileCustomScreen) te);
+            }
+            return null;
         }
         return null;
     }

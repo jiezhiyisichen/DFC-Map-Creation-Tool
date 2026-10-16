@@ -170,30 +170,20 @@ public class JetpackEffect {
             return;
         }
 
-        // 服务端：用朝向提供基础前进，竖直方向做悬停/爬升
-        double forward = facingForward(player);
-        double strafe = 0.0D;
+        // 服务端读不到 movementInput（那字段只在 EntityPlayerSP 上），
+        // 所以基础推力就是"朝着玩家看的方向飞"（forward=1）；
+        // 客户端那边再补上 WASD 的横向分量与跳跃键。
         boolean rising = w.isRemote && isClientRising(player);
         double up = rising ? 1.0D : 0.0D;
 
         double[] cur = {player.motionX, player.motionY, player.motionZ};
-        double[] next = JetPhysics.step(cur, forward, strafe, up, rising);
+        double[] next = JetPhysics.step(cur, player.rotationYaw, 1.0D, 0.0D, up, rising);
         player.motionX = next[0];
         player.motionY = next[1];
         player.motionZ = next[2];
 
         // 喷气时清掉下落距离，避免高速下落被摔死
         player.fallDistance = 0.0F;
-    }
-
-    /** 朝视线方向的前进分量（-1..1）：服务端没有 movementInput，用朝向近似 */
-    private static double facingForward(EntityPlayer player) {
-        double fx = -Math.sin(Math.toRadians(player.rotationYaw)) * Math.cos(Math.toRadians(player.rotationPitch));
-        double fz = Math.cos(Math.toRadians(player.rotationYaw)) * Math.cos(Math.toRadians(player.rotationPitch));
-        if (fx * fx + fz * fz < 1.0E-6D) {
-            return 0.0D;
-        }
-        return 1.0D;
     }
 
     /**
@@ -250,7 +240,8 @@ public class JetpackEffect {
         }
         double up = rising ? 1.0D : 0.0D;
         double[] cur = {player.motionX, player.motionY, player.motionZ};
-        double[] next = JetPhysics.step(cur, forward, strafe, up, rising);
+        // 局部输入（WASD）要按朝向转成世界方向再喂给物理 —— 否则无论面朝哪儿都往 +X 飞
+        double[] next = JetPhysics.step(cur, player.rotationYaw, forward, strafe, up, rising);
         player.motionX = next[0];
         player.motionY = next[1];
         player.motionZ = next[2];

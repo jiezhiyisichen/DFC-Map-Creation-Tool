@@ -1,6 +1,7 @@
 package com.jiezhimod.item;
 
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.inventory.EntityEquipmentSlot;
 import net.minecraft.item.ItemArmor;
 import net.minecraft.item.ItemStack;
@@ -43,14 +44,11 @@ public class ItemJetpack extends ItemArmor {
     @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<String> tooltip, ITooltipFlag flagIn) {
-        tooltip.add(TextFormatting.AQUA + "Jetpack");
-        tooltip.add(TextFormatting.GRAY + "Wear in the chest slot, then hold "
-                + TextFormatting.YELLOW + "Jet Switch"
-                + TextFormatting.GRAY + " and right-click to fly");
-        tooltip.add(TextFormatting.GRAY + "Burn time: "
-                + TextFormatting.YELLOW + (int) JetHeat.MAX_BURN_SECONDS + "s"
-                + TextFormatting.GRAY + " per full tank");
-        tooltip.add(TextFormatting.GRAY + "Release right-click to cool down");
-        tooltip.add(TextFormatting.DARK_GRAY + "Overheats when the tank runs dry");
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.jetpack.0"));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.jetpack.1"));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.jetpack.2",
+                (int) JetHeat.MAX_BURN_SECONDS));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.jetpack.3"));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.jetpack.4"));
     }
 }

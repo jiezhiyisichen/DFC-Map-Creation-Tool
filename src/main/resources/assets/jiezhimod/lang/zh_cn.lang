@@ -62,4 +62,53 @@ gui.jiezhimod.custom.clear=清空
 gui.jiezhimod.custom.close=关闭
 gui.jiezhimod.custom.empty=（空）
 gui.jiezhimod.custom.offline=离线
-gui.jiezhimod.custom.hint=用 DFC 遥控器蹲下右键储罐 / 电池记录，再蹲下右键本屏接入（最多 8 条）
+gui.jiezhimod.custom.hint=放入 DFC 遥控器，点「添加」接入它记录的全部设备（最多 8 条）
+gui.jiezhimod.custom.add=添加
+gui.jiezhimod.custom.remote=遥控器
+gui.jiezhimod.custom.remote.empty=把遥控器放进左边槽位
+gui.jiezhimod.custom.remote.count=已记录 %s / %s 台
+
+# ---- 物品 / 方块 说明文字（鼠标悬停 tooltip）----
+tooltip.jiezhimod.coil_speed.0=加速线圈
+tooltip.jiezhimod.coil_speed.1=主手或副手持有：移动速度 ×%s
+tooltip.jiezhimod.coil_speed.2=直接改属性，不是药水效果（可与药水叠加）
+tooltip.jiezhimod.coil_gravity.0=重力线圈
+tooltip.jiezhimod.coil_gravity.1=主手或副手持有：跳跃约 %s 格高
+tooltip.jiezhimod.coil_gravity.2=直接改物理，不是药水效果（可与药水叠加）
+tooltip.jiezhimod.coil_healing.0=治愈线圈
+tooltip.jiezhimod.coil_healing.1=主手或副手持有：每秒回复 %s 点生命
+tooltip.jiezhimod.coil_healing.2=直接回血，不是药水效果（可与药水叠加）
+tooltip.jiezhimod.jetpack.0=喷气背包
+tooltip.jiezhimod.jetpack.1=穿在胸甲槽，手持「喷气开关」按住右键起飞
+tooltip.jiezhimod.jetpack.2=满燃料可持续飞行 %s 秒
+tooltip.jiezhimod.jetpack.3=松开右键降温；热量打满会过热锁定，必须冷却后才能再飞
+tooltip.jiezhimod.jetpack.4=使用原版物理，可与药水效果叠加
+tooltip.jiezhimod.jet_switch.0=喷气开关
+tooltip.jiezhimod.jet_switch.1=需要胸甲槽里穿着「喷气背包」
+tooltip.jiezhimod.jet_switch.2=按住右键起飞 / 松开即停
+tooltip.jiezhimod.jet_switch.3=飞行时在准星下方显示热量条
+tooltip.jiezhimod.dfc_remote.0=未记录反应堆源
+tooltip.jiezhimod.dfc_remote.1=右键 DFC 核心 / DFC稳定器 记录
+tooltip.jiezhimod.dfc_remote.2=数据源：%s @ %s
+tooltip.jiezhimod.dfc_remote.3=已记录设备：%s / %s
+tooltip.jiezhimod.dfc_remote.4=蹲下右键储罐 / 电池 / 飞轮 = 记录设备
+tooltip.jiezhimod.dfc_remote.5=右键显示器 = 绑定反应堆源（核心屏 / 部件监视器）
+tooltip.jiezhimod.dfc_remote.6=放进自定义屏的槽位后点「添加」= 接入设备
+tooltip.jiezhimod.dfc_remote.7=蹲下右键空气 = 清空全部记录
+tooltip.jiezhimod.dfc_screen.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
+tooltip.jiezhimod.dfc_screen.1=对着天花板下表面放置，就会向下垂挂在头顶
+tooltip.jiezhimod.dfc_screen.2=下倾角跟随放置瞬间的视线俯仰
+tooltip.jiezhimod.dfc_screen.3=右键：开机 / 关机
+tooltip.jiezhimod.dfc_screen.4=手持 DFC 遥控器右键：绑定一台暗核聚变堆核心
+tooltip.jiezhimod.dfc_monitor.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
+tooltip.jiezhimod.dfc_monitor.1=对着天花板下表面放置，就会向下垂挂在头顶
+tooltip.jiezhimod.dfc_monitor.2=显示：DFC发射器 / DFC接收器 / DFC燃料罐
+tooltip.jiezhimod.dfc_monitor.3=　　　DFC燃料喷射器 / DFC能量 / DFC能量爆发
+tooltip.jiezhimod.dfc_monitor.4=右键：开机 / 关机
+tooltip.jiezhimod.dfc_monitor.5=手持 DFC 遥控器右键：绑定一台暗核聚变堆核心
+tooltip.jiezhimod.dfc_custom.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
+tooltip.jiezhimod.dfc_custom.1=对着天花板下表面放置，就会向下垂挂在头顶
+tooltip.jiezhimod.dfc_custom.2=右键：打开面板（开关机 + 数据列表）
+tooltip.jiezhimod.dfc_custom.3=最多显示 %s 条来自储罐 / 电池 / 涡轮部件的读数
+tooltip.jiezhimod.dfc_custom.4=把 DFC 遥控器放进面板里的槽位，点「添加」即接入
+tooltip.jiezhimod.dfc_custom.5=（设备要先用遥控器蹲下右键记录）

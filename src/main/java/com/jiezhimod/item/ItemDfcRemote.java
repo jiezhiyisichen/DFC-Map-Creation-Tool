@@ -6,6 +6,7 @@ import com.jiezhimod.block.TileDfcScreen;
 import com.jiezhimod.dfc.DfcBridge;
 import com.jiezhimod.dfc.DfcWatch;
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
@@ -215,60 +216,43 @@ public class ItemDfcRemote extends Item {
         return true;
     }
 
-    /** 把遥控器里记录到的设备逐台接进自定义屏 */
+    /**
+     * 把遥控器里记录到的设备逐台接进自定义屏。
+     *
+     * 【这里只负责提示，真正的导入在 {@link TileCustomScreen#importDevices}】
+     * GUI 的「添加」按钮走的是同一个方法 —— 两条入口一套语义，
+     * 不会出现"右键接入提示 3 条、GUI 添加却只进 2 条"这种对不上。
+     */
     private boolean connectDevices(ItemStack stack, TileCustomScreen screen, World world, EntityPlayer player) {
-        int n = deviceCount(stack);
-        if (n <= 0) {
+        if (deviceCount(stack) <= 0) {
             player.sendStatusMessage(new TextComponentString(
                     TextFormatting.AQUA + "[jiezhimod] " + TextFormatting.RESET
                             + TextFormatting.YELLOW
                             + "No device recorded. Sneak + right-click a tank / battery first."), false);
             return true;
         }
-        int added = 0;
-        int rejected = 0;
-        int missing = 0;
-        for (int i = 0; i < n; i++) {
-            NBTTagCompound t = stack.getTagCompound();
-            String p = K_DEV + i + "_";
-            if (!t.hasKey(p + "X")) {
-                continue;
-            }
-            if (t.getInteger(p + "Dim") != world.provider.getDimension()) {
-                missing++;
-                continue;
-            }
-            BlockPos dp = new BlockPos(t.getInteger(p + "X"), t.getInteger(p + "Y"), t.getInteger(p + "Z"));
-            // 记录时存的是**设备自己的坐标**，但万一那台机器后来被换成了外壳块（多方块重装），
-            // 这里再代理解一次链，能救回来就救回来。
-            TileEntity dev = DfcBridge.resolveProxy(world.getTileEntity(dp));
-            if (!DfcBridge.isDevice(dev)) {
-                missing++;
-                continue;
-            }
-            int a = screen.addDevice(dev);
-            if (a == 0) {
-                rejected++;   // 满了，或者这条已经接过了
-            } else {
-                added += a;
-            }
-        }
+        int[] r = screen.importDevices(stack);
         screen.refresh();
+        player.sendStatusMessage(new TextComponentString(
+                TextFormatting.AQUA + "[jiezhimod] " + TextFormatting.RESET
+                        + summarize(r, screen.getSlots().size())), false);
+        return true;
+    }
 
+    /** 把导入结果拼成一句人话（GUI 与右键两条路共用，措辞保持一致） */
+    public static String summarize(int[] r, int used) {
         StringBuilder sb = new StringBuilder();
-        sb.append(TextFormatting.GREEN).append("Hooked up ").append(added).append(" reading(s)");
-        if (rejected > 0) {
-            sb.append(TextFormatting.YELLOW).append("; ").append(rejected)
+        sb.append(TextFormatting.GREEN).append("Hooked up ").append(r[0]).append(" reading(s)");
+        if (r[1] > 0) {
+            sb.append(TextFormatting.YELLOW).append("; ").append(r[1])
                     .append(" skipped (panel full or already listed)");
         }
-        if (missing > 0) {
-            sb.append(TextFormatting.RED).append("; ").append(missing).append(" not found");
+        if (r[2] > 0) {
+            sb.append(TextFormatting.RED).append("; ").append(r[2]).append(" not found");
         }
-        sb.append(TextFormatting.GRAY).append("  (").append(screen.getSlots().size())
+        sb.append(TextFormatting.GRAY).append("  (").append(used)
                 .append("/").append(DfcWatch.MAX).append(" slots used)");
-        player.sendStatusMessage(new TextComponentString(
-                TextFormatting.AQUA + "[jiezhimod] " + TextFormatting.RESET + sb), false);
-        return true;
+        return sb.toString();
     }
 
     // ==================== 反应堆源 NBT ====================
@@ -362,6 +346,34 @@ public class ItemDfcRemote extends Item {
         return Math.min(MAX_DEVICES, Math.max(0, stack.getTagCompound().getInteger(K_DEV_COUNT)));
     }
 
+    /**
+     * 第 i 台记录到的设备的坐标（越界/损坏返回 null）。
+     *
+     * 【为什么要开这两个 getter】导入流程现在有**两条入口**：老的手感（蹲下右键本屏）
+     * 和新的 GUI（把遥控器放进槽位点「添加」）。两边必须看到同一份数据，
+     * 所以把"NBT 怎么读"收在这里，{@code TileCustomScreen.importDevices} 只管用。
+     */
+    @Nullable
+    public static BlockPos deviceAt(ItemStack stack, int index) {
+        if (!stack.hasTagCompound() || index < 0 || index >= deviceCount(stack)) {
+            return null;
+        }
+        NBTTagCompound t = stack.getTagCompound();
+        String p = K_DEV + index + "_";
+        if (!t.hasKey(p + "X")) {
+            return null;
+        }
+        return new BlockPos(t.getInteger(p + "X"), t.getInteger(p + "Y"), t.getInteger(p + "Z"));
+    }
+
+    /** 第 i 台设备记录时所处的维度（越界返回 {@link Integer#MIN_VALUE}，永远不等于任何真实维度） */
+    public static int deviceDim(ItemStack stack, int index) {
+        if (!stack.hasTagCompound() || index < 0 || index >= deviceCount(stack)) {
+            return Integer.MIN_VALUE;
+        }
+        return stack.getTagCompound().getInteger(K_DEV + index + "_Dim");
+    }
+
     public static void clearDevices(ItemStack stack) {
         NBTTagCompound tag = stack.getTagCompound();
         if (tag == null) {
@@ -387,18 +399,18 @@ public class ItemDfcRemote extends Item {
     @Override
     public void addInformation(ItemStack stack, @Nullable World world, List<String> tooltip, ITooltipFlag flag) {
         if (!hasTarget(stack)) {
-            tooltip.add(TextFormatting.GRAY + "No reactor source recorded");
-            tooltip.add(TextFormatting.DARK_GRAY + "Right-click a DFC core / stabilizer");
+            tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_remote.0"));
+            tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.dfc_remote.1"));
         } else {
             BlockPos p = readTarget(stack);
-            tooltip.add(TextFormatting.GREEN + "Source: " + readKind(stack)
-                    + TextFormatting.GRAY + " @ " + (p == null ? "?" : pos(p)));
+            tooltip.add(TextFormatting.GREEN + I18n.format("tooltip.jiezhimod.dfc_remote.2",
+                    readKind(stack), p == null ? "?" : pos(p)));
         }
-        int n = deviceCount(stack);
-        tooltip.add(TextFormatting.AQUA + "Devices recorded: " + n + " / " + MAX_DEVICES);
-        tooltip.add(TextFormatting.DARK_GRAY + "Sneak + right-click a tank / battery to record");
-        tooltip.add(TextFormatting.AQUA + "Right-click a display to bind (core screens)");
-        tooltip.add(TextFormatting.AQUA + "Sneak + right-click a custom display to hook up devices");
-        tooltip.add(TextFormatting.DARK_GRAY + "Sneak + right-click air to clear");
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_remote.3",
+                deviceCount(stack), MAX_DEVICES));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.dfc_remote.4"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_remote.5"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_remote.6"));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.dfc_remote.7"));
     }
 }

@@ -1284,8 +1284,11 @@ public final class ScreenCanvas {
         // 正中间那三行会和提示文字叠在一起（离屏图上就是"空 尚未接入数据 空"糊成一团）。
         if (used == 0) {
             textCenter("尚未接入数据", 88, TXT_DIM, fCjk(15));
-            textCenter("用 DFC 遥控器蹲下右键储罐 / 电池", 112, TXT_DIM, fCjk(9));
-            textCenter("再蹲下右键本屏即可接入", 126, TXT_DIM, fCjk(9));
+            // 【文案跟着交互改】原来写的是"蹲下右键本屏接入"，
+            // 现在接入动作搬进了 GUI（把遥控器放进槽位点「添加」），
+            // 屏幕上再写旧手法会把人引到一条已经不好用的路上。
+            textCenter("右键本屏打开面板", 112, TXT_DIM, fCjk(9));
+            textCenter("把 DFC 遥控器放入槽位后点「添加」", 126, TXT_DIM, fCjk(9));
             return;
         }
 

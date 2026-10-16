@@ -7,6 +7,7 @@ import net.minecraft.block.properties.PropertyEnum;
 import net.minecraft.block.state.BlockStateContainer;
 import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
@@ -25,6 +26,8 @@ import net.minecraft.world.World;
 import javax.annotation.Nullable;
 import java.util.List;
 import java.util.Random;
+import net.minecraftforge.fml.relauncher.Side;
+import net.minecraftforge.fml.relauncher.SideOnly;
 
 /**
  * DFC 监控显示器 —— 4 宽 x 3 高 x 1 厚 多方块的**控制器**（结构里的 part 0）。
@@ -264,13 +267,14 @@ public class BlockDfcScreen extends BlockContainer {
 
     // ==================== 提示 ====================
 
+    @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World world, List<String> tooltip, ITooltipFlag flag) {
-        tooltip.add(TextFormatting.GRAY + "Occupies 4 wide x 3 tall = " + ScreenStructure.PARTS
-                + " blocks (ceiling-mounted)");
-        tooltip.add(TextFormatting.GRAY + "Place against the underside of a ceiling to hang it overhead");
-        tooltip.add(TextFormatting.GRAY + "Tilt follows your look angle when placed");
-        tooltip.add(TextFormatting.AQUA + "Right-click: power on / off");
-        tooltip.add(TextFormatting.AQUA + "Right-click with DFC remote: bind a core");
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_screen.0",
+                ScreenStructure.PARTS));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_screen.1"));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.dfc_screen.2"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_screen.3"));
+        tooltip.add(TextFormatting.AQUA + I18n.format("tooltip.jiezhimod.dfc_screen.4"));
     }
 }

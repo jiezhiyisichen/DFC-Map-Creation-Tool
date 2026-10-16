@@ -1,6 +1,7 @@
 package com.jiezhimod.item;
 
 import net.minecraft.client.util.ITooltipFlag;
+import net.minecraft.client.resources.I18n;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.text.TextFormatting;
 import net.minecraft.world.World;
@@ -24,10 +25,9 @@ public class ItemGravityCoil extends ItemCoil {
     @SideOnly(Side.CLIENT)
     @Override
     public void addInformation(ItemStack stack, @Nullable World worldIn, List<String> tooltip, ITooltipFlag flagIn) {
-        tooltip.add(TextFormatting.BLUE + "Gravity Coil");
-        tooltip.add(TextFormatting.GRAY + "Hold in either hand: jump "
-                + TextFormatting.AQUA + "~" + Math.round(GravityCoilEffect.coilJumpHeight())
-                + " blocks" + TextFormatting.GRAY + " high");
-        tooltip.add(TextFormatting.DARK_GRAY + "Raw physics boost, not a potion effect");
+        tooltip.add(TextFormatting.BLUE + I18n.format("tooltip.jiezhimod.coil_gravity.0"));
+        tooltip.add(TextFormatting.GRAY + I18n.format("tooltip.jiezhimod.coil_gravity.1",
+                Math.round(GravityCoilEffect.coilJumpHeight())));
+        tooltip.add(TextFormatting.DARK_GRAY + I18n.format("tooltip.jiezhimod.coil_gravity.2"));
     }
 }
