@@ -179,9 +179,10 @@ def main():
         return 1
 
     print("[4/4] scanning final jar for plaintext secrets + required resources ...")
-    # 注：作者账号名明文不得进入最终 jar，这里一并扫描兜底
-    forbidden = ["gamemode", "unlock", "SHA-256", "integrity check failed", "survival",
-                 "jiezhi_MC_1314"]
+    # 注：以下字面串一旦出现在最终 jar 里，说明防篡改 / 防逆向层被绕过了，兜底扫描报警。
+    # 早期还列过一项：旧「指令锁定 /unlock」功能用到的密钥串。那段功能整体移除后，
+    # 全项目再无任何代码引用它，留在列表里反而等于把一个疑似账号名永久公开在源码里，故删。
+    forbidden = ["gamemode", "unlock", "SHA-256", "integrity check failed", "survival"]
     hits = []
     with zipfile.ZipFile(FINAL_JAR) as z:
         for name in z.namelist():
