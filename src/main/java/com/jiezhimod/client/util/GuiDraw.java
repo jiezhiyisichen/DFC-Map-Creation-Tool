@@ -1,9 +1,11 @@
 package com.jiezhimod.client.util;
 
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
+import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.opengl.GL11;
@@ -11,23 +13,39 @@ import org.lwjgl.opengl.GL11;
 /**
  * 2D 绘制小工具（实心矩形 / 圆角矩形）。
  *
- * 用 Tessellator 自己拼三角形：1.12.2 的 {@code Gui.drawRect} 只能画方角，
- * 直接按圆弧顶点拼三角形比引入纹理资源更简单，也不怕资源丢失。
+ * ==================================================================
+ * 【v3.8：改成"和 drawString 完全一样"的绘制方式】
  *
- * 【v3.7 修的致命 bug：面板底色一直是透明的】
- * v3.6 及以前，{@code GL_TRIANGLES} 模式下**中心点只发了一次**，后面直接跟了 28 个轮廓点。
- * 顶点是按 3 个一组切成三角形的，于是只有第一个三角形 (中心, p0, p1) 是对的，
- * 其余全成了"轮廓点之间的细缝" —— 整块面板在游戏里表现为**完全透明**。
- * 而按钮和文字都是原版带纹理的绘制路径，看起来"只有它们正常"，很容易误判成 GL 状态问题。
- * 同一个文件里的 {@code drawRect} 更彻底：{@code tri(x0,y0,x1,y1)} 生成的三个顶点里有两个重合，
- * 4 个三角形全是零面积 —— 物品格子从来没画出来过。
+ * 之前用 {@code disableTexture2D() + POSITION_COLOR} 画纯色三角形，在游戏里**完全不显示** ——
+ * 而同一帧、同一个方法里 {@code fontRenderer.drawString} 画的字却在。
+ * 两者的唯一差别就是"带不带纹理"。这个整合包里 HBM 会直接改 GL 状态，
+ * {@code GlStateManager} 的纹理开关缓存很可能已经失同步：这时 {@code disableTexture2D()}
+ * 成了空操作、纹理仍然开着，而 POSITION_COLOR 的顶点没有 UV，采样结果不确定，
+ * 表现就是"画了但看不见"。
  *
- * 现在几何全部挪到 {@link GuiGeometry}（不 import 任何 MC 类），
- * {@code SelfTest} 直接断言"顶点数是 3 的倍数 / 每个三角形面积都不为 0 / 总面积接近 w·h"，
- * 退化三角形再也过不了自测。本类只负责"把顶点灌进 Tessellator"。
+ * 所以现在**不关纹理**：绑定自带的纯白 8×8 纹理（{@code textures/gui/white.png}），
+ * 用 {@code POSITION_TEX_COLOR} 提交、所有顶点 UV 都取白色像素中心。
+ * 这条路径与 {@code FontRenderer} 完全一致 —— 字能显示，填充就一定能显示。
+ * 而且换了纹理之后，无论 GlStateManager 的纹理缓存是对是错都成立：
+ *   · 纹理本来就被打开 → 我们绑白纹理 → 正确；
+ *   · 纹理是正常关闭的 → enableTexture2D + bind → 正确。
+ *
+ * 几何仍在 {@link GuiGeometry}（不 import 任何 MC 类），{@code SelfTest} 有断言。
+ * ==================================================================
  */
 @SideOnly(Side.CLIENT)
 public final class GuiDraw {
+
+    /** 纯白 8×8 纹理；所有填充都靠它 + 逐顶点颜色上色 */
+    public static final ResourceLocation WHITE =
+            new ResourceLocation("jiezhimod", "textures/gui/white.png");
+
+    /** 白色像素正中间的 UV（8×8，中心 = 4/8） */
+    private static final float U = 0.5F;
+    private static final float V = 0.5F;
+
+    /** 排错用：只在第一次真正提交顶点时打一行日志，不刷屏 */
+    private static boolean loggedOnce = false;
 
     private GuiDraw() {
     }
@@ -37,7 +55,7 @@ public final class GuiDraw {
         if (w <= 0.0F || h <= 0.0F) {
             return;
         }
-        upload(GuiGeometry.roundedRectTriangles(x, y, w, h, radius), color);
+        upload(GuiGeometry.roundedRectTriangles(x, y, w, h, radius), color, "rounded");
     }
 
     /**
@@ -50,11 +68,11 @@ public final class GuiDraw {
         if (x2 <= x1 || y2 <= y1) {
             return;
         }
-        upload(GuiGeometry.rectTriangles(x1, y1, x2, y2), color);
+        upload(GuiGeometry.rectTriangles(x1, y1, x2, y2), color, "rect");
     }
 
     /** 把三角形列表一次性提交（整块图形只 begin/draw 一次，避免丢批次）。 */
-    private static void upload(float[] tris, int color) {
+    private static void upload(float[] tris, int color, String kind) {
         if (tris == null || tris.length < 6) {
             return;
         }
@@ -63,20 +81,42 @@ public final class GuiDraw {
         float gg = ((color >> 8) & 255) / 255.0F;
         float bb = (color & 255) / 255.0F;
 
+        Minecraft mc = Minecraft.getMinecraft();
+        if (mc == null || mc.getTextureManager() == null) {
+            return;
+        }
+
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.getBuffer();
         GlStateManager.enableBlend();
-        GlStateManager.disableTexture2D();
+        // 关键：**不关纹理**，改成绑一张白纹理（见类注释）
+        GlStateManager.enableTexture2D();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                 GL11.GL_ONE, GL11.GL_ZERO);
+        mc.getTextureManager().bindTexture(WHITE);
 
-        buf.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_COLOR);
+        buf.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX_COLOR);
         for (int i = 0; i + 1 < tris.length; i += 2) {
-            buf.pos(tris[i], tris[i + 1], 0.0D).color(rr, gg, bb, a).endVertex();
+            buf.pos(tris[i], tris[i + 1], 0.0D).tex(U, V).color(rr, gg, bb, a).endVertex();
         }
         tess.draw();
 
-        GlStateManager.enableTexture2D();
+        if (!loggedOnce) {
+            loggedOnce = true;
+            int texId = -1;
+            try {
+                net.minecraft.client.renderer.texture.ITextureObject t =
+                        mc.getTextureManager().getTexture(WHITE);
+                if (t != null) {
+                    texId = t.getGlTextureId();
+                }
+            } catch (Throwable ignored) {
+                // 纹理没加载出来时这里可能抛；不打断绘制，让日志说明问题
+            }
+            com.jiezhimod.JiezhiMod.warn("[GuiDraw] first fill: kind={} verts={} color=#{} "
+                            + "tex={} texId={} (texId<=0 表示白纹理没加载出来)",
+                    kind, tris.length / 2, Integer.toHexString(color).toUpperCase(), WHITE, texId);
+        }
     }
 
     /** 把 ARGB 整数按比例套一层不透明度，返回同形式的值 */

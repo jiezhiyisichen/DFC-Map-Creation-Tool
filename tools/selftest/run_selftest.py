@@ -65,11 +65,19 @@ GRADLE_HOME = os.path.join(os.path.expanduser("~"), ".gradle")
 
 
 def final_jar():
-    cands = [p for p in sorted(glob.glob(os.path.join(ROOT, "build", "libs", "*.jar")))
+    """挑出**最新的**产物 jar。
+
+    ★ 这里踩过一次坑：原来用 sorted(...)[0]，也就是按字母序取第一个 ——
+    build/libs 里同时躺着 3.5/3.6/3.7/3.8 时，它永远挑到 **3.5**，
+    于是"资源是否打包 / 是否有明文密钥 / TileEntity 是否注册"这些 jar 级检查
+    全在验一个旧包，新加的纹理缺了也照样 ALL GREEN。
+    改成按修改时间取最新，才真正在测刚构建出来的那个。
+    """
+    cands = [p for p in glob.glob(os.path.join(ROOT, "build", "libs", "*.jar"))
              if "sources" not in os.path.basename(p) and "javadoc" not in os.path.basename(p)]
     if not cands:
         raise SystemExit("找不到 build/libs 下的最终 jar，请先构建")
-    return cands[0]
+    return max(cands, key=os.path.getmtime)
 
 
 FINAL_JAR = final_jar()
@@ -217,6 +225,9 @@ def main():
         "assets/jiezhimod/blockstates/dfc_custom.json",
         "assets/jiezhimod/models/item/dfc_custom.json",
         "assets/jiezhimod/textures/items/dfc_custom.png",
+        # GUI 纯色填充用的白纹理。缺了它 GuiDraw 绑不上纹理，
+        # 所有自绘面板/格子/进度条都会变成紫黑（或直接看不见）
+        "assets/jiezhimod/textures/gui/white.png",
         # 喷漆背包 / 喷气开关：模型与贴图漏打包 -> 物品变成紫黑格，粒子变成"无贴图方块"
         "assets/jiezhimod/models/item/jetpack.json",
         "assets/jiezhimod/models/item/jet_switch.json",

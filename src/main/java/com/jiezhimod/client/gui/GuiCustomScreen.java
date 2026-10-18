@@ -73,6 +73,10 @@ public class GuiCustomScreen extends GuiContainer {
     private GuiButton addButton;
     private GuiButton[] delButtons = new GuiButton[DfcWatch.MAX];
 
+    /** 排错用：只在第一次进 initGui / 第一次画背景层时各打一行，不刷屏 */
+    private static boolean loggedInit = false;
+    private static boolean loggedBg = false;
+
     public GuiCustomScreen(TileCustomScreen tile, ContainerCustomScreen container) {
         super(container);
         this.tile = tile;
@@ -118,6 +122,14 @@ public class GuiCustomScreen extends GuiContainer {
         this.buttonList.add(new GuiButton(ID_CLOSE, px + ContainerCustomScreen.CLOSE_X,
                 py + ContainerCustomScreen.BTN_ROW_Y, ContainerCustomScreen.CLOSE_W, 16,
                 I18n.format("gui.jiezhimod.custom.close")));
+
+        if (!loggedInit) {
+            loggedInit = true;
+            com.jiezhimod.JiezhiMod.warn("[GuiCustomScreen] init: screen={}x{} panel={}x{} "
+                            + "gui=({},{}) overflowY={} overflowX={}",
+                    this.width, this.height, W, H, px, py,
+                    (py < 0 || py + H > this.height), (px < 0 || px + W > this.width));
+        }
 
         refreshButtons();
     }
@@ -219,8 +231,17 @@ public class GuiCustomScreen extends GuiContainer {
         int px = this.guiLeft;
         int py = this.guiTop;
 
-        // 98% 不透明：把世界里那块屏自己的引导文字挡掉，见类注释
-        GuiDraw.drawRoundedRect(px, py, W, H, 8.0F, 0xFB0A0A0F);
+        if (!loggedBg) {
+            loggedBg = true;
+            com.jiezhimod.JiezhiMod.warn("[GuiCustomScreen] bg layer: gui=({},{}) screen={}x{} "
+                            + "panel={}x{} overflow={}",
+                    px, py, this.width, this.height, W, H,
+                    (py < 0 || py + H > this.height || px < 0 || px + W > this.width));
+        }
+
+        // 完全不透明：这块屏在世界里本身就画着「尚未接入数据」的引导，
+        // 只要留一点透明，那几行字就会从背后透出来和列表叠在一起。
+        GuiDraw.drawRoundedRect(px, py, W, H, 8.0F, 0xFF0B0B10);
 
         drawTitle(px, py);
         drawPowerRow(px, py);

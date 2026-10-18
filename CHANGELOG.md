@@ -5,6 +5,37 @@
 
 ---
 
+## 3.8
+
+### 面板底色改走「和文字完全一样」的绘制路径
+
+3.7 修掉了三角化（那是真 bug），但面板底色**仍然看不见**。关键线索是：
+同一帧、同一个 `drawGuiContainerBackgroundLayer` 里，`fontRenderer.drawString`
+画的标题和提示都正常，只有自绘的纯色填充消失。两者唯一的差别就是**带不带纹理**。
+
+- 旧写法是 `disableTexture2D()` + `POSITION_COLOR`。这个整合包里 HBM 会直接改 GL 状态，
+  `GlStateManager` 的纹理开关缓存很可能已失同步 —— 此时 `disableTexture2D()` 成了空操作、
+  纹理仍然开着，而 `POSITION_COLOR` 的顶点没有 UV，采样结果不确定，表现就是"画了但看不见"。
+- 新写法**不关纹理**：绑定自带的纯白 `textures/gui/white.png`，用 `POSITION_TEX_COLOR`
+  提交、所有顶点 UV 都取白色像素中心。这条路径与 `FontRenderer` 完全一致 ——
+  字能显示，填充就一定能显示。而且无论 GlStateManager 的纹理缓存是对是错都成立。
+- **面板底色改成完全不透明**（`0xFF0B0B10`），世界里那块屏自己的「尚未接入数据」引导不会再透出来。
+
+### 加了排错日志（写进 `logs/latest.log`）
+
+- `[GuiCustomScreen] init: screen=… panel=… gui=(…) overflowY=… overflowX=…`
+  —— 告诉你当前 GUI 缩放下的逻辑分辨率、以及面板有没有超出屏幕。
+- `[GuiCustomScreen] bg layer: …` —— 确认背景层真的被调用了。
+- `[GuiDraw] first fill: kind=… verts=… color=#… tex=… texId=…`
+  —— 确认自绘填充真的执行了、白纹理有没有加载出来（`texId<=0` 就是纹理没加载）。
+
+### 修了自测脚本的一个「验错包」问题
+
+`run_selftest.py` 挑 jar 时用的是 `sorted(...)[0]`，也就是**字母序第一个** = 最老的版本。
+`build/libs` 里同时躺着 3.5/3.6/3.7/3.8 时，它永远在验 3.5 ——
+"资源是否打包 / 是否有明文密钥 / TileEntity 是否注册"这些 jar 级检查全是假的。
+现在改成按**修改时间取最新**（这次就是它立刻抓出了新纹理没进包）。
+
 ## 3.7
 
 ### 修好「面板底色是透明的」
