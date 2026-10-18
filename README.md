@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.6.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.7.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-3.6-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-3.7-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -553,8 +553,8 @@
 ## 🚀 安装
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
-2. 把 `jiezhi-1.12.2-dfcmaptools-3.6.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.6 is loading.` 即加载成功；
+2. 把 `jiezhi-1.12.2-dfcmaptools-3.7.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.7 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。
@@ -581,14 +581,14 @@ cd <仓库名>
 ```bat
 :: 1. 编译出基础 jar
 gradlew.bat build --offline
-::    -> build\libs\jiezhi-1.12.2-dfcmaptools-3.6.jar
+::    -> build\libs\jiezhi-1.12.2-dfcmaptools-3.7.jar
 
 :: 2. ProGuard 混淆
 java -jar tools\proguard-7.4.2\lib\proguard.jar @tools\proguard.pro
 ::    -> tools\obf.jar
 
 :: 3. 注入完整性封印（内含 ASM StackMapTable 补帧 + SealA/SealB 哈希注入）
-python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3.6.jar
+python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3.7.jar
 ```
 
 **为什么必须三步全跑？** jar 内置**双重完整性校验**：业务类的聚合哈希在构建期被固化进 Seal，运行时校验不过就直接崩溃。所以改了源码却不重跑三步，进游戏必定 `integrity check failed`。**纯资源改动（贴图 / mcmod.info / 语言文件）也要重跑**。
@@ -596,7 +596,7 @@ python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3
 ### 构建后必验
 
 ```bat
-python tools\check_stackmap.py build\libs\jiezhi-1.12.2-dfcmaptools-3.6.jar   :: 期望输出 OK
+python tools\check_stackmap.py build\libs\jiezhi-1.12.2-dfcmaptools-3.7.jar   :: 期望输出 OK
 python tools\selftest\run_selftest.py                                        :: 期望 ALL GREEN
 :: 编译并运行 tools\testmain\TestMain.java，期望输出 SEAL OK
 ```
@@ -730,6 +730,7 @@ jar 内置完整性校验，说明文件被改动过（反编译、二次打包�
 
 摘要（完整版见 [CHANGELOG.md](CHANGELOG.md)）：
 
+- **3.7** —— 修好「面板底色是透明的」：`GuiDraw` 的三角化写错（圆角路径的中心点只发一次、方角路径的三角形全是零面积），**底色 / 斑马纹 / 物品格子从来没画出来过**。几何抽到 `GuiGeometry` 并补 10 条几何自测。连带修好延迟方块 GUI、通知列表、热量条、通知 HUD 的底纹。
 - **3.6** —— 自定义显示屏面板**版面重做**：高度 306 → **240**（旧的比屏幕还高，标题被顶出屏幕、「清空/关闭」压到快捷栏上）；改成「左控制区 + 右数据列表」，修掉「遥控器」那一行的三重遮挡与底部提示被按钮切半；面板底色改 98% 不透明，挡住世界屏幕上透出来的引导文字。新增离屏版面预览工具 `tools/gui_mock/`。
 - **3.5** —— 修复喷气背包「按住右键不能飞」（`setActiveHand` 从未被调用）与飞行方向不跟随视线；自定义显示屏改为**把遥控器放进面板槽位后点「添加」**接入设备；**物品 / 方块 / 物品描述全部中文化**（43 条文案走语言文件）；通知抬到物品栏上方、收窄并加深色底；README 补全指令手册与倒计时样式详解。
 - **3.4.x** —— DFC 显示器全面重做：三块屏（核心页 / 部件页 / 自定义页）、崩溃告警、熔毁报错 301、存档重载重启屏幕、事件日志折行、单位对齐 SPK、部件页改用游戏官方中文名；通知历史快捷键改为 `P`；修复红石延时器方块不可见。

@@ -10,7 +10,7 @@ Seal 注入脚本（两步冻结，打破循环依赖）：
 
 用法（在项目根或任意目录都可）：
     python tools/seal_inject.py [输入jar] [输出jar]
-默认：输入 tools/obf.jar，输出 build/libs/jiezhi-1.12.2-dfcmaptools-3.6.jar
+默认：输入 tools/obf.jar，输出 build/libs/jiezhi-1.12.2-dfcmaptools-3.7.jar
 
 本脚本**不写死任何机器专属路径**：
   · 项目根目录由本文件位置推导
@@ -171,7 +171,7 @@ def default_output():
              if "sources" not in os.path.basename(p) and "javadoc" not in os.path.basename(p)]
     if cands:
         return cands[0]
-    return os.path.join(ROOT, "build", "libs", "jiezhi-1.12.2-dfcmaptools-3.6.jar")
+    return os.path.join(ROOT, "build", "libs", "jiezhi-1.12.2-dfcmaptools-3.7.jar")
 
 
 # --------------------------------------------------------------------------- #

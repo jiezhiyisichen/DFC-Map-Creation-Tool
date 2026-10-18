@@ -139,6 +139,7 @@ public class SelfTest {
         testDfcSnapshotCodec();
         testDfcDeviceLookup();
         testCustomScreenGuiLayout();
+        testGuiGeometry();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -3089,6 +3090,85 @@ public class SelfTest {
             w += s.charAt(i) > 0x2E80 ? 9 : 6;
         }
         return w;
+    }
+
+    /**
+     * GUI 填充物的三角化。
+     *
+     * 【为什么这条测试必须存在】v3.6 及以前 `GuiDraw.drawRoundedRect` 在 GL_TRIANGLES
+     * 模式下只发了一次中心点、后面跟 28 个轮廓点，导致除了第一个三角形以外全成了细缝；
+     * `drawRect` 的 4 个三角形更是顶点重合、面积恒为 0。
+     * 结果就是**面板底色和物品格子从来没画出来过**，而按钮/文字（原版带纹理路径）正常，
+     * 很容易被误判成 GL 状态问题。退化三角形在源码里看着"顶点数是对的"，只有算面积才露馅。
+     */
+    private static void testGuiGeometry() {
+        section("GUI triangle geometry");
+
+        // ---------- 实心矩形 ----------
+        float[] q = com.jiezhimod.client.util.GuiGeometry.rectTriangles(10, 20, 60, 40);
+        check("几何：矩形 = 2 个三角形 = 12 个分量", q.length == 12);
+        check("几何：矩形每个三角形面积都不为 0（v3.6 的 bug 就死在这里）",
+                allTrianglesNonDegenerate(q));
+        check("几何：矩形总面积 = 宽 × 高 (50×20=1000)",
+                Math.abs(triangleArea(q) - 1000.0F) < 0.01F);
+        check("几何：矩形所有顶点都在给定范围内", allWithin(q, 10, 20, 60, 40));
+
+        // ---------- 圆角矩形 ----------
+        float[] rr = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 100, 60, 8);
+        check("几何：圆角矩形顶点数是 3 的倍数", rr.length > 0 && (rr.length / 2) % 3 == 0);
+        check("几何：圆角矩形每个三角形面积都不为 0", allTrianglesNonDegenerate(rr));
+        check("几何：圆角矩形所有顶点都在矩形范围内", allWithin(rr, 0, 0, 100, 60));
+        // 圆角会切掉 4 个 (1 - π/4)r² ≈ 55 → 覆盖率应略低于 100%，但不能低于 95%
+        float filled = triangleArea(rr);
+        check("几何：圆角矩形覆盖率在 95%~100% 之间（缺口 = 四个圆角）",
+                filled > 0.95F * 6000.0F && filled <= 6000.01F);
+
+        // 半径为 0 / 超过短边一半时都不许崩、不许出界
+        float[] flat = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 40, 10, 0);
+        check("几何：radius=0 退化成矩形", flat.length == 12 && allTrianglesNonDegenerate(flat));
+        float[] huge = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 40, 10, 999);
+        check("几何：radius 超短边时会收敛、不外溢",
+                allTrianglesNonDegenerate(huge) && allWithin(huge, 0, 0, 40, 10));
+    }
+
+    /** 三角形列表里有没有零面积（顶点重合 / 三点共线）的三角形 */
+    private static boolean allTrianglesNonDegenerate(float[] v) {
+        if (v == null || v.length < 6 || (v.length / 2) % 3 != 0) {
+            return false;
+        }
+        for (int i = 0; i + 5 < v.length; i += 6) {
+            double ax = v[i], ay = v[i + 1];
+            double bx = v[i + 2], by = v[i + 3];
+            double cx = v[i + 4], cy = v[i + 5];
+            double area = Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2.0D;
+            if (area <= 1.0E-6D) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 三角形列表的总面积（有向面积取绝对值后累加） */
+    private static float triangleArea(float[] v) {
+        double sum = 0.0D;
+        for (int i = 0; i + 5 < v.length; i += 6) {
+            double ax = v[i], ay = v[i + 1];
+            double bx = v[i + 2], by = v[i + 3];
+            double cx = v[i + 4], cy = v[i + 5];
+            sum += Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2.0D;
+        }
+        return (float) sum;
+    }
+
+    /** 所有顶点是否落在 [x, x+w] × [y, y+h] 内（留 0.01 容差） */
+    private static boolean allWithin(float[] v, float x, float y, float w, float h) {
+        for (int i = 0; i + 1 < v.length; i += 2) {
+            if (v[i] < x - 0.01F || v[i] > x + w + 0.01F
+                    || v[i + 1] < y - 0.01F || v[i + 1] > y + h + 0.01F) {
+                return false;
+            }
+        }
+        return true;
     }
 
     private static boolean copyIsIndependent(DfcSnapshot s) {        DfcSnapshot c = DfcSnapshot.copied(s);
