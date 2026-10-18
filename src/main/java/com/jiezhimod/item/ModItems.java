@@ -21,6 +21,8 @@ public class ModItems {
     public static final Item JET_SWITCH = new ItemJetSwitch();
     /** DFC 遥控器（记录核心/稳定器坐标，再右键显示器完成绑定） */
     public static final Item DFC_REMOTE = new ItemDfcRemote();
+    /** 密码连接器：把密码盘接进密码控制台 */
+    public static final Item CONNECTOR = new ItemConnector();
 
     /** 模组专属物品页（1.12.2 没有内置页，必须自建；名字显示为 jiezhimod） */
     public static final CreativeTabs TAB = new CreativeTabs("jiezhimod") {
@@ -38,6 +40,7 @@ public class ModItems {
         JETPACK.setCreativeTab(TAB);
         JET_SWITCH.setCreativeTab(TAB);
         DFC_REMOTE.setCreativeTab(TAB);
+        CONNECTOR.setCreativeTab(TAB);
     }
 
     @SubscribeEvent
@@ -48,5 +51,6 @@ public class ModItems {
         event.getRegistry().register(JETPACK);
         event.getRegistry().register(JET_SWITCH);
         event.getRegistry().register(DFC_REMOTE);
+        event.getRegistry().register(CONNECTOR);
     }
 }

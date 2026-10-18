@@ -64,6 +64,13 @@ public class ModBlocks {
      */
     public static final Block DFC_SCREEN_PART = new BlockDfcScreenPart();
 
+    /** 密码盘：占一格、高半格的触摸式数字键盘（右键按面板上的键，不开界面） */
+    public static final Block KEYPAD = new BlockKeypad();
+    public static final ItemBlock ITEM_KEYPAD = new ItemBlock(KEYPAD);
+    /** 密码控制台：接收红石信号去操作密码盘，并在密码正确时输出红石信号 */
+    public static final Block PASSWORD_CONSOLE = new BlockPasswordConsole();
+    public static final ItemBlock ITEM_PASSWORD_CONSOLE = new ItemBlock(PASSWORD_CONSOLE);
+
     static {
         // 注册名必须显式跟方块一致，否则创造页拿到的物品没有模型
         ITEM_DELAY_BLOCK.setRegistryName(DELAY_BLOCK.getRegistryName());
@@ -74,6 +81,10 @@ public class ModBlocks {
         ITEM_DFC_MONITOR.setCreativeTab(TAB_SCREEN);
         ITEM_DFC_CUSTOM.setRegistryName(DFC_CUSTOM.getRegistryName());
         ITEM_DFC_CUSTOM.setCreativeTab(TAB_SCREEN);
+        ITEM_KEYPAD.setRegistryName(KEYPAD.getRegistryName());
+        ITEM_KEYPAD.setCreativeTab(TAB_REDSTONE);
+        ITEM_PASSWORD_CONSOLE.setRegistryName(PASSWORD_CONSOLE.getRegistryName());
+        ITEM_PASSWORD_CONSOLE.setCreativeTab(TAB_REDSTONE);
     }
 
     @SubscribeEvent
@@ -83,6 +94,8 @@ public class ModBlocks {
         event.getRegistry().register(DFC_MONITOR);
         event.getRegistry().register(DFC_CUSTOM);
         event.getRegistry().register(DFC_SCREEN_PART);
+        event.getRegistry().register(KEYPAD);
+        event.getRegistry().register(PASSWORD_CONSOLE);
     }
 
     @SubscribeEvent
@@ -91,5 +104,7 @@ public class ModBlocks {
         event.getRegistry().register(ITEM_DFC_SCREEN);
         event.getRegistry().register(ITEM_DFC_MONITOR);
         event.getRegistry().register(ITEM_DFC_CUSTOM);
+        event.getRegistry().register(ITEM_KEYPAD);
+        event.getRegistry().register(ITEM_PASSWORD_CONSOLE);
     }
 }

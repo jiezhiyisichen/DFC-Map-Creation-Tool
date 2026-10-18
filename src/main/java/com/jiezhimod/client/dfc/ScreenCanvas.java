@@ -4,6 +4,7 @@ import com.jiezhimod.dfc.DfcFormat;
 import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.DfcWatch;
 import com.jiezhimod.dfc.ScreenLayout;
+import com.jiezhimod.keypad.KeypadLayout;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.texture.DynamicTexture;
@@ -1327,6 +1328,160 @@ public final class ScreenCanvas {
     /** 进度条配色：快见底（<15%）转黄，其余青色 */
     private static int barColor(double ratio) {
         return ratio < 0.15D ? WARN : CYAN;
+    }
+
+    // ==================== 密码盘面板（第四种画法） ====================
+
+    /**
+     * 画密码盘。**和 DFC 三块屏共用同一张画布与纹理管线**，
+     * 所以这里只需要关心"画什么"，不用再碰 GL。
+     *
+     * 画布 256×192，布局常量全部来自 {@link com.jiezhimod.keypad.KeypadLayout} ——
+     * 渲染和"右键点到哪个键"用的是同一份数字，不会出现"看着按 5、实际输 6"。
+     *
+     * @param password 正确密码（画在便签纸上，玩家照着输）
+     * @param buffer   已输入的数字串
+     * @param length   密码位数
+     * @param locked   是否已锁定
+     * @param accepted 是否已通过验证
+     * @param rejecting 刚输错（键盘描边闪红）
+     */
+    public void renderKeypad(String password, String buffer, int length, boolean locked,
+                             boolean accepted, boolean rejecting, long nowMs) {
+        long step = rejecting ? 120L : 250L;
+        long bucket = nowMs / step;
+        if (bucket == this.lastBucket && !this.pixelDirty) {
+            return;
+        }
+        this.lastBucket = bucket;
+        this.framePhaseMs = nowMs;
+        this.alert = false;
+        this.themeLine = LINE;
+
+        g.setColor(new Color(BG, true));
+        g.fillRect(0, 0, TEX_W, TEX_H);
+
+        drawKeypadFace(password, buffer, length, locked, accepted, rejecting);
+
+        drawScanlines();
+        image.getRGB(0, 0, TEX_W, TEX_H, pixels, 0, TEX_W);
+        pixelDirty = true;
+    }
+
+    private void drawKeypadFace(String password, String buffer, int length, boolean locked,
+                                boolean accepted, boolean rejecting) {
+        // ---------- 顶部：标题 + 状态 ----------
+        text("密码锁", 9, 18, 0xFFE6ECF2, fCjkBold(12));
+        String state;
+        int stateColor;
+        if (locked) {
+            state = "已锁定";
+            stateColor = 0xFFE0736B;
+        } else if (accepted) {
+            state = "已通过";
+            stateColor = 0xFF52E08A;
+        } else {
+            state = "待输入";
+            stateColor = 0xFF7FA8C8;
+        }
+        textRight(state, 247, 18, stateColor, fCjk(10));
+        hline(9, 24, 238, 0xFF243040);
+
+        // ---------- 已输入的位（6 个格子） ----------
+        int boxW = 24;
+        int gap = 4;
+        for (int i = 0; i < length; i++) {
+            int bx = 9 + i * (boxW + gap);
+            int by = 31;
+            rect(bx, by, boxW, 20, 0xFF0E1620);
+            rect(bx, by, boxW, 1, 0xFF2A3A4A);
+            rect(bx, by + 19, boxW, 1, 0xFF2A3A4A);
+            if (i < buffer.length()) {
+                String d = String.valueOf(buffer.charAt(i));
+                textCenterIn(d, bx, boxW, by + 15, 0xFFEAF2FA, fMonoBold(13));
+            } else {
+                // 空位画一条短横，比留白更能看出"还有几位没输"
+                rect(bx + 8, by + 14, boxW - 16, 2, 0xFF22303E);
+            }
+        }
+
+        // ---------- 键盘 ----------
+        for (int i = 0; i < KeypadLayout.KEY_COUNT; i++) {
+            int kx = KeypadLayout.keyX(i);
+            int ky = KeypadLayout.keyY(i);
+            int kw = KeypadLayout.KEY_W;
+            int kh = KeypadLayout.KEY_H;
+
+            int base = 0xFF16202B;
+            int edge = rejecting ? 0xFFD05050 : 0xFF2E3F52;
+            int fg = 0xFFE8F0F8;
+            if (locked) {
+                base = 0xFF1A1418;
+                edge = 0xFF4A2A2E;
+                fg = 0xFF6A5A5E;
+            } else if (i == KeypadLayout.KEY_ENTER) {
+                base = 0xFF1B3324;
+                edge = 0xFF3E7A55;
+                fg = 0xFF9BE8B6;
+            } else if (i == KeypadLayout.KEY_CLEAR) {
+                base = 0xFF2A1D18;
+                edge = 0xFF6A4A32;
+                fg = 0xFFE0B080;
+            }
+
+            rect(kx, ky, kw, kh, base);
+            rect(kx, ky, kw, 1, edge);
+            rect(kx, ky + kh - 1, kw, 1, edge);
+            rect(kx, ky, 1, kh, edge);
+            rect(kx + kw - 1, ky, 1, kh, edge);
+
+            String label = KeypadLayout.label(i);
+            int ty = ky + kh / 2 + 5;
+            if (label.length() > 1) {
+                textCenterIn(label, kx, kw, ty, fg, fCjk(10));
+            } else {
+                textCenterIn(label, kx, kw, ty, fg, fMonoBold(15));
+            }
+        }
+
+        // ---------- 便签纸：把密码写给玩家看 ----------
+        drawNote(password);
+
+        if (locked) {
+            textCenterIn("键盘已锁定", KeypadLayout.KEY_X, KeypadLayout.padRight() - KeypadLayout.KEY_X,
+                    KeypadLayout.padBottom() + 12, 0xFFE0736B, fCjk(10));
+        }
+    }
+
+    /**
+     * 便签纸。**故意画成微微倾斜的** —— 一块贴在台面上的纸，
+     * 正着摆反而像面板的一部分，倾斜一点才一眼看出"这是张便签"。
+     */
+    private void drawNote(String password) {
+        int nx = KeypadLayout.NOTE_X;
+        int ny = KeypadLayout.NOTE_Y;
+        int nw = KeypadLayout.NOTE_W;
+        int nh = KeypadLayout.NOTE_H;
+
+        java.awt.Graphics2D g2 = (java.awt.Graphics2D) g;
+        java.awt.geom.AffineTransform old = g2.getTransform();
+        double cx = (nx + nw / 2.0D) * SS;
+        double cy = (ny + nh / 2.0D) * SS;
+        g2.rotate(Math.toRadians(-5.0D), cx, cy);
+
+        // 纸：暖白底 + 一点阴影，边缘压一条浅色
+        rect(nx + 2, ny + 2, nw, nh, 0x33000000);
+        rect(nx, ny, nw, nh, 0xFFF3E7CC);
+        rect(nx, ny, nw, 1, 0xFFFBFAF2);
+        // 顶部一条浅红，像便签本上的胶条
+        rect(nx, ny, nw, 6, 0xFFE8A9A0);
+
+        text("开发者代码", nx + 5, ny + 18, 0xFF6A5A48, fCjk(8));
+        text(password == null || password.isEmpty() ? "------" : password,
+                nx + 5, ny + 40, 0xFF2B2622, fMonoBold(13));
+        hline(nx + 5, ny + 44, nw - 10, 0xFFC9BBA0);
+
+        g2.setTransform(old);
     }
 
     // ==================== 绘制原语（逻辑坐标 -> 物理坐标） ====================

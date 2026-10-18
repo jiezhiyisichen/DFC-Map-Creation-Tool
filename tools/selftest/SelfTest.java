@@ -140,6 +140,7 @@ public class SelfTest {
         testDfcDeviceLookup();
         testCustomScreenGuiLayout();
         testGuiGeometry();
+        testKeypadLayout();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -3129,6 +3130,93 @@ public class SelfTest {
         float[] huge = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 40, 10, 999);
         check("几何：radius 超短边时会收敛、不外溢",
                 allTrianglesNonDegenerate(huge) && allWithin(huge, 0, 0, 40, 10));
+    }
+
+    /**
+     * 密码盘的键位布局。
+     *
+     * 【为什么这条必须有】键位既决定"画在哪儿"，又决定"右键点到的是哪个键"。
+     * 两者只要有一处偏一像素，玩家就会看着按了 5、实际输入 6 —— 这种 bug 在游戏里
+     * 极难复现（要正好点在缝里），只能靠几何断言拦住：
+     *   · 12 个键互不重叠、都在面板内；
+     *   · 每个键的中心点用屏幕坐标反算回去，必须命中它自己（渲染/命中一致）；
+     *   · 键与键的缝隙必须返回 -1（宁可没反应，也不能输错一位）。
+     */
+    private static void testKeypadLayout() {
+        section("keypad layout");
+        final int N = com.jiezhimod.keypad.KeypadLayout.KEY_COUNT;
+        check("布局：一共 12 个键（1-9、0、清除、输入）", N == 12);
+
+        boolean inPanel = true;
+        for (int i = 0; i < N; i++) {
+            int x = com.jiezhimod.keypad.KeypadLayout.keyX(i);
+            int y = com.jiezhimod.keypad.KeypadLayout.keyY(i);
+            if (x < 0 || y < 0
+                    || x + com.jiezhimod.keypad.KeypadLayout.KEY_W > com.jiezhimod.keypad.KeypadLayout.PANEL_W
+                    || y + com.jiezhimod.keypad.KeypadLayout.KEY_H > com.jiezhimod.keypad.KeypadLayout.PANEL_H) {
+                inPanel = false;
+            }
+        }
+        check("布局：每个键都在面板内", inPanel);
+
+        boolean overlap = false;
+        for (int i = 0; i < N; i++) {
+            for (int j = i + 1; j < N; j++) {
+                int ax = com.jiezhimod.keypad.KeypadLayout.keyX(i);
+                int ay = com.jiezhimod.keypad.KeypadLayout.keyY(i);
+                int bx = com.jiezhimod.keypad.KeypadLayout.keyX(j);
+                int by = com.jiezhimod.keypad.KeypadLayout.keyY(j);
+                int w = com.jiezhimod.keypad.KeypadLayout.KEY_W;
+                int h = com.jiezhimod.keypad.KeypadLayout.KEY_H;
+                if (ax < bx + w && bx < ax + w && ay < by + h && by < ay + h) {
+                    overlap = true;
+                }
+            }
+        }
+        check("布局：12 个键两两不重叠", !overlap);
+
+        // 键中心 -> 面板相对坐标 -> 方块内坐标 -> 反查，必须还是它自己
+        float span = com.jiezhimod.keypad.KeypadLayout.PANEL_MAX
+                - com.jiezhimod.keypad.KeypadLayout.PANEL_MIN;
+        boolean roundTrip = true;
+        for (int i = 0; i < N; i++) {
+            double u = (com.jiezhimod.keypad.KeypadLayout.keyX(i)
+                    + com.jiezhimod.keypad.KeypadLayout.KEY_W / 2.0D)
+                    / com.jiezhimod.keypad.KeypadLayout.PANEL_W;
+            double v = (com.jiezhimod.keypad.KeypadLayout.keyY(i)
+                    + com.jiezhimod.keypad.KeypadLayout.KEY_H / 2.0D)
+                    / com.jiezhimod.keypad.KeypadLayout.PANEL_H;
+            float wx = (float) (com.jiezhimod.keypad.KeypadLayout.PANEL_MIN + u * span);
+            float wz = (float) (com.jiezhimod.keypad.KeypadLayout.PANEL_MIN + v * span);
+            if (com.jiezhimod.keypad.KeypadLayout.hitWorld(wx, wz) != i) {
+                roundTrip = false;
+            }
+        }
+        check("布局：每个键的中心点反查回来还是它自己（渲染与命中共用一套数字）", roundTrip);
+
+        // 缝隙不能误触
+        int gapU = com.jiezhimod.keypad.KeypadLayout.keyX(0)
+                + com.jiezhimod.keypad.KeypadLayout.KEY_W
+                + com.jiezhimod.keypad.KeypadLayout.KEY_GAP / 2;
+        int gapV = com.jiezhimod.keypad.KeypadLayout.keyY(0)
+                + com.jiezhimod.keypad.KeypadLayout.KEY_H / 2;
+        check("布局：点在两键之间的缝里返回 -1（不误触相邻键）",
+                com.jiezhimod.keypad.KeypadLayout.hitPanel(
+                        gapU / (double) com.jiezhimod.keypad.KeypadLayout.PANEL_W,
+                        gapV / (double) com.jiezhimod.keypad.KeypadLayout.PANEL_H) == -1);
+
+        check("布局：点在面板外返回 -1",
+                com.jiezhimod.keypad.KeypadLayout.hitWorld(0.0F, 0.5F) == -1
+                        && com.jiezhimod.keypad.KeypadLayout.hitWorld(1.0F, 1.0F) == -1);
+
+        // 键盘区不能压到右边那张便签
+        check("布局：键盘右边界在便签左侧",
+                com.jiezhimod.keypad.KeypadLayout.padRight()
+                        <= com.jiezhimod.keypad.KeypadLayout.NOTE_X);
+        check("布局：便签完整落在面板内（含倾斜余量 8px）",
+                com.jiezhimod.keypad.KeypadLayout.NOTE_Y
+                        + com.jiezhimod.keypad.KeypadLayout.NOTE_H + 8
+                        <= com.jiezhimod.keypad.KeypadLayout.PANEL_H);
     }
 
     /** 三角形列表里有没有零面积（顶点重合 / 三点共线）的三角形 */

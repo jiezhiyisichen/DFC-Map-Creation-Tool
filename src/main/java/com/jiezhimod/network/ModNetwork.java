@@ -34,5 +34,8 @@ public class ModNetwork {
         // 自定义显示屏 GUI 的操作包（开机 / 删除某条 / 清空），客户端 -> 服务端
         CHANNEL.registerMessage(MessageCustomScreenAction.Handler.class,
                 MessageCustomScreenAction.class, id++, Side.SERVER);
+        // 密码控制台的设置包（红石动作 / 是否输出），客户端 -> 服务端
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageConsoleConfig.Handler.class,
+                com.jiezhimod.network.msg.MessageConsoleConfig.class, id++, Side.SERVER);
     }
 }

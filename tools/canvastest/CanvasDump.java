@@ -29,6 +29,7 @@ public class CanvasDump {
         dump("boot",    600L,    true,  snap, ev, ScreenCanvas.PAGE_CORE);
         dump("console", 2000L,   true,  snap, ev, ScreenCanvas.PAGE_CORE);
         dump("main",    999999L, true,  snap, ev, ScreenCanvas.PAGE_CORE);
+        dumpKeypad();
 
         // 单独测空数据快照（未绑定数据源时的样子）：两页都要看
         dump("main_nolink", 999999L, true, DfcSnapshot.empty(), ev, ScreenCanvas.PAGE_CORE);
@@ -248,6 +249,58 @@ public class CanvasDump {
             File cf = new File(out, "dfc_dial_" + tag + ".png");
             ImageIO.write(crop(px, 86, 19, 164, 108, 2), "png", cf);
         }
+    }
+
+    /**
+     * 导出密码盘面板。
+     *
+     * 密码盘的世界渲染是 TESR + 动态纹理，离屏跑不了 GL；
+     * 但"面板长什么样"完全是 ScreenCanvas 画的 AWT 画布 —— 这一层可以脱离游戏导出，
+     * 用来检查键位有没有出框、便签上的字会不会压线、锁定态颜色对不对。
+     */
+    private static void dumpKeypad() throws Exception {
+        ScreenCanvas c = new ScreenCanvas();
+        // 常态：输入了 3 位
+        c.renderKeypad("775291", "775", 6, false, false, false, 0L);
+        writeKeypad(c, "keypad_normal");
+
+        // 输错：键盘描边转红
+        c = new ScreenCanvas();
+        c.renderKeypad("775291", "", 6, false, false, true, 0L);
+        writeKeypad(c, "keypad_reject");
+
+        // 已锁定
+        c = new ScreenCanvas();
+        c.renderKeypad("775291", "", 6, true, false, false, 0L);
+        writeKeypad(c, "keypad_locked");
+
+        // 已通过
+        c = new ScreenCanvas();
+        c.renderKeypad("775291", "", 6, false, true, false, 0L);
+        writeKeypad(c, "keypad_accepted");
+    }
+
+    private static void writeKeypad(ScreenCanvas c, String tag) throws Exception {
+        Field fp = ScreenCanvas.class.getDeclaredField("pixels");
+        fp.setAccessible(true);
+        int[] px = (int[]) fp.get(c);
+
+        int nonBlack = 0;
+        for (int p : px) {
+            int lum = Math.max((p >> 16) & 0xFF, Math.max((p >> 8) & 0xFF, p & 0xFF));
+            if (lum > 8) {
+                nonBlack++;
+            }
+        }
+        System.out.printf("[%s] nonBlack=%.2f%%%n", tag, 100.0 * nonBlack / px.length);
+
+        String out = System.getProperty("dumpDir", ".");
+        BufferedImage img = new BufferedImage(ScreenCanvas.TEX_W, ScreenCanvas.TEX_H,
+                BufferedImage.TYPE_INT_RGB);
+        img.setRGB(0, 0, ScreenCanvas.TEX_W, ScreenCanvas.TEX_H, px, 0, ScreenCanvas.TEX_W);
+        File f = new File(out, "dfc_canvas_" + tag + ".png");
+        ImageIO.write(img, "png", f);
+        System.out.println("      -> " + f.getAbsolutePath());
     }
 
     /** 从 RGBA 像素数组里裁一块（逻辑坐标，内部 ×SS）并做整数倍最近邻放大 */

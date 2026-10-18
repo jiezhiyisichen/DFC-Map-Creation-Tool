@@ -228,6 +228,18 @@ def main():
         # GUI 纯色填充用的白纹理。缺了它 GuiDraw 绑不上纹理，
         # 所有自绘面板/格子/进度条都会变成紫黑（或直接看不见）
         "assets/jiezhimod/textures/gui/white.png",
+        # 密码盘 / 密码控制台 / 密码连接器：模型与贴图缺一个，游戏里就是紫黑块
+        "assets/jiezhimod/blockstates/keypad.json",
+        "assets/jiezhimod/models/block/keypad_empty.json",
+        "assets/jiezhimod/models/item/keypad.json",
+        "assets/jiezhimod/textures/items/keypad.png",
+        "assets/jiezhimod/blockstates/password_console.json",
+        "assets/jiezhimod/models/block/password_console.json",
+        "assets/jiezhimod/models/item/password_console.json",
+        "assets/jiezhimod/textures/items/password_console.png",
+        "assets/jiezhimod/textures/blocks/password_console.png",
+        "assets/jiezhimod/models/item/connector.json",
+        "assets/jiezhimod/textures/items/connector.png",
         # 喷漆背包 / 喷气开关：模型与贴图漏打包 -> 物品变成紫黑格，粒子变成"无贴图方块"
         "assets/jiezhimod/models/item/jetpack.json",
         "assets/jiezhimod/models/item/jet_switch.json",
@@ -331,6 +343,9 @@ def main():
         "tile.dfc_screen.name",
         "tile.dfc_monitor.name",
         "tile.dfc_custom.name",
+        "tile.keypad.name",
+        "tile.password_console.name",
+        "item.connector.name",
         "gui.jiezhimod.custom.title",
         "gui.jiezhimod.custom.power.on",
         "gui.jiezhimod.custom.power.off",

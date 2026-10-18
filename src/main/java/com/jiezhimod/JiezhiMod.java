@@ -24,7 +24,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "3.8";
+    public static final String VERSION = "3.9-beta";
 
     @Instance(MODID)
     public static JiezhiMod instance;
@@ -89,6 +89,13 @@ public class JiezhiMod
         // 玩家辛苦接好的 8 条数据全没了。
         GameRegistry.registerTileEntity(com.jiezhimod.block.TileCustomScreen.class,
                 new ResourceLocation(MODID, "dfc_custom"));
+        // 密码盘 / 密码控制台的方块实体。同样是**按具体类**查表，
+        // 漏注册的症状：区块保存时抛 "missing a mapping!"，
+        // 而随机密码存在方块实体里 —— 那台密码盘的密码会整个丢掉，便签上显示 ------。
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileKeypad.class,
+                new ResourceLocation(MODID, "keypad"));
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TilePasswordConsole.class,
+                new ResourceLocation(MODID, "password_console"));
         NetworkRegistry.INSTANCE.registerGuiHandler(instance, proxy);
         // 服务端倒计时管理（ServerTick/PlayerLoggedIn 仅在服务端与集成服务器触发）
         MinecraftForge.EVENT_BUS.register(new ServerCountdownManager());

@@ -113,3 +113,39 @@ tooltip.jiezhimod.dfc_custom.2=Right-click: open the panel (power + data list)
 tooltip.jiezhimod.dfc_custom.3=Shows up to %s readings from tanks / batteries / turbine parts
 tooltip.jiezhimod.dfc_custom.4=Put the DFC remote in the panel slot, then click Add
 tooltip.jiezhimod.dfc_custom.5=(Record devices first: sneak + right-click them with the remote)
+
+# ===== Keypad / password console (v3.9-beta) =====
+tile.keypad.name=Keypad
+tile.password_console.name=Password Console
+item.connector.name=Password Connector
+
+gui.jiezhimod.console.title=Password Console
+gui.jiezhimod.console.linked=Linked keypad: %s, %s, %s
+gui.jiezhimod.console.unlinked=Not linked (sneak + right-click a keypad with the connector)
+gui.jiezhimod.console.keypad.none=Keypad: missing (probably broken)
+gui.jiezhimod.console.keypad.normal=Keypad: ready
+gui.jiezhimod.console.keypad.locked=Keypad: locked
+gui.jiezhimod.console.keypad.accepted=Keypad: accepted
+gui.jiezhimod.console.onsignal=On redstone signal:
+gui.jiezhimod.console.output=Output when code is correct:
+gui.jiezhimod.console.act.none=Do nothing
+gui.jiezhimod.console.act.lock=Lock the keypad
+gui.jiezhimod.console.act.release=Unlock the keypad
+gui.jiezhimod.console.act.clear=Clear typed digits
+gui.jiezhimod.console.act.lock_clear=Lock and clear
+gui.jiezhimod.console.on=ON
+gui.jiezhimod.console.off=OFF
+gui.jiezhimod.console.close=Close
+
+msg.jiezhimod.connector.recorded=Recorded keypad: %s, %s, %s
+msg.jiezhimod.connector.empty=Connector is empty - sneak + right-click a keypad first
+msg.jiezhimod.connector.wrongdim=That keypad is in another dimension
+msg.jiezhimod.connector.toofar=Too far from that keypad (max 32 blocks)
+msg.jiezhimod.connector.gone=That keypad is gone
+msg.jiezhimod.connector.linked=Linked keypad: %s, %s, %s
+msg.jiezhimod.connector.cleared=Connector cleared
+
+tooltip.jiezhimod.connector.0=Sneak + right-click a keypad to record it
+tooltip.jiezhimod.connector.1=Recorded: %s, %s, %s
+tooltip.jiezhimod.connector.2=Sneak + right-click a password console to link
+tooltip.jiezhimod.connector.3=Sneak + right-click air to clear

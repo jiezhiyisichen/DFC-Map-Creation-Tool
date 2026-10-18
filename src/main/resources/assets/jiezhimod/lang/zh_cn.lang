@@ -113,3 +113,39 @@ tooltip.jiezhimod.dfc_custom.2=右键：打开面板（开关机 + 数据列表�
 tooltip.jiezhimod.dfc_custom.3=最多显示 %s 条来自储罐 / 电池 / 涡轮部件的读数
 tooltip.jiezhimod.dfc_custom.4=把 DFC 遥控器放进面板里的槽位，点「添加」即接入
 tooltip.jiezhimod.dfc_custom.5=（设备要先用遥控器蹲下右键记录）
+
+# ===== 密码盘 / 密码控制台（v3.9-beta） =====
+tile.keypad.name=密码盘
+tile.password_console.name=密码控制台
+item.connector.name=密码连接器
+
+gui.jiezhimod.console.title=密码控制台
+gui.jiezhimod.console.linked=已连接密码盘：%s, %s, %s
+gui.jiezhimod.console.unlinked=未连接（拿密码连接器蹲下右键密码盘）
+gui.jiezhimod.console.keypad.none=密码盘：找不到（可能已被拆掉）
+gui.jiezhimod.console.keypad.normal=密码盘：待输入
+gui.jiezhimod.console.keypad.locked=密码盘：已锁定
+gui.jiezhimod.console.keypad.accepted=密码盘：密码正确
+gui.jiezhimod.console.onsignal=收到红石信号后：
+gui.jiezhimod.console.output=密码正确时输出红石：
+gui.jiezhimod.console.act.none=不做任何事
+gui.jiezhimod.console.act.lock=锁定密码盘
+gui.jiezhimod.console.act.release=解锁密码盘
+gui.jiezhimod.console.act.clear=清空已输入
+gui.jiezhimod.console.act.lock_clear=锁定并清空
+gui.jiezhimod.console.on=开
+gui.jiezhimod.console.off=关
+gui.jiezhimod.console.close=关闭
+
+msg.jiezhimod.connector.recorded=已记录密码盘：%s, %s, %s
+msg.jiezhimod.connector.empty=连接器里还没有记录，先蹲下右键密码盘
+msg.jiezhimod.connector.wrongdim=那个密码盘在另一个维度
+msg.jiezhimod.connector.toofar=离那个密码盘太远（上限 32 格）
+msg.jiezhimod.connector.gone=那个密码盘不见了
+msg.jiezhimod.connector.linked=已连接密码盘：%s, %s, %s
+msg.jiezhimod.connector.cleared=已清空连接器记录
+
+tooltip.jiezhimod.connector.0=蹲下右键密码盘，记录它
+tooltip.jiezhimod.connector.1=已记录：%s, %s, %s
+tooltip.jiezhimod.connector.2=蹲下右键密码控制台，完成连接
+tooltip.jiezhimod.connector.3=蹲下右键空气，清空记录

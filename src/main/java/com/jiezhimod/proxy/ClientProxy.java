@@ -38,6 +38,10 @@ public class ClientProxy extends CommonProxy {
         ClientRegistry.bindTileEntitySpecialRenderer(
                 com.jiezhimod.block.TileDfcScreen.class,
                 new com.jiezhimod.client.dfc.RenderDfcScreen());
+        // 密码盘：方块本身 INVISIBLE（模型画不了动态纹理），底座 + 面板全靠 TESR
+        ClientRegistry.bindTileEntitySpecialRenderer(
+                com.jiezhimod.block.TileKeypad.class,
+                new com.jiezhimod.client.keypad.RenderKeypad());
     }
 
     @Override
@@ -46,6 +50,16 @@ public class ClientProxy extends CommonProxy {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
             if (te instanceof TileDelay) {
                 return new GuiDelayBlock((TileDelay) te);
+            }
+        }
+        if (id == GUI_PASSWORD_CONSOLE) {
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TilePasswordConsole) {
+                com.jiezhimod.block.TilePasswordConsole tile =
+                        (com.jiezhimod.block.TilePasswordConsole) te;
+                // 客户端自己造一份同参数的容器交给 GuiContainer（没有物品槽，只做距离校验）
+                return new com.jiezhimod.client.keypad.GuiPasswordConsole(tile,
+                        new com.jiezhimod.block.ContainerPasswordConsole(tile));
             }
         }
         if (id == GUI_CUSTOM_SCREEN) {
@@ -101,6 +115,20 @@ public class ClientProxy extends CommonProxy {
             JiezhiMod.warn("DFC monitor ItemBlock is missing; its item model is not bound.");
         }
         bindItemModel(ModItems.DFC_REMOTE, "jiezhimod:dfc_remote");
+        // 密码盘 / 密码控制台 / 密码连接器
+        Item keypadItem = Item.getItemFromBlock(ModBlocks.KEYPAD);
+        if (keypadItem != null) {
+            bindItemModel(keypadItem, "jiezhimod:keypad");
+        } else {
+            JiezhiMod.warn("Keypad ItemBlock is missing; its item model is not bound.");
+        }
+        Item consoleItem = Item.getItemFromBlock(ModBlocks.PASSWORD_CONSOLE);
+        if (consoleItem != null) {
+            bindItemModel(consoleItem, "jiezhimod:password_console");
+        } else {
+            JiezhiMod.warn("Password console ItemBlock is missing; its item model is not bound.");
+        }
+        bindItemModel(ModItems.CONNECTOR, "jiezhimod:connector");
         // DFC 自定义显示屏（第三块显示器）
         Item customItem = Item.getItemFromBlock(ModBlocks.DFC_CUSTOM);
         if (customItem != null) {

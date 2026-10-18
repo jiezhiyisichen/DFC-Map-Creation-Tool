@@ -21,6 +21,8 @@ public class CommonProxy implements IGuiHandler {
     public static final int GUI_DELAY = 0;
     /** 自定义显示屏 GUI 编号（右键方块打开） */
     public static final int GUI_CUSTOM_SCREEN = 1;
+    /** 密码控制台 GUI 编号（右键方块打开） */
+    public static final int GUI_PASSWORD_CONSOLE = 2;
 
     public void preInit() {
         // 服务端/通用侧无需注册客户端渲染事件
@@ -33,6 +35,15 @@ public class CommonProxy implements IGuiHandler {
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
         if (id == GUI_DELAY) {
             return new ContainerDelay();
+        }
+        if (id == GUI_PASSWORD_CONSOLE) {
+            // 界面本身没有物品槽，但服务端必须给出一个容器，否则客户端开不出界面
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TilePasswordConsole) {
+                return new com.jiezhimod.block.ContainerPasswordConsole(
+                        (com.jiezhimod.block.TilePasswordConsole) te);
+            }
+            return null;
         }
         if (id == GUI_CUSTOM_SCREEN) {
             // 容器现在要拿着方块实体（遥控器槽 / 导入 / 距离判定都要用）。

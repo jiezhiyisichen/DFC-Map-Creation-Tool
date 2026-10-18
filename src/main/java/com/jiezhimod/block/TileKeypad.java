@@ -1,0 +1,279 @@
+package com.jiezhimod.block;
+
+import com.jiezhimod.keypad.KeypadLayout;
+import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.network.NetworkManager;
+import net.minecraft.network.play.server.SPacketUpdateTileEntity;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.util.ITickable;
+
+import java.util.Random;
+
+/**
+ * 密码盘的方块实体：**一台一密码**，随机生成，写在便签上给玩家看。
+ *
+ * 【服务端权威】按键判定、比对、锁定全部在服务端做；
+ * 客户端只负责把面板画出来（显示已输入的位数、锁定状态、输错的红色反馈）。
+ * 任何状态变化都走 {@link #sync()} 推给客户端，客户端不做本地预测 ——
+ * 否则会出现"客户端显示输对了、服务端判定错"的错位。
+ *
+ * 【密码什么时候生成】{@code TileEntity} 构造时 {@code world} 还是 null，
+ * 没法拿随机源，所以放到第一次 {@link #update()} 里生成，并立刻写 NBT。
+ */
+public class TileKeypad extends TileEntity implements ITickable {
+
+    /** 密码位数（截图里是 6 位） */
+    public static final int PASSWORD_LEN = 6;
+
+    /** 两次按键之间的最小间隔（tick）。防止连点/长按把一串数字刷进去 */
+    private static final int PRESS_COOLDOWN = 3;
+    /** 输错后的红色反馈持续 tick */
+    private static final int REJECT_TICKS = 12;
+
+    private String password = "";
+    private String buffer = "";
+    private boolean locked;
+    /** 已经通过验证（控制台据此输出红石） */
+    private boolean accepted;
+
+    private int cooldown;
+    private int rejectTicks;
+
+    // ==================== 状态 ====================
+
+    public String getPassword() {
+        return password;
+    }
+
+    public String getBuffer() {
+        return buffer;
+    }
+
+    public boolean isLocked() {
+        return locked;
+    }
+
+    public boolean isAccepted() {
+        return accepted;
+    }
+
+    public boolean isRejecting() {
+        return rejectTicks > 0;
+    }
+
+    /** 还剩几位没输 */
+    public int remaining() {
+        return Math.max(0, PASSWORD_LEN - buffer.length());
+    }
+
+    public void setLocked(boolean locked) {
+        if (this.locked == locked) {
+            return;
+        }
+        this.locked = locked;
+        if (locked) {
+            this.buffer = "";
+        }
+        markDirty();
+        sync();
+    }
+
+    /** 控制台"清空输入"用：只清输入缓冲，不影响是否已通过 */
+    public void clearBuffer() {
+        if (this.buffer.isEmpty()) {
+            return;
+        }
+        this.buffer = "";
+        markDirty();
+        sync();
+    }
+
+    /** 控制台"重置"用：把验证结果也撤掉，输出随之关闭 */
+    public void resetAccepted() {
+        if (!this.accepted) {
+            return;
+        }
+        this.accepted = false;
+        markDirty();
+        sync();
+    }
+
+    // ==================== 按键 ====================
+
+    /**
+     * 按下一个键。
+     *
+     * @return true 表示这次按键真的被处理了（调用方据此放声音 / 出提示）
+     */
+    public boolean press(int key) {
+        if (this.world == null || this.world.isRemote) {
+            return false;
+        }
+        if (this.cooldown > 0 || this.locked) {
+            return false;
+        }
+        this.cooldown = PRESS_COOLDOWN;
+
+        boolean changed = true;
+        int digit = KeypadLayout.digit(key);
+        if (digit >= 0) {
+            if (this.buffer.length() < PASSWORD_LEN) {
+                this.buffer = this.buffer + (char) ('0' + digit);
+            } else {
+                // 已经输满 6 位：再按数字不再追加，等玩家按「输入」或「清除」
+                changed = false;
+            }
+        } else if (key == KeypadLayout.KEY_CLEAR) {
+            this.buffer = "";
+        } else if (key == KeypadLayout.KEY_ENTER) {
+            changed = submit();
+        } else {
+            changed = false;
+        }
+
+        if (changed) {
+            markDirty();
+            sync();
+        }
+        return changed;
+    }
+
+    private boolean submit() {
+        if (this.buffer.length() != PASSWORD_LEN) {
+            reject();
+            return false;
+        }
+        if (this.buffer.equals(this.password)) {
+            this.accepted = true;
+            this.buffer = "";
+            return true;
+        }
+        reject();
+        return false;
+    }
+
+    private void reject() {
+        this.buffer = "";
+        this.rejectTicks = REJECT_TICKS;
+    }
+
+    // ==================== tick ====================
+
+    @Override
+    public void update() {
+        if (this.world == null) {
+            return;
+        }
+        if (this.password.isEmpty()) {
+            this.password = randomPassword(this.world.rand);
+            markDirty();
+            sync();
+        }
+        if (this.cooldown > 0) {
+            this.cooldown--;
+        }
+        if (this.rejectTicks > 0) {
+            this.rejectTicks--;
+            if (this.rejectTicks == 0) {
+                // 红色反馈结束，推一次让客户端把边框恢复正常色
+                sync();
+            }
+        }
+    }
+
+    /** 生成一串 {@link #PASSWORD_LEN} 位纯数字密码 */
+    public static String randomPassword(Random rand) {
+        StringBuilder sb = new StringBuilder(PASSWORD_LEN);
+        for (int i = 0; i < PASSWORD_LEN; i++) {
+            sb.append((char) ('0' + rand.nextInt(10)));
+        }
+        return sb.toString();
+    }
+
+    // ==================== 同步 / 存盘 ====================
+
+    public void sync() {
+        if (this.world != null && !this.world.isRemote) {
+            this.world.notifyBlockUpdate(this.pos, this.world.getBlockState(this.pos),
+                    this.world.getBlockState(this.pos), 3);
+        }
+    }
+
+    @Override
+    public NBTTagCompound writeToNBT(NBTTagCompound c) {
+        super.writeToNBT(c);
+        c.setString("Password", this.password);
+        c.setString("Buffer", this.buffer);
+        c.setBoolean("Locked", this.locked);
+        c.setBoolean("Accepted", this.accepted);
+        c.setInteger("Reject", this.rejectTicks);
+        return c;
+    }
+
+    @Override
+    public void readFromNBT(NBTTagCompound c) {
+        super.readFromNBT(c);
+        this.password = c.getString("Password");
+        this.buffer = c.getString("Buffer");
+        this.locked = c.getBoolean("Locked");
+        this.accepted = c.getBoolean("Accepted");
+        this.rejectTicks = c.getInteger("Reject");
+    }
+
+    @Override
+    public NBTTagCompound getUpdateTag() {
+        return writeToNBT(new NBTTagCompound());
+    }
+
+    @Override
+    public SPacketUpdateTileEntity getUpdatePacket() {
+        return new SPacketUpdateTileEntity(this.pos, 1, getUpdateTag());
+    }
+
+    @Override
+    public void onDataPacket(NetworkManager net, SPacketUpdateTileEntity packet) {
+        readFromNBT(packet.getNbtCompound());
+    }
+
+    /** 区块卸载后客户端要重建画面，所以这里也要求完整同步 */
+    @Override
+    public boolean shouldRefresh(net.minecraft.world.World world, net.minecraft.util.math.BlockPos pos,
+                                 net.minecraft.block.state.IBlockState oldState,
+                                 net.minecraft.block.state.IBlockState newState) {
+        return oldState.getBlock() != newState.getBlock();
+    }
+
+    // ==================== 客户端渲染缓存 ====================
+
+    /**
+     * 面板画布。存成 Object 的理由同 {@code TileDfcScreen}：
+     * 字段类型若是客户端类，服务端反序列化这个 TE 时会多一次类解析，
+     * 而服务端根本用不到它 —— 只有 TESR 会调 {@link #canvas()}。
+     */
+    private Object canvasHolder;
+
+    @net.minecraftforge.fml.relauncher.SideOnly(net.minecraftforge.fml.relauncher.Side.CLIENT)
+    public com.jiezhimod.client.dfc.ScreenCanvas canvas() {
+        if (this.canvasHolder == null) {
+            com.jiezhimod.client.dfc.ScreenCanvas c = new com.jiezhimod.client.dfc.ScreenCanvas();
+            // 每台密码盘一张自己的纹理（坐标 + identityHashCode 双保险，
+            // 避免方块快速拆装时出现重复的 ResourceLocation）
+            c.setLocation(new net.minecraft.util.ResourceLocation("jiezhimod",
+                    "keypad_" + this.pos.getX() + "_" + this.pos.getY() + "_" + this.pos.getZ()
+                            + "_" + Integer.toHexString(System.identityHashCode(this))));
+            this.canvasHolder = c;
+        }
+        return (com.jiezhimod.client.dfc.ScreenCanvas) this.canvasHolder;
+    }
+
+    /** 拆掉/换块时释放 GL 纹理，否则每摆一台就漏一张 768×576 的显存贴图 */
+    @Override
+    public void invalidate() {
+        super.invalidate();
+        if (this.world != null && this.world.isRemote
+                && this.canvasHolder instanceof com.jiezhimod.client.dfc.ScreenCanvas) {
+            ((com.jiezhimod.client.dfc.ScreenCanvas) this.canvasHolder).dispose();
+            this.canvasHolder = null;
+        }
+    }
+}
