@@ -64,9 +64,10 @@ gui.jiezhimod.custom.empty=（空）
 gui.jiezhimod.custom.offline=离线
 gui.jiezhimod.custom.hint=放入 DFC 遥控器，点「添加」接入它记录的全部设备（最多 8 条）
 gui.jiezhimod.custom.add=添加
+gui.jiezhimod.custom.add.hint=把遥控器放进槽位
 gui.jiezhimod.custom.remote=遥控器
-gui.jiezhimod.custom.remote.empty=把遥控器放进左边槽位
-gui.jiezhimod.custom.remote.count=已记录 %s / %s 台
+gui.jiezhimod.custom.remote.empty=空
+gui.jiezhimod.custom.remote.count=%s/%s 台
 
 # ---- 物品 / 方块 说明文字（鼠标悬停 tooltip）----
 tooltip.jiezhimod.coil_speed.0=加速线圈

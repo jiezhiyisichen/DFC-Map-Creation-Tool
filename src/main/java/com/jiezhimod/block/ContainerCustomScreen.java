@@ -31,17 +31,58 @@ public class ContainerCustomScreen extends Container {
 
     // ==================== 版面常量（GUI 与容器共用） ====================
 
-    public static final int PANEL_W = 268;
-    public static final int PANEL_H = 306;
+    /**
+     * 面板尺寸。
+     *
+     * 【为什么高度卡在 240】1.12.2 只保证「逻辑分辨率 ≥ 320×240」（GUI 缩放的收敛下限），
+     * 而 {@code GuiContainer} 不会为 {@code ySize} 超屏做任何处理 —— 面板比屏幕高就直接
+     * 上下各溢出一半：标题被顶到屏幕外、底部按钮压到快捷栏上。
+     * 实测 6 倍 GUI 缩放下逻辑高度只有 ~266，306 高的旧面板当场出问题。
+     * 所以这里以 240 为硬上限，{@code SelfTest} 有断言钉住。
+     */
+    public static final int PANEL_W = 312;
+    public static final int PANEL_H = 240;
+    public static final int MARGIN = 6;
 
-    /** 遥控器槽在面板内的位置 */
-    public static final int REMOTE_SLOT_X = 53;
-    public static final int REMOTE_SLOT_Y = 40;
+    /** 标题基线（居中，跨全宽） */
+    public static final int TITLE_Y = 4;
+
+    // ---------- 左区：电源 / 遥控器 / 添加 ----------
+    public static final int POWER_Y = 14;
+    public static final int POWER_W = 78;
+    public static final int STATE_Y = 33;
+
+    /** 遥控器槽在面板内的位置（玩家背包槽的坐标靠它推不出来，单独给） */
+    public static final int REMOTE_SLOT_X = 6;
+    public static final int REMOTE_SLOT_Y = 45;
+    public static final int REMOTE_LABEL_X = 28;
+    public static final int REMOTE_LABEL_Y = 50;
+
+    public static final int ADD_BTN_X = 6;
+    public static final int ADD_BTN_Y = 67;
+    public static final int ADD_BTN_W = 78;
+    /** 「添加」按钮下方那句短提示（长句挪到面板底部的 hint 里） */
+    public static final int ADD_HINT_X = 6;
+    public static final int ADD_HINT_Y = 85;
+
+    // ---------- 右区：8 行数据列表 ----------
+    public static final int LIST_X = 132;
+    public static final int LIST_TOP = 14;
+    public static final int ROW_H = 12;
+    public static final int DEL_W = 34;
+    public static final int DEL_H = 11;
+
+    // ---------- 底部 ----------
+    public static final int HINT_Y = 113;
+    public static final int BTN_ROW_Y = 134;
+    public static final int CLEAR_W = 72;
+    public static final int CLOSE_W = 72;
+    public static final int CLOSE_X = (PANEL_W - CLOSE_W) / 2;
 
     /** 玩家背包 3×9 与快捷栏在面板内的位置（9 格 × 18 = 162 宽，居中） */
-    public static final int INV_X = 53;
-    public static final int INV_Y = 222;
-    public static final int HOTBAR_Y = 280;
+    public static final int INV_X = (PANEL_W - 9 * 18) / 2;
+    public static final int INV_Y = 154;
+    public static final int HOTBAR_Y = 210;
 
     private final TileCustomScreen tile;
     private final InventoryBasic remote = new RemoteInventory();

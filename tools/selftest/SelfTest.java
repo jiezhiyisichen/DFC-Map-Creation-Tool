@@ -2982,34 +2982,113 @@ public class SelfTest {
      * 真正会踩的坑是：改了 PANEL_H 却没挪玩家背包 → 快捷栏直接跑出面板外；
      * 或者把遥控器槽往下挪两格 → 压在数据列表第 1 行上。这两种都过不了下面这组检查。
      */
+    /**
+     * 自定义屏 GUI 的版面不变量。
+     *
+     * 【为什么要"算文本包围盒"而不只是"算控件矩形"】上一次这里只断言了控件不重叠，
+     * 结果真正出问题的是**文字**：右对齐的长提示横穿了「遥控器」标签、还压在「添加」
+     * 按钮上（玩家只看到半句残字），底部提示第 2 行被「清空/关闭」盖掉半截。
+     * 现在所有可能压到别人的文字都按"估算宽度"占一块矩形一起参与碰撞检测。
+     */
     private static void testCustomScreenGuiLayout() {
         section("custom screen GUI layout");
-
         final int W = com.jiezhimod.block.ContainerCustomScreen.PANEL_W;
         final int H = com.jiezhimod.block.ContainerCustomScreen.PANEL_H;
+        final int M = com.jiezhimod.block.ContainerCustomScreen.MARGIN;
+        final int slot = 18;
+
+        final int powerY = com.jiezhimod.block.ContainerCustomScreen.POWER_Y;
+        final int powerW = com.jiezhimod.block.ContainerCustomScreen.POWER_W;
+        final int stateY = com.jiezhimod.block.ContainerCustomScreen.STATE_Y;
         final int rx = com.jiezhimod.block.ContainerCustomScreen.REMOTE_SLOT_X;
         final int ry = com.jiezhimod.block.ContainerCustomScreen.REMOTE_SLOT_Y;
+        final int rlx = com.jiezhimod.block.ContainerCustomScreen.REMOTE_LABEL_X;
+        final int rly = com.jiezhimod.block.ContainerCustomScreen.REMOTE_LABEL_Y;
+        final int addX = com.jiezhimod.block.ContainerCustomScreen.ADD_BTN_X;
+        final int addY = com.jiezhimod.block.ContainerCustomScreen.ADD_BTN_Y;
+        final int addW = com.jiezhimod.block.ContainerCustomScreen.ADD_BTN_W;
+        final int ahx = com.jiezhimod.block.ContainerCustomScreen.ADD_HINT_X;
+        final int ahy = com.jiezhimod.block.ContainerCustomScreen.ADD_HINT_Y;
+        final int listX = com.jiezhimod.block.ContainerCustomScreen.LIST_X;
+        final int listTop = com.jiezhimod.block.ContainerCustomScreen.LIST_TOP;
+        final int rowH = com.jiezhimod.block.ContainerCustomScreen.ROW_H;
+        final int delW = com.jiezhimod.block.ContainerCustomScreen.DEL_W;
+        final int hintY = com.jiezhimod.block.ContainerCustomScreen.HINT_Y;
+        final int btnY = com.jiezhimod.block.ContainerCustomScreen.BTN_ROW_Y;
+        final int clearW = com.jiezhimod.block.ContainerCustomScreen.CLEAR_W;
+        final int closeX = com.jiezhimod.block.ContainerCustomScreen.CLOSE_X;
+        final int closeW = com.jiezhimod.block.ContainerCustomScreen.CLOSE_W;
         final int ix = com.jiezhimod.block.ContainerCustomScreen.INV_X;
         final int iy = com.jiezhimod.block.ContainerCustomScreen.INV_Y;
         final int hy = com.jiezhimod.block.ContainerCustomScreen.HOTBAR_Y;
-        final int slot = 18;
+        final int rows = com.jiezhimod.dfc.DfcWatch.MAX;
+        /** 左区的右边界（右区数据列表从这里开始） */
+        final int leftRight = listX - 4;
 
-        check("版面：遥控器槽左右都在面板内",
-                rx >= 0 && rx + slot <= W);
-        check("版面：遥控器槽高度在面板内（且不压到开机按钮那一行）",
-                ry >= 38 && ry + slot <= H);
-        check("版面：玩家背包 9 列不出右边框",
-                ix >= 0 && ix + 9 * slot <= W);
+        // ---------- 0. 硬上限：面板不许超过 1.12.2 保证的最小逻辑分辨率 ----------
+        check("版面：PANEL_H <= 240（GuiContainer 不为超屏做处理，超了标题出屏、底栏压快捷栏）",
+                H <= 240);
+        check("版面：PANEL_W <= 312（6 倍 GUI 缩放下逻辑宽只有约 319）",
+                W <= 312);
+
+        // ---------- 1. 左区：电源 / 状态 / 遥控器 / 添加 ----------
+        check("版面：关机按钮在面板内", M + powerW <= leftRight && powerY + 16 <= H);
+        check("版面：状态文字在关机按钮下方且不压遥控器槽",
+                stateY >= powerY + 16 && stateY + 8 <= ry);
+        check("版面：遥控器槽完整落在左区内", rx >= M && rx + slot <= leftRight
+                && ry + slot <= H);
+        check("版面：遥控器标签不压槽、不越出左区",
+                rlx >= rx + slot && rlx + textW("遥控器") <= leftRight
+                && rly >= ry && rly + 8 <= ry + slot);
+        // 计数文本紧跟在标签后面，必须还在左区内（旧版面就是这里右对齐冲到按钮上）
+        check("版面：遥控器计数不压「添加」按钮/右区列表",
+                rlx + textW("遥控器") + 6 + textW("8/8 台") <= leftRight);
+        check("版面：遥控器槽在添加按钮上方", ry + slot <= addY);
+        check("版面：添加按钮在面板内", addX >= M && addX + addW <= leftRight
+                && addY + 16 <= H);
+        check("版面：添加按钮下方的短提示不压按钮、不越出左区",
+                ahy >= addY + 16 && ahx + textW("把遥控器放进槽位") <= leftRight);
+        check("版面：添加提示在数据列表底部之前结束",
+                ahy + 8 <= listTop + rows * rowH);
+
+        // ---------- 2. 右区：8 行列表 ----------
+        check("版面：数据列表 8 行都在面板内",
+                listTop + rows * rowH <= H);
+        check("版面：删除按钮列不出右边框",
+                W - M - delW >= listX && W - M - delW + delW <= W);
+        check("版面：数据列表与底部提示不重叠",
+                listTop + rows * rowH <= hintY);
+        // 每行要能放下「序号 + 名字 + 读数 + 删除按钮」：名字区至少留 60px
+        check("版面：每行名字区至少 60px 宽（不然名字和读数会叠在一起）",
+                (W - M - delW - 6) - (listX + 12) >= 60);
+
+        // ---------- 3. 底部：提示 / 清空关闭 / 背包 ----------
+        check("版面：提醒最多画 2 行（行距 9），整块在底部按钮之前结束",
+                hintY + 2 * 9 <= btnY);
+        check("版面：清空与关闭按钮不重叠、都在面板内",
+                M + clearW <= closeX && closeX + closeW <= W - M
+                        && btnY + 16 <= H);
+        check("版面：底部按钮在背包上方", btnY + 16 <= iy);
+        check("版面：玩家背包 9 列居中且不出边框", ix >= M && ix + 9 * slot <= W - M);
         check("版面：背包 3 行 + 快捷栏都在面板内（改 PANEL_H 必查这条）",
                 iy + 3 * slot <= H && hy + slot <= H);
-        check("版面：背包在快捷栏上方、两者不重叠",
-                iy + 3 * slot <= hy);
-        // 列表第 1 行在 GUI 里画在 y=64；遥控器槽必须整体在它上面
-        check("版面：遥控器槽不与数据列表重叠",
-                ry + slot <= 64);
-        // 「添加」按钮摆在槽位右边 78 处、宽 60 —— 必须还在面板里
-        check("版面：添加按钮不出右边框",
-                rx + 78 + 60 <= W);
+        check("版面：背包在快捷栏上方、两者不重叠", iy + 3 * slot <= hy);
+        check("版面：快捷栏与面板底边留出余量", hy + slot <= H - 4);
+    }
+
+    /**
+     * 估算一段文字在 Minecraft 默认字体下的宽度。
+     *
+     * 不追求精确（真实宽度要 FontRenderer，离线自测里没有），只求"偏大不偏小"：
+     * ASCII 取 6（等宽字体的常见值，i/l 更窄、W/M 更宽，平均下来 6 够用），
+     * 中日韩字符取 9（原版 unicode 字体固定 9px 宽）。宁可误报"挤了"，也不要漏报。
+     */
+    private static int textW(String s) {
+        int w = 0;
+        for (int i = 0; i < s.length(); i++) {
+            w += s.charAt(i) > 0x2E80 ? 9 : 6;
+        }
+        return w;
     }
 
     private static boolean copyIsIndependent(DfcSnapshot s) {        DfcSnapshot c = DfcSnapshot.copied(s);

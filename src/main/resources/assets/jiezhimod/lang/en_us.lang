@@ -64,9 +64,10 @@ gui.jiezhimod.custom.empty=(empty)
 gui.jiezhimod.custom.offline=offline
 gui.jiezhimod.custom.hint=Put the DFC remote in the slot and click Add (max 8 readings).
 gui.jiezhimod.custom.add=Add
+gui.jiezhimod.custom.add.hint=Put a remote in the slot
 gui.jiezhimod.custom.remote=Remote
-gui.jiezhimod.custom.remote.empty=Insert a remote into the slot
-gui.jiezhimod.custom.remote.count=%s / %s recorded
+gui.jiezhimod.custom.remote.empty=empty
+gui.jiezhimod.custom.remote.count=%s/%s
 
 # ---- Item / block tooltips ----
 tooltip.jiezhimod.coil_speed.0=Speed Coil

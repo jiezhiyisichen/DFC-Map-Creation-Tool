@@ -21,15 +21,13 @@ import java.util.List;
 /**
  * 自定义显示屏的设置界面（**右键方块打开**，这是这块屏与另外两块屏最大的行为差别）。
  *
- * 界面分四段：
- *   1. 开机 / 关机按钮；
- *   2. **遥控器槽位** + 「添加」按钮 —— 把 DFC 遥控器放进槽位，点一下，
- *      遥控器上记录到的设备就全部接进来（这是本次改动的核心）；
- *   3. 8 行的数据列表，每行是"设备 · 数据名 = 读数"，右侧一个"删除"按钮；
- *   4. 玩家背包 + 底部：清空 / 关闭。
+ * 版面分两区（384 宽的两栏在 6 倍 GUI 缩放下会溢出，所以只分左右两块、不做双列列表）：
+ *   · **左区**：开机 / 关机按钮、状态、**遥控器槽位**、「添加」按钮；
+ *   · **右区**：8 行数据列表，每行"序号 / 设备·数据名 / 读数"，右侧一个"删除"按钮；
+ *   · **底部**：提示、清空 / 关闭、玩家背包。
  *
  * 【为什么从 GuiScreen 换成 GuiContainer】
- * 需求变成了"把遥控器**放进**一个槽位"。拖放、Shift 点击都是原版物品槽的机制，
+ * 需求是"把遥控器**放进**一个槽位"。拖放、Shift 点击都是原版物品槽的机制，
  * 自己拿 GuiScreen 画个假格子是拖不进去的 —— 必须用真正的 {@code Slot} + {@code Container}。
  *
  * 【为什么所有东西都画在背景层】
@@ -39,6 +37,11 @@ import java.util.List;
  * 两层坐标系不一样，混着画最容易出"文本偏了半屏"这种低级错。
  * 所以这里干脆**全部画在背景层、一律用绝对坐标**（{@code px + 偏移}），foreground 层留空。
  * 物品图标由 GuiContainer 自己在更后面画，所以图标天然压在底纹之上，不需要额外处理。
+ *
+ * 【为什么面板底色几乎不透明】
+ * 这块屏在世界里本身就画着"尚未接入数据 / 右键本屏打开面板"的引导，
+ * 面板半透明时那几行字会从背后透出来、和列表叠在一起，读不清。
+ * 所以底纹用 0xFB（98%）而不是早些时候的 0xEE。
  *
  * 【列表内容从哪来】客户端方块实体里同步过来的镜像（{@code displaySlots()}）。
  * 这里**只读不写** —— 删除 / 开机关机 / 添加 都发 {@link MessageCustomScreenAction}
@@ -50,12 +53,11 @@ public class GuiCustomScreen extends GuiContainer {
     // 版面尺寸与槽位坐标**全部引用容器里那一份常量**，两边不会错位
     private static final int W = ContainerCustomScreen.PANEL_W;
     private static final int H = ContainerCustomScreen.PANEL_H;
-    private static final int MARGIN = 12;
+    private static final int MARGIN = ContainerCustomScreen.MARGIN;
 
-    private static final int LIST_TOP = 64;
-    private static final int ROW_H = 14;
-    private static final int DEL_W = 36;
     private static final int SLOT_BOX = 18;
+    /** 行文字到"删除"按钮之间的留白 */
+    private static final int VALUE_GAP = 6;
 
     private static final int ID_POWER = 0;
     private static final int ID_CLEAR = 1;
@@ -91,28 +93,30 @@ public class GuiCustomScreen extends GuiContainer {
         int px = this.guiLeft;
         int py = this.guiTop;
 
-        this.powerButton = new GuiButton(ID_POWER, px + MARGIN, py + 20, 90, 16, "");
+        this.powerButton = new GuiButton(ID_POWER, px + MARGIN, py + ContainerCustomScreen.POWER_Y,
+                ContainerCustomScreen.POWER_W, 16, "");
         this.buttonList.add(this.powerButton);
 
-        // 「添加」按钮就摆在遥控器槽位右边 —— 眼睛从槽位扫到按钮是一条直线
-        this.addButton = new GuiButton(ID_ADD,
-                px + ContainerCustomScreen.REMOTE_SLOT_X + 78,
-                py + ContainerCustomScreen.REMOTE_SLOT_Y + 1, 60, 16,
+        this.addButton = new GuiButton(ID_ADD, px + ContainerCustomScreen.ADD_BTN_X,
+                py + ContainerCustomScreen.ADD_BTN_Y, ContainerCustomScreen.ADD_BTN_W, 16,
                 I18n.format("gui.jiezhimod.custom.add"));
         this.buttonList.add(this.addButton);
 
+        int delX = px + W - MARGIN - ContainerCustomScreen.DEL_W;
         for (int i = 0; i < DfcWatch.MAX; i++) {
-            GuiButton b = new GuiButton(ID_DEL_BASE + i,
-                    px + W - MARGIN - DEL_W, py + LIST_TOP + i * ROW_H + 1, DEL_W, 12,
+            GuiButton b = new GuiButton(ID_DEL_BASE + i, delX,
+                    py + ContainerCustomScreen.LIST_TOP + i * ContainerCustomScreen.ROW_H,
+                    ContainerCustomScreen.DEL_W, ContainerCustomScreen.DEL_H,
                     I18n.format("gui.jiezhimod.custom.delete"));
             this.delButtons[i] = b;
             this.buttonList.add(b);
         }
 
-        this.clearButton = new GuiButton(ID_CLEAR, px + MARGIN, py + 196, 76, 16,
-                I18n.format("gui.jiezhimod.custom.clear"));
+        this.clearButton = new GuiButton(ID_CLEAR, px + MARGIN, py + ContainerCustomScreen.BTN_ROW_Y,
+                ContainerCustomScreen.CLEAR_W, 16, I18n.format("gui.jiezhimod.custom.clear"));
         this.buttonList.add(this.clearButton);
-        this.buttonList.add(new GuiButton(ID_CLOSE, px + W / 2 - 35, py + 196, 70, 16,
+        this.buttonList.add(new GuiButton(ID_CLOSE, px + ContainerCustomScreen.CLOSE_X,
+                py + ContainerCustomScreen.BTN_ROW_Y, ContainerCustomScreen.CLOSE_W, 16,
                 I18n.format("gui.jiezhimod.custom.close")));
 
         refreshButtons();
@@ -215,31 +219,16 @@ public class GuiCustomScreen extends GuiContainer {
         int px = this.guiLeft;
         int py = this.guiTop;
 
-        GuiDraw.drawRoundedRect(px, py, W, H, 8.0F, 0xEE0A0A0F);
+        // 98% 不透明：把世界里那块屏自己的引导文字挡掉，见类注释
+        GuiDraw.drawRoundedRect(px, py, W, H, 8.0F, 0xFB0A0A0F);
 
-        // 标题（居中）
-        String title = I18n.format("gui.jiezhimod.custom.title");
-        this.fontRenderer.drawString(title, px + (W - this.fontRenderer.getStringWidth(title)) / 2,
-                py + 6, 0xFFFFFFFF);
-
-        // 开机按钮右侧的状态提示
-        this.fontRenderer.drawString(
-                I18n.format(this.tile.isPowered()
-                        ? "gui.jiezhimod.custom.state.on" : "gui.jiezhimod.custom.state.off"),
-                px + MARGIN + 96, py + 24,
-                this.tile.isPowered() ? 0xFF52E08A : 0xFF888888);
-
+        drawTitle(px, py);
+        drawPowerRow(px, py);
         drawRemoteRow(px, py);
+        drawAddHint(px, py);
         drawList(px, py);
+        drawHint(px, py);
         drawPlayerInventory(px, py);
-
-        // 提示文字**自动折行**：中英长度差一倍多（"放入遥控器"vs"Insert the remote"），
-        // 写死一行必然在一种语言下冲出面板。只用 2 行空间，5px 行距正好塞得下。
-        List<String> hint = this.fontRenderer.listFormattedStringToWidth(
-                I18n.format("gui.jiezhimod.custom.hint"), W - MARGIN * 2);
-        for (int i = 0; i < hint.size() && i < 2; i++) {
-            this.fontRenderer.drawString(hint.get(i), px + MARGIN, py + 182 + i * 10, 0xFF777777);
-        }
     }
 
     @Override
@@ -247,14 +236,37 @@ public class GuiCustomScreen extends GuiContainer {
         // 故意留空：全部画在背景层（绝对坐标），见类注释
     }
 
-    /** 遥控器槽位那一行：槽底 + 标签 + 遥控器里记录了几台 */
+    private void drawTitle(int px, int py) {
+        String title = I18n.format("gui.jiezhimod.custom.title");
+        this.fontRenderer.drawString(title, px + (W - this.fontRenderer.getStringWidth(title)) / 2,
+                py + ContainerCustomScreen.TITLE_Y, 0xFFFFFFFF);
+    }
+
+    /** 左区第一行：开机/关机按钮（按钮本身是 GuiButton，这里只画它右边的状态文字） */
+    private void drawPowerRow(int px, int py) {
+        this.fontRenderer.drawString(
+                I18n.format(this.tile.isPowered()
+                        ? "gui.jiezhimod.custom.state.on" : "gui.jiezhimod.custom.state.off"),
+                px + MARGIN, py + ContainerCustomScreen.STATE_Y,
+                this.tile.isPowered() ? 0xFF52E08A : 0xFF888888);
+    }
+
+    /**
+     * 遥控器槽位那一行：槽底 + 「遥控器」标签 + 计数。
+     *
+     * 【为什么计数紧跟标签、不再右对齐到面板右边】右对齐会把一串长文案横穿到右区的
+     * 数据列表上（旧版面里它甚至盖住了「添加」按钮，玩家只看到半句残字）。
+     * 现在它只在左区内排版，宽度不够就按像素裁 —— 宁可截断，也不许压到别的控件。
+     */
     private void drawRemoteRow(int px, int py) {
         int sx = px + ContainerCustomScreen.REMOTE_SLOT_X;
         int sy = py + ContainerCustomScreen.REMOTE_SLOT_Y;
         drawSlotBox(sx, sy);
 
-        this.fontRenderer.drawString(I18n.format("gui.jiezhimod.custom.remote"),
-                sx + SLOT_BOX + 6, sy + 5, 0xFF9AA7B4);
+        String label = I18n.format("gui.jiezhimod.custom.remote");
+        int lx = px + ContainerCustomScreen.REMOTE_LABEL_X;
+        int ly = py + ContainerCustomScreen.REMOTE_LABEL_Y;
+        this.fontRenderer.drawString(label, lx, ly, 0xFF9AA7B4);
 
         ItemStack remote = remoteInSlot();
         String text;
@@ -267,45 +279,77 @@ public class GuiCustomScreen extends GuiContainer {
                     ItemDfcRemote.deviceCount(remote), ItemDfcRemote.MAX_DEVICES);
             color = ItemDfcRemote.deviceCount(remote) > 0 ? 0xFF7FE3A0 : 0xFFD8B25A;
         }
-        // 右对齐贴着面板右边 —— 长句也不会顶出面板
-        this.fontRenderer.drawString(text, px + W - MARGIN - this.fontRenderer.getStringWidth(text),
-                sy + 5, color);
+        int tx = lx + this.fontRenderer.getStringWidth(label) + 6;
+        // 左边只能用到 LIST_X 之前，超出按像素裁（不压到右区列表）
+        int maxW = Math.max(12, (px + ContainerCustomScreen.LIST_X - 4) - tx);
+        this.fontRenderer.drawString(this.fontRenderer.trimStringToWidth(text, maxW), tx, ly, color);
     }
 
-    /** 数据列表：8 行，每行 序号 / 设备·数据名 / 读数，右侧是"删除"按钮 */
+    /** 「添加」按钮下方那句短提示（按钮本身是 GuiButton） */
+    private void drawAddHint(int px, int py) {
+        int hx = px + ContainerCustomScreen.ADD_HINT_X;
+        // 同样只在左区内排版：右边是数据列表，不许压过去
+        int maxW = Math.max(12, (px + ContainerCustomScreen.LIST_X - 4) - hx);
+        this.fontRenderer.drawString(
+                this.fontRenderer.trimStringToWidth(
+                        I18n.format("gui.jiezhimod.custom.add.hint"), maxW),
+                hx, py + ContainerCustomScreen.ADD_HINT_Y, 0xFF6A7480);
+    }
+
+    /** 右区数据列表：8 行，每行 序号 / 设备·数据名 / 读数，右侧是"删除"按钮 */
     private void drawList(int px, int py) {
         List<DfcWatch> list = slots();
-        int textX = px + MARGIN;
-        int delX = px + W - MARGIN - DEL_W;
+        int textX = px + ContainerCustomScreen.LIST_X;
+        int delX = px + W - MARGIN - ContainerCustomScreen.DEL_W;
+        // 读数右对齐到这里；名字区就是 textX .. valueRight
+        int valueRight = delX - VALUE_GAP;
 
         for (int i = 0; i < DfcWatch.MAX; i++) {
-            int rowY = py + LIST_TOP + i * ROW_H;
+            int rowY = py + ContainerCustomScreen.LIST_TOP + i * ContainerCustomScreen.ROW_H;
             // 隔行深浅底：8 行挤在一起，没有斑马纹很容易看串行
             if ((i & 1) == 0) {
-                GuiDraw.drawRoundedRect(px + MARGIN - 2, rowY - 1, W - MARGIN * 2 + 4,
-                        ROW_H, 2.0F, 0x22FFFFFF);
+                GuiDraw.drawRoundedRect(textX - 4, rowY - 1,
+                        (px + W - MARGIN) - (textX - 4), ContainerCustomScreen.ROW_H,
+                        2.0F, 0x22FFFFFF);
             }
-            this.fontRenderer.drawString((i + 1) + ".", textX, rowY + 3, 0xFF666666);
+            this.fontRenderer.drawString((i + 1) + ".", textX, rowY + 2, 0xFF666666);
 
             if (i >= list.size()) {
                 this.fontRenderer.drawString(I18n.format("gui.jiezhimod.custom.empty"),
-                        textX + 14, rowY + 3, 0xFF444444);
+                        textX + 12, rowY + 2, 0xFF444444);
                 continue;
             }
 
             DfcWatch w = list.get(i);
-            String left = w.device + " · " + (w.name == null || w.name.isEmpty() ? "--" : w.name);
-            if (left.length() > 20) {
-                left = left.substring(0, 20) + "…";
-            }
-            this.fontRenderer.drawString(left, textX + 14, rowY + 3,
-                    w.alive ? 0xFFCCCCCC : 0xFF995555);
-
             String value = w.alive ? w.value : I18n.format("gui.jiezhimod.custom.offline");
-            // 数值右对齐贴着"删除"按钮左边，长读数（"1.23 GHE / 2.50 GHE"）也放得下
-            int vx = delX - 6 - this.fontRenderer.getStringWidth(value);
-            this.fontRenderer.drawString(value, Math.max(textX + 110, vx), rowY + 3,
+            int valueW = this.fontRenderer.getStringWidth(value);
+            int valueX = valueRight - valueW;
+
+            // 名字按**像素**裁，裁到还剩多少算多少 —— 早先按"20 个字符"裁，
+            // 汉字是等宽英文的两倍宽，长名字照样会压到右边的读数上。
+            int nameW = Math.max(8, valueX - VALUE_GAP - (textX + 12));
+            String left = w.device + " · " + (w.name == null || w.name.isEmpty() ? "--" : w.name);
+            this.fontRenderer.drawString(this.fontRenderer.trimStringToWidth(left, nameW),
+                    textX + 12, rowY + 2, w.alive ? 0xFFCCCCCC : 0xFF995555);
+
+            this.fontRenderer.drawString(value, Math.max(textX + 12, valueX), rowY + 2,
                     w.alive ? 0xFF48D6FF : 0xFF995555);
+        }
+    }
+
+    /**
+     * 底部提示：**只画 2 行**，且整块必须在底部按钮**上方**结束。
+     *
+     * 旧版面把提示放在 y=182、按钮放在 y=196，第 2 行的下半截正好被按钮盖住
+     * （玩家看到的是半个「条)」）。现在提示区高度固定为 2 行 × 9px = 18，
+     * 且 HINT_Y + 18 &lt;= BTN_ROW_Y，SelfTest 有断言。
+     */
+    private void drawHint(int px, int py) {
+        List<String> hint = this.fontRenderer.listFormattedStringToWidth(
+                I18n.format("gui.jiezhimod.custom.hint"), W - MARGIN * 2);
+        for (int i = 0; i < hint.size() && i < 2; i++) {
+            this.fontRenderer.drawString(hint.get(i), px + MARGIN,
+                    py + ContainerCustomScreen.HINT_Y + i * 9, 0xFF777777);
         }
     }
 

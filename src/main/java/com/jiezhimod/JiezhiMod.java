@@ -24,7 +24,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "3.5";
+    public static final String VERSION = "3.6";
 
     @Instance(MODID)
     public static JiezhiMod instance;
