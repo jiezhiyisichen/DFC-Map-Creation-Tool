@@ -131,6 +131,7 @@ public class SelfTest {
         testRoundedRows();
         testKeypadLayout();
         testRefreshRate();
+        testOverlayBanner();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -2709,6 +2710,92 @@ public class SelfTest {
 
         check("圆角行：半径为 0 时完全不缩（退化成矩形）",
                 com.jiezhimod.client.util.GuiGeometry.rowInset(0.0F, h, 0) == 0.0F);
+    }
+
+    /**
+     * 覆盖弹窗（熔毁 / 引爆）的纯逻辑。
+     *
+     * 【为什么值得单测】弹窗的状态机决定了"什么时候弹、弹哪一种、箭头跳到第几批、
+     * 倒计时显示多少" —— 这些如果只写在渲染代码里，就只能进游戏看效果。
+     * 而这轮没法反复实机验证，所以把能离线算的部分全部钉死：
+     *   · 引爆器优先于普通熔毁（玩家主动拉的引爆器，屏幕上要写"引爆"而不是"熔毁"）；
+     *   · 没连接核心就不弹（屏幕离线时弹警告是假警报）；
+     *   · 倒计时用坍缩度反算（{@code (1-collapsing)*120}），不依赖 explosionIn 的单位；
+     *   · 弹入/弹出进度必须落在 0~1 且单调；
+     *   · 箭头按 3→2→1 循环。
+     */
+    private static void testOverlayBanner() {
+        section("overlay banner logic");
+        final int NONE = com.jiezhimod.dfc.OverlayBanner.KIND_NONE;
+        final int MELT = com.jiezhimod.dfc.OverlayBanner.KIND_MELTDOWN;
+        final int DET = com.jiezhimod.dfc.OverlayBanner.KIND_DETONATE;
+
+        check("弹窗：没连接核心 -> 不弹",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.9D, true, false) == NONE);
+        check("弹窗：坍缩度 > 0 -> 熔毁弹窗",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.2D, false, true) == MELT);
+        check("弹窗：引爆器启动 -> 引爆弹窗（优先于熔毁）",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.2D, true, true) == DET);
+        check("弹窗：一切正常 -> 不弹",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.0D, false, true) == NONE);
+
+        check("倒计时：坍缩度 0.35 -> 还剩 78 秒",
+                com.jiezhimod.dfc.OverlayBanner.remainSeconds(0.35D) == 78);
+        check("倒计时：坍缩度 0 -> -1（没有倒计时）",
+                com.jiezhimod.dfc.OverlayBanner.remainSeconds(0.0D) == -1);
+        check("倒计时：坍缩度 1 -> 0 秒",
+                com.jiezhimod.dfc.OverlayBanner.remainSeconds(1.0D) == 0);
+
+        check("时间格式：78 秒 -> 1:18",
+                "1:18".equals(com.jiezhimod.dfc.OverlayBanner.mmss(78)));
+        check("时间格式：0 秒 -> 0:00",
+                "0:00".equals(com.jiezhimod.dfc.OverlayBanner.mmss(0)));
+        check("时间格式：负数 -> --:--",
+                "--:--".equals(com.jiezhimod.dfc.OverlayBanner.mmss(-1)));
+
+        check("弹入：起点为 0", com.jiezhimod.dfc.OverlayBanner.inProgress(0L) == 0.0F);
+        check("弹入：结束后恒为 1",
+                com.jiezhimod.dfc.OverlayBanner.inProgress(
+                        com.jiezhimod.dfc.OverlayBanner.IN_MS + 50L) == 1.0F);
+        boolean monotonic = true;
+        float prev = -1.0F;
+        for (long t = 0L; t <= com.jiezhimod.dfc.OverlayBanner.IN_MS; t += 20L) {
+            float v = com.jiezhimod.dfc.OverlayBanner.inProgress(t);
+            if (v < prev - 1.0E-4F || v < 0.0F || v > 1.0F) {
+                monotonic = false;
+            }
+            prev = v;
+        }
+        check("弹入：进度单调不减且始终在 0~1", monotonic);
+
+        check("弹出：起点为 0", com.jiezhimod.dfc.OverlayBanner.outProgress(0L) == 0.0F);
+        check("弹出：结束后恒为 1",
+                com.jiezhimod.dfc.OverlayBanner.outProgress(
+                        com.jiezhimod.dfc.OverlayBanner.OUT_MS + 10L) == 1.0F);
+
+        long period = com.jiezhimod.dfc.OverlayBanner.ARROW_PERIOD_MS;
+        check("箭头：t=0 是 3 个", com.jiezhimod.dfc.OverlayBanner.arrowBatch(0L) == 3);
+        check("箭头：过一档变 2 个", com.jiezhimod.dfc.OverlayBanner.arrowBatch(period) == 2);
+        check("箭头：过两档变 1 个", com.jiezhimod.dfc.OverlayBanner.arrowBatch(period * 2L) == 1);
+        check("箭头：过三档回到 3 个（循环）",
+                com.jiezhimod.dfc.OverlayBanner.arrowBatch(period * 3L) == 3);
+        boolean batchOk = true;
+        for (long t = 0L; t < period * 12L; t += 17L) {
+            int b = com.jiezhimod.dfc.OverlayBanner.arrowBatch(t);
+            if (b < 1 || b > 3) {
+                batchOk = false;
+            }
+        }
+        check("箭头：任意时刻批数都在 1~3", batchOk);
+
+        boolean pulseOk = true;
+        for (long t = 0L; t < 1300L; t += 37L) {
+            float v = com.jiezhimod.dfc.OverlayBanner.pulse(t);
+            if (v < 0.0F || v > 1.0F) {
+                pulseOk = false;
+            }
+        }
+        check("闪烁强度：始终在 0~1", pulseOk);
     }
 
     /**

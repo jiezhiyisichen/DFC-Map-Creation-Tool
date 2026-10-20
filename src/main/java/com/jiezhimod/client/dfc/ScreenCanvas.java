@@ -3,6 +3,7 @@ package com.jiezhimod.client.dfc;
 import com.jiezhimod.dfc.DfcFormat;
 import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.DfcWatch;
+import com.jiezhimod.dfc.OverlayBanner;
 import com.jiezhimod.dfc.ScreenLayout;
 import com.jiezhimod.keypad.KeypadLayout;
 import net.minecraft.client.Minecraft;
@@ -224,12 +225,21 @@ public final class ScreenCanvas {
      */
     public void render(long sinceOnMs, boolean powered, DfcSnapshot data, List<String> events, int page,
                        long faultElapsedMs) {
+        // 覆盖弹窗（熔毁 / 引爆）需要连贯动画，所以有弹窗时把节拍压到 40ms；
+        // 没弹窗时仍按各自设定的刷新率走（那是玩家为了省性能调慢的）。
+        int wantOverlay = powered
+                ? OverlayBanner.decide(data.collapsing, data.detonation, data.linked)
+                : OverlayBanner.KIND_NONE;
+
         long step = 50L;
         if (powered && faultElapsedMs < 0L
                 && ScreenLayout.phaseAt(sinceOnMs) == ScreenLayout.PHASE_MAIN) {
             // 主界面按这台屏自己的刷新率重绘。开机自检/控制台/报错页仍用 50ms ——
             // 那几段是"动画"，调慢了会像卡住。
             step = this.mainStepMs;
+        }
+        if (wantOverlay != OverlayBanner.KIND_NONE || this.overlayKind != OverlayBanner.KIND_NONE) {
+            step = Math.min(step, 40L);
         }
         long phase = powered ? sinceOnMs : paintMs();
         this.framePhaseMs = phase;
@@ -248,7 +258,8 @@ public final class ScreenCanvas {
 
         if (!powered) {
             drawOff();
-        } else if (faultElapsedMs >= 0L) {
+        } else if (faultElapsedMs >= 0L && wantOverlay == OverlayBanner.KIND_NONE) {
+            // 有倒计时弹窗时让开报错页：正在数秒的时候整屏切到 301，反而看不出还剩多久
             drawFault(faultElapsedMs);
         } else {
             int p = ScreenLayout.phaseAt(sinceOnMs);
@@ -272,6 +283,10 @@ public final class ScreenCanvas {
         }
 
         drawScanlines();
+        // 弹窗画在扫描线之上：警告要清楚，别被 CRT 条纹削弱
+        if (powered) {
+            drawOverlay(wantOverlay, data, System.currentTimeMillis());
+        }
         // 画完就把像素抓出来；GL 上传留给渲染线程
         image.getRGB(0, 0, TEX_W, TEX_H, pixels, 0, TEX_W);
         pixelDirty = true;
@@ -1498,6 +1513,137 @@ public final class ScreenCanvas {
         hline(nx + 5, ny + 44, nw - 10, 0xFFC9BBA0);
 
         g2.setTransform(old);
+    }
+
+    // ==================== 覆盖弹窗（熔毁 / 引爆） ====================
+
+    /** 当前正在显示的弹窗类型（0 = 不显示）。进出动画靠它做状态机 */
+    private int overlayKind = OverlayBanner.KIND_NONE;
+    /** 这一次弹窗出现的时刻（弹入动画起点） */
+    private long overlayStartMs;
+    /** 开始弹出的时刻；-1 = 还在显示中 */
+    private long overlayHideStartMs = -1L;
+    /** 剩余秒数（-1 = 没有倒计时） */
+    private int overlaySeconds = -1;
+
+    /**
+     * 推进弹窗状态机并绘制。
+     *
+     * 【为什么要有状态机，而不是"有数据就画"】
+     * 需求要"弹入有动画、消失也有动画"。如果只按快照判断，
+     * 数据一消失画面就硬切 —— 看不出"它是被收走的"。
+     * 所以这里记住第一次出现的时刻，并在数据消失后再维持 {@link OverlayBanner#OUT_MS} 播放收起。
+     */
+    private void drawOverlay(int want, DfcSnapshot data, long now) {
+        if (want != OverlayBanner.KIND_NONE) {
+            if (this.overlayKind != want) {
+                this.overlayKind = want;
+                this.overlayStartMs = now;
+                this.overlayHideStartMs = -1L;
+            }
+            this.overlaySeconds = OverlayBanner.remainSeconds(data.collapsing);
+        } else if (this.overlayKind != OverlayBanner.KIND_NONE) {
+            if (this.overlayHideStartMs < 0L) {
+                this.overlayHideStartMs = now;
+            }
+            if (OverlayBanner.outProgress(now - this.overlayHideStartMs) >= 1.0F) {
+                this.overlayKind = OverlayBanner.KIND_NONE;
+                this.overlayHideStartMs = -1L;
+                return;
+            }
+        } else {
+            return;
+        }
+
+        float in = OverlayBanner.inProgress(now - this.overlayStartMs);
+        float out = this.overlayHideStartMs < 0L ? 0.0F
+                : OverlayBanner.outProgress(now - this.overlayHideStartMs);
+        float alpha = Math.max(0.0F, in * (1.0F - out));
+        if (alpha <= 0.02F) {
+            return;
+        }
+        // 弹入从上方滑下、弹出往上方滑走 —— 方向一致，看起来像"被塞进去又抽走"
+        float slide = (1.0F - in) * 26.0F - out * 26.0F;
+        paintBanner(this.overlayKind, this.overlaySeconds, alpha, slide, now);
+    }
+
+    private void paintBanner(int kind, int seconds, float alpha, float slideY, long now) {
+        boolean melt = kind == OverlayBanner.KIND_MELTDOWN;
+        int theme = melt ? 0xFFE03030 : 0xFFFF8A2A;
+        int themeSoft = melt ? 0xFF7A1414 : 0xFF7A3C0A;
+
+        float pulse = OverlayBanner.pulse(now);
+        int w = 214;
+        int h = 104;
+        int x = (LW - w) / 2;
+        int y = 40 + Math.round(slideY);
+
+        // 光晕：由外到内三层，越靠外越淡 —— 红/橙光晕是"绚丽"的主要来源
+        rect(x - 12, y - 12, w + 24, h + 24, argb(theme, alpha * (0.08F + 0.06F * pulse)));
+        rect(x - 7, y - 7, w + 14, h + 14, argb(theme, alpha * (0.16F + 0.10F * pulse)));
+        rect(x - 3, y - 3, w + 6, h + 6, argb(theme, alpha * (0.26F + 0.14F * pulse)));
+
+        // 底：几乎不透明的深色，保证字在明亮背景下也读得清
+        rect(x, y, w, h, argb(melt ? 0xFF160406 : 0xFF180A02, alpha));
+        // 边框（随脉冲呼吸）
+        int edge = argb(theme, alpha * (0.75F + 0.25F * pulse));
+        rect(x, y, w, 2, edge);
+        rect(x, y + h - 2, w, 2, edge);
+        rect(x, y, 2, h, edge);
+        rect(x + w - 2, y, 2, h, edge);
+
+        // 上下斜纹条
+        stripes(x + 2, y + 2, w - 4, 9, argb(themeSoft, alpha * 0.9F), argb(theme, alpha * 0.55F));
+        stripes(x + 2, y + h - 11, w - 4, 9, argb(themeSoft, alpha * 0.9F), argb(theme, alpha * 0.55F));
+
+        // 标题
+        String title = melt ? "注 意 //" : "// DFC 核心引爆 //";
+        textCenterIn(title, x, w, y + 26, argb(theme, alpha), fCjkBold(12));
+
+        // 正文两行（序号固定，别再往下加 —— 下面 30px 是倒计时专用的）
+        String l1 = melt ? "反应堆核心已达到危急临界级别" : "检测到 DFC 引爆器已启动";
+        String l2 = melt ? "立即撤离至储备仓库或尝试停用反应堆" : "核心即将引爆，立即撤离";
+        textCenterIn(l1, x, w, y + 46, argb(0xFFE8D8D0, alpha), fCjk(8));
+        textCenterIn(l2, x, w, y + 59, argb(0xFFE8D8D0, alpha), fCjk(8));
+
+        // 倒计时：箭头批数 3→2→1 脉冲，参考截图里 >>>> 3:14 <<<< 的样子
+        int batch = OverlayBanner.arrowBatch(now);
+        String arrowsL = repeat('>', batch);
+        String arrowsR = repeat('<', batch);
+        String time = OverlayBanner.mmss(seconds);
+        Font big = fMonoBold(22);
+        int tw = textWidthLog(time, big);
+        int aw = textWidthLog(arrowsL, big);
+        int total = aw * 2 + tw + 18;
+        int cx = x + (w - total) / 2;
+        int baseY = y + 88;
+        text(arrowsL, cx, baseY, argb(theme, alpha * 0.85F), big);
+        text(time, cx + aw + 9, baseY, argb(theme, alpha), big);
+        text(arrowsR, cx + aw + 9 + tw, baseY, argb(theme, alpha * 0.85F), big);
+    }
+
+    /** 斜纹条：45 度短斜线，模拟警戒带 */
+    private void stripes(int x, int y, int w, int h, int bg, int fg) {
+        rect(x, y, w, h, bg);
+        g.setColor(new Color(fg, true));
+        for (int i = -h; i < w; i += 8) {
+            g.drawLine((x + i) * SS, (y + h - 1) * SS, (x + i + h - 1) * SS, y * SS);
+        }
+    }
+
+    /** 把颜色按 alpha 缩放（保留 RGB） */
+    private static int argb(int color, float alpha) {
+        int a = (color >>> 24) & 255;
+        int na = Math.max(0, Math.min(255, Math.round(a * alpha)));
+        return (na << 24) | (color & 0x00FFFFFF);
+    }
+
+    private static String repeat(char c, int n) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) {
+            sb.append(c);
+        }
+        return sb.toString();
     }
 
     // ==================== 绘制原语（逻辑坐标 -> 物理坐标） ====================

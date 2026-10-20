@@ -30,6 +30,7 @@ public class CanvasDump {
         dump("console", 2000L,   true,  snap, ev, ScreenCanvas.PAGE_CORE);
         dump("main",    999999L, true,  snap, ev, ScreenCanvas.PAGE_CORE);
         dumpKeypad();
+        dumpBanner();
 
         // 单独测空数据快照（未绑定数据源时的样子）：两页都要看
         dump("main_nolink", 999999L, true, DfcSnapshot.empty(), ev, ScreenCanvas.PAGE_CORE);
@@ -301,6 +302,38 @@ public class CanvasDump {
         File f = new File(out, "dfc_canvas_" + tag + ".png");
         ImageIO.write(img, "png", f);
         System.out.println("      -> " + f.getAbsolutePath());
+    }
+
+    /**
+     * 导出覆盖弹窗（熔毁 / 引爆）。
+     *
+     * 弹窗是纯 AWT 画的（红框、斜纹、箭头、倒计时），可以脱离 GL 导出。
+     * 这里故意"渲染两次"：第一次只用来启动弹入动画，睡 220ms 后再渲染 ——
+     * 此时 alpha 已到 1，导出的就是"弹到位"的样子。
+     */
+    private static void dumpBanner() throws Exception {
+        java.util.List<String> ev = new java.util.ArrayList<String>();
+
+        // 熔毁：坍缩度 0.35 -> 剩余 (1-0.35)*120 = 78 秒 = 1:18
+        ScreenCanvas c = new ScreenCanvas();
+        DfcSnapshot melt = new DfcSnapshot();
+        melt.linked = true;
+        melt.collapsing = 0.35D;
+        c.render(999999L, true, melt, ev, ScreenCanvas.PAGE_CORE);
+        Thread.sleep(220L);
+        c.render(1000300L, true, melt, ev, ScreenCanvas.PAGE_CORE);
+        writeKeypad(c, "banner_meltdown");
+
+        // 引爆器：坍缩度 0.5 -> 60 秒 = 1:00
+        ScreenCanvas c2 = new ScreenCanvas();
+        DfcSnapshot det = new DfcSnapshot();
+        det.linked = true;
+        det.detonation = true;
+        det.collapsing = 0.5D;
+        c2.render(999999L, true, det, ev, ScreenCanvas.PAGE_CORE);
+        Thread.sleep(220L);
+        c2.render(1000300L, true, det, ev, ScreenCanvas.PAGE_CORE);
+        writeKeypad(c2, "banner_detonate");
     }
 
     /** 从 RGBA 像素数组里裁一块（逻辑坐标，内部 ×SS）并做整数倍最近邻放大 */

@@ -154,6 +154,9 @@ public class TileDfcScreen extends TileEntity implements ITickable {
      */
     private double clientPrevCollapsing;
 
+    /** 引爆器原始值只打一次日志（每个进程一次，不随屏幕数量翻倍） */
+    private static boolean DETONATION_LOGGED;
+
     // ==================== 生命周期 ====================
 
     @Override
@@ -213,6 +216,15 @@ public class TileDfcScreen extends TileEntity implements ITickable {
         // 结构自检：12 格必须都是本方块且 part 对得上
         if (this.data.componentCount == 0 && this.powered) {
             this.data.componentCount = this.countOwnParts();
+        }
+
+        // 引爆器启动时打一次原始值：detonationTimer 的单位（秒还是 tick）在作者代码里
+        // 没有注释，先记下来，下次实机就能校准倒计时的换算。
+        if (this.data.detonation && !DETONATION_LOGGED) {
+            DETONATION_LOGGED = true;
+            com.jiezhimod.JiezhiMod.warn("[DFC] detonation started: raw timer="
+                    + this.data.detonationTimer + " explodingIn=" + this.data.explosionIn
+                    + " collapsing=" + this.data.collapsing);
         }
 
         appendEvents(ScreenLayout.pendingEvents(this.prev, this.data));
