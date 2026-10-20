@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9-beta.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.1.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-3.9--betaFF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.1--betaFF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -19,7 +19,7 @@
 
 <p align="center">
   给 <b>地图作者</b> 与 <b>短片作者</b> 用的一套 Minecraft 视觉特效工具包。<br>
-  视角抖动 · 白屏震撼弹 · 字幕 · 倒计时 · 通知 · 聊天栏动效 · 线圈道具 · 红石延时器 · 喷气背包 · DFC 监控显示器
+  视角抖动 · 白屏震撼弹 · 字幕 · 倒计时 · 通知 · 聊天栏动效 · 线圈道具 · 密码盘 · 密码控制台 · 调试棒 · 喷气背包 · DFC 监控显示器
 </p>
 
 <p align="center">
@@ -35,7 +35,6 @@
 - [功能总览](#-功能总览)
 - [DFC 监控显示器（重头戏）](#-dfc-监控显示器重头戏)
 - [物品：三种线圈 + 喷气背包 + DFC 遥控器](#-物品三种线圈--喷气背包--dfc-遥控器)
-- [方块：红石延时器](#-方块红石延时器)
 - [指令手册（详细）](#-指令手册详细)
 - [安装](#-安装)
 - [从源码构建](#-从源码构建)
@@ -112,7 +111,7 @@
 | **聊天栏** | 消息弹起 / 滑出 / 滑入三套动画 | 自动生效 |
 | **线圈道具** | 加速线圈、重力线圈、治愈线圈 | 创造物品栏「jiezhimod物品」 |
 | **喷气背包** | 胸甲槽飞行 + 热量条 + 过热锁定 | 创造物品栏「jiezhimod物品」 |
-| **红石延时器** | 信号整体延后输出，可设方向 | 创造物品栏「jiezhimod-红石」 |
+| **密码盘** | 占一格、高半格，触摸式数字键盘 | 创造物品栏「jiezhimod-红石」 |
 | **DFC 显示器** | 监控显示器 / 部件监视器 / 自定义显示屏 + 遥控器 | 创造物品栏「DFC显示器」 |
 
 <details>
@@ -261,40 +260,6 @@
 - **治愈线圈**：服务端每秒 `heal(4.0F)`。想要 4 颗心（8 点/秒），把 `HealingCoilEffect.HEAL_PER_SECOND` 改成 `8.0F` 重编译即可。
 
 </details>
-
----
-
-## 🧱 方块：红石延时器
-
-<p align="center"><img src="screenshots/blocks.png" width="62%" alt="方块一览"></p>
-
-`jiezhimod:delay_block` —— 把红石信号**整体延后**一段时间再输出。上升沿和下降沿都延时，所以一段脉冲是"整段后移"，**不会被压扁也不会被吞掉**（1 tick 的短脉冲照样能穿过去）。
-
-**右键打开设置界面**：
-
-| 项目 | 说明 |
-|---|---|
-| 延时时间 | 数值 + `-` `-10` `+` `+10` 微调，最大 9999；换算后封顶 1200000 tick（约 16.7 小时） |
-| 单位 | `tick` / `秒` / `分` 三选一 |
-| 输出方向 | `向前(直通)` / `向左` / `向右` / `三向`，**全部以信号进入的那一面为基准** |
-| 状态行 | 当前输入 / 输出电平，以及距离下一次翻转还剩多少 tick |
-
-**输出方向跟信号进来的那一面走，和方块摆放朝向无关**——放下就能用，不用转方块：
-
-| 信号从哪面进 | 向前（直通）出 | 向左出 | 向右出 |
-|---|---|---|---|
-| 北面 | 南面 | 东面 | 西面 |
-| 南面 | 北面 | 西面 | 东面 |
-| 东面 | 西面 | 南面 | 北面 |
-| 西面 | 东面 | 北面 | 南面 |
-| 上面 | 下面 | 下面（退化） | 下面（退化） |
-| 下面 | 上面 | 上面（退化） | 上面（退化） |
-
-信号从上面 / 下面进来时没有"左右"可言（竖直方向绕 Y 轴旋转无定义），此时左 / 右 / 三向统一退化成正对面输出。输入方向在**上升沿锁存**（同中继器），挪动线路后可以点界面上的"重检方向"。
-
-```
-/give <玩家> jiezhimod:delay_block
-```
 
 ---
 
@@ -553,8 +518,8 @@
 ## 🚀 安装
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
-2. 把 `jiezhi-1.12.2-dfcmaptools-3.9-beta.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9-beta is loading.` 即加载成功；
+2. 把 `jiezhi-1.12.2-dfcmaptools-3.9.1.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.1 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。
@@ -581,14 +546,14 @@ cd <仓库名>
 ```bat
 :: 1. 编译出基础 jar
 gradlew.bat build --offline
-::    -> build\libs\jiezhi-1.12.2-dfcmaptools-3.9-beta.jar
+::    -> build\libs\jiezhi-1.12.2-dfcmaptools-3.9.1.jar
 
 :: 2. ProGuard 混淆
 java -jar tools\proguard-7.4.2\lib\proguard.jar @tools\proguard.pro
 ::    -> tools\obf.jar
 
 :: 3. 注入完整性封印（内含 ASM StackMapTable 补帧 + SealA/SealB 哈希注入）
-python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3.9-beta.jar
+python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3.9.1.jar
 ```
 
 **为什么必须三步全跑？** jar 内置**双重完整性校验**：业务类的聚合哈希在构建期被固化进 Seal，运行时校验不过就直接崩溃。所以改了源码却不重跑三步，进游戏必定 `integrity check failed`。**纯资源改动（贴图 / mcmod.info / 语言文件）也要重跑**。
@@ -596,7 +561,7 @@ python tools\seal_inject.py tools\obf.jar build\libs\jiezhi-1.12.2-dfcmaptools-3
 ### 构建后必验
 
 ```bat
-python tools\check_stackmap.py build\libs\jiezhi-1.12.2-dfcmaptools-3.9-beta.jar   :: 期望输出 OK
+python tools\check_stackmap.py build\libs\jiezhi-1.12.2-dfcmaptools-3.9.1.jar   :: 期望输出 OK
 python tools\selftest\run_selftest.py                                        :: 期望 ALL GREEN
 :: 编译并运行 tools\testmain\TestMain.java，期望输出 SEAL OK
 ```
@@ -626,7 +591,7 @@ python tools\selftest\run_selftest.py                                        :: 
 │   └── 常见问题.md
 ├── src/main/java/com/jiezhimod/
 │   ├── JiezhiMod.java              # @Mod 入口
-│   ├── block/                      # 方块：红石延时器、DFC 显示屏（控制器 + 占位块 + 多方块逻辑）
+│   ├── block/                      # 方块：DFC 显示屏、密码盘 / 控制台（含多方块与占位块）
 │   ├── item/                       # 物品：线圈、喷气背包、DFC 遥控器
 │   ├── command/                    # 全部指令
 │   ├── client/                     # 客户端渲染：特效、聊天栏、通知、DFC 画布
@@ -730,6 +695,7 @@ jar 内置完整性校验，说明文件被改动过（反编译、二次打包�
 
 摘要（完整版见 [CHANGELOG.md](CHANGELOG.md)）：
 
+- **3.9.1**（紧急修复 + 测试版） —— **屏幕刷新率可调**（50/100/200/500/1000 ms，默认仍 50ms，四块屏同时开掉帧的问题靠它缓解）；新增**调试棒**（蹲下右键任意本模组方块，显示器可调刷新率并显示推荐值）；**彻底删除红石延时器**。
 - **3.9-beta**（测试版） —— 新增**密码盘**（占一格、高半格、触摸式、密码随机、便签展示）、**密码控制台**（接收红石信号后锁定/解锁/清空密码盘；密码正确时输出红石）、**密码连接器**（蹲下右键密码盘记录 → 蹲下右键控制台绑定）。
 - **3.8** —— 面板底色仍不可见，根因是自绘填充走 `disableTexture2D() + POSITION_COLOR`（HBM 会直接改 GL 状态，`GlStateManager` 纹理缓存失同步时这条路等于没画）。改走**和文字完全相同**的路径：绑自带纯白纹理 + `POSITION_TEX_COLOR`；面板底色改为**完全不透明**；新增 `[GuiCustomScreen]` / `[GuiDraw]` 排错日志；修掉自测脚本"永远在验最老 jar"的 bug。
 - **3.7** —— 修好「面板底色是透明的」：`GuiDraw` 的三角化写错（圆角路径的中心点只发一次、方角路径的三角形全是零面积），**底色 / 斑马纹 / 物品格子从来没画出来过**。几何抽到 `GuiGeometry` 并补 10 条几何自测。连带修好延迟方块 GUI、通知列表、热量条、通知 HUD 的底纹。

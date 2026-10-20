@@ -10,7 +10,6 @@ tile.dfc_custom.name=DFC Custom Display
 item.dfc_remote.name=DFC Remote
 itemGroup.jiezhimod_screen=DFC Screens
 
-tile.delay_block.name=Redstone Delay Block
 itemGroup.jiezhimod_redstone=jiezhimod-Redstone
 
 # Notice UI
@@ -19,37 +18,6 @@ key.jiezhimod.notice=Notice History (P by default)
 gui.jiezhimod.notice.title=Notice History
 gui.jiezhimod.notice.hint=Mouse wheel to scroll  /  Esc to close
 gui.jiezhimod.notice.empty=No notices yet
-
-# Redstone delay block UI
-gui.jiezhimod.delay.title=Redstone Delay
-gui.jiezhimod.delay.delay=Delay
-gui.jiezhimod.delay.unit=Unit
-gui.jiezhimod.delay.mode=Output
-gui.jiezhimod.delay.unit.0=tick
-gui.jiezhimod.delay.unit.1=sec
-gui.jiezhimod.delay.unit.2=min
-gui.jiezhimod.delay.mode.0=Front (straight)
-gui.jiezhimod.delay.mode.1=Left
-gui.jiezhimod.delay.mode.2=Right
-gui.jiezhimod.delay.mode.3=3-way
-gui.jiezhimod.delay.actual=Actual delay: %s
-gui.jiezhimod.delay.status=In %s / Out %s / left %s tick
-gui.jiezhimod.delay.on=ON
-gui.jiezhimod.delay.off=OFF
-gui.jiezhimod.delay.close=Close
-gui.jiezhimod.delay.io.in=In from: %s
-gui.jiezhimod.delay.io.out=Out: %s
-gui.jiezhimod.delay.io.none=none
-gui.jiezhimod.delay.hint=Directions are relative to the input face
-gui.jiezhimod.delay.redetect=Re-detect
-gui.jiezhimod.delay.hint2=Input face is locked (like a repeater). Move wires, then Re-detect.
-gui.jiezhimod.delay.dir.up=UP
-gui.jiezhimod.delay.dir.down=DOWN
-gui.jiezhimod.delay.dir.north=NORTH
-gui.jiezhimod.delay.dir.south=SOUTH
-gui.jiezhimod.delay.dir.east=EAST
-gui.jiezhimod.delay.dir.west=WEST
-gui.jiezhimod.delay.dir.none=-
 
 # ---- Custom display (opened by right-clicking the block) ----
 gui.jiezhimod.custom.title=DFC Custom Display
@@ -149,3 +117,21 @@ tooltip.jiezhimod.connector.0=Sneak + right-click a keypad to record it
 tooltip.jiezhimod.connector.1=Recorded: %s, %s, %s
 tooltip.jiezhimod.connector.2=Sneak + right-click a password console to link
 tooltip.jiezhimod.connector.3=Sneak + right-click air to clear
+
+# ===== Debug stick / debug screen (v3.9.1) =====
+item.debug_stick.name=Debug Stick
+
+gui.jiezhimod.debug.title=Debug
+gui.jiezhimod.debug.block=Block: %s
+gui.jiezhimod.debug.refresh=Screen refresh rate
+gui.jiezhimod.debug.recommend=Recommended %s ms (%s)
+gui.jiezhimod.debug.recommend.core=core page changes fast
+gui.jiezhimod.debug.recommend.component=component page is slower
+gui.jiezhimod.debug.recommend.custom=just device readings
+gui.jiezhimod.debug.nothing=Nothing to tweak on this block
+gui.jiezhimod.debug.close=Close
+
+msg.jiezhimod.debug.notmine=The debug stick only works on this mod's blocks
+
+tooltip.jiezhimod.debug_stick.0=Sneak + right-click any of this mod's blocks
+tooltip.jiezhimod.debug_stick.1=Currently tweakable: screen refresh rate

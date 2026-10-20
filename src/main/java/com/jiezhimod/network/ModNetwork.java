@@ -4,8 +4,6 @@ import com.jiezhimod.JiezhiMod;
 import com.jiezhimod.network.msg.MessageCameraShake;
 import com.jiezhimod.network.msg.MessageCountdownSync;
 import com.jiezhimod.network.msg.MessageCustomScreenAction;
-import com.jiezhimod.network.msg.MessageDelayConfig;
-import com.jiezhimod.network.msg.MessageDelaySync;
 import com.jiezhimod.network.msg.MessageDfcScreen;
 import com.jiezhimod.network.msg.MessageJetExhaust;
 import com.jiezhimod.network.msg.MessageNotice;
@@ -27,8 +25,6 @@ public class ModNetwork {
         CHANNEL.registerMessage(MessageSubtitleClear.Handler.class, MessageSubtitleClear.class, id++, Side.CLIENT);
         CHANNEL.registerMessage(MessageCountdownSync.Handler.class, MessageCountdownSync.class, id++, Side.CLIENT);
         CHANNEL.registerMessage(MessageNotice.Handler.class, MessageNotice.class, id++, Side.CLIENT);
-        CHANNEL.registerMessage(MessageDelayConfig.Handler.class, MessageDelayConfig.class, id++, Side.SERVER);
-        CHANNEL.registerMessage(MessageDelaySync.Handler.class, MessageDelaySync.class, id++, Side.CLIENT);
         CHANNEL.registerMessage(MessageJetExhaust.Handler.class, MessageJetExhaust.class, id++, Side.CLIENT);
         CHANNEL.registerMessage(MessageDfcScreen.Handler.class, MessageDfcScreen.class, id++, Side.CLIENT);
         // 自定义显示屏 GUI 的操作包（开机 / 删除某条 / 清空），客户端 -> 服务端
@@ -37,5 +33,8 @@ public class ModNetwork {
         // 密码控制台的设置包（红石动作 / 是否输出），客户端 -> 服务端
         CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageConsoleConfig.Handler.class,
                 com.jiezhimod.network.msg.MessageConsoleConfig.class, id++, Side.SERVER);
+        // 调试界面的设置包（目前只有屏幕刷新率），客户端 -> 服务端
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageDebugConfig.Handler.class,
+                com.jiezhimod.network.msg.MessageDebugConfig.class, id++, Side.SERVER);
     }
 }

@@ -5,11 +5,7 @@ import com.jiezhimod.client.ClientEffects;
 import com.jiezhimod.client.KeyCombo;
 import com.jiezhimod.client.anim.AnimMath;
 import com.jiezhimod.client.chat.JiezhiChatGui;
-import com.jiezhimod.block.BlockDelay;
-import com.jiezhimod.block.DelayLogic;
-import com.jiezhimod.block.DelayQueue;
 import com.jiezhimod.block.ModBlocks;
-import com.jiezhimod.block.TileDelay;
 import com.jiezhimod.client.notice.ClientNoticeManager;
 import com.jiezhimod.client.notice.NoticeEntry;
 import com.jiezhimod.command.CommandCameraShake;
@@ -34,8 +30,6 @@ import com.jiezhimod.item.JetPhysics;
 import com.jiezhimod.item.ModItems;
 import com.jiezhimod.network.msg.MessageCameraShake;
 import com.jiezhimod.network.msg.MessageCountdownSync;
-import com.jiezhimod.network.msg.MessageDelayConfig;
-import com.jiezhimod.network.msg.MessageDelaySync;
 import com.jiezhimod.network.msg.MessageNotice;
 import com.jiezhimod.network.msg.MessageSubtitle;
 import com.jiezhimod.network.msg.MessageSubtitleClear;
@@ -120,15 +114,10 @@ public class SelfTest {
         testAnimMath();
         testChatLayout();
         testKeyCombo();
-        testDelayBlockVisible();
         testChatVisibility();
         testColorUtil();
         testNoticeSystem();
         testNoticePacket();
-        testDelayLogic();
-        testDelayQueue();
-        testDelayTile();
-        testDelayPackets();
         testJetHeat();
         testJetPhysics();
         testDfcFormat();
@@ -141,6 +130,7 @@ public class SelfTest {
         testCustomScreenGuiLayout();
         testGuiGeometry();
         testKeypadLayout();
+        testRefreshRate();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -1018,42 +1008,6 @@ public class SelfTest {
                 && KeyCombo.describe("").contains("unbound"));
     }
 
-    // =====================================================================
-    // 26. 方块必须可见（回归：BlockContainer.getRenderType 原版返回 INVISIBLE）
-    // =====================================================================
-    private static void testDelayBlockVisible() {
-        section("Delay block visibility (render type must be MODEL)");
-        net.minecraft.block.Block b = ModBlocks.DELAY_BLOCK;
-        IBlockState st = b.getDefaultState();
-        check("default state has powered=false",
-                !st.getValue(BlockDelay.POWERED).booleanValue());
-        // 这是"方块透明 / 能透视 / 像挖了个洞"的唯一根因：
-        // BlockContainer.getRenderType() 返回 INVISIBLE，客户端整体跳过渲染。
-        check("render type is MODEL, not INVISIBLE",
-                b.getRenderType(st)
-                        == net.minecraft.util.EnumBlockRenderType.MODEL);
-        check("opaque cube (so it is not treated as a non-solid block)",
-                b.isOpaqueCube(st));
-        check("full cube", b.isFullCube(st));
-        check("is a BlockContainer with a TileDelay",
-                b instanceof BlockContainer
-                        && ((BlockContainer) b).createNewTileEntity(null, 0) instanceof TileDelay);
-        // meta 0/1 必须与 blockstates 的 powered=false/true 对应，否则贴图不亮
-        check("meta round-trip: powered=false -> 0",
-                b.getMetaFromState(b.getDefaultState().withProperty(BlockDelay.POWERED,
-                        Boolean.FALSE)) == 0);
-        check("meta round-trip: powered=true -> 1",
-                b.getMetaFromState(b.getDefaultState().withProperty(BlockDelay.POWERED,
-                        Boolean.TRUE)) == 1);
-        // 贴图亮度：底色必须是能看清的中灰，过暗会被玩家当成"透明方块"
-        check("side texture is bright enough to be seen (>=100)",
-                pngLuma("assets/jiezhimod/textures/blocks/delay_side.png") >= 100);
-        check("lit side texture is bright enough (>=100)",
-                pngLuma("assets/jiezhimod/textures/blocks/delay_side_on.png") >= 100);
-        check("top texture is bright enough (>=100)",
-                pngLuma("assets/jiezhimod/textures/blocks/delay_top.png") >= 100);
-    }
-
     /**
      * 读 jar 内某张 PNG 的统计量，返回 {总像素, 可见像素, 高亮像素, 可见像素平均亮度}。
      *
@@ -1369,392 +1323,6 @@ public class SelfTest {
                 "".equals(back2.getTitle()) && "".equals(back2.getBody()));
     }
 
-    // =====================================================================
-    // 24. 红石延时器：单位换算 / 输出方向
-    // =====================================================================
-    private static void testDelayLogic() {
-        section("Redstone delay: units & directions");
-        check("tick unit: 20 -> 20 ticks", DelayLogic.toTicks(20, DelayLogic.UNIT_TICK) == 20);
-        check("second unit: 3 -> 60 ticks", DelayLogic.toTicks(3, DelayLogic.UNIT_SECOND) == 60);
-        check("second unit: 1 -> 20 ticks", DelayLogic.toTicks(1, DelayLogic.UNIT_SECOND) == 20);
-        check("minute unit: 1 -> 1200 ticks", DelayLogic.toTicks(1, DelayLogic.UNIT_MINUTE) == 1200);
-        check("minute unit: 2 -> 2400 ticks", DelayLogic.toTicks(2, DelayLogic.UNIT_MINUTE) == 2400);
-        check("0 值 = 直通（0 tick）", DelayLogic.toTicks(0, DelayLogic.UNIT_SECOND) == 0);
-        check("负数收敛到 0", DelayLogic.toTicks(-5, DelayLogic.UNIT_SECOND) == 0);
-        check("超大值收敛到 MAX_TICKS",
-                DelayLogic.toTicks(DelayLogic.MAX_VALUE, DelayLogic.UNIT_MINUTE) == DelayLogic.MAX_TICKS);
-        check("单位越界回落到 tick", DelayLogic.clampUnit(7) == DelayLogic.UNIT_TICK);
-        check("模式越界回落到向前", DelayLogic.clampMode(9) == DelayLogic.MODE_FRONT);
-        check("单位短名 tick/sec/min", "tick".equals(DelayLogic.unitName(0))
-                && "sec".equals(DelayLogic.unitName(1)) && "min".equals(DelayLogic.unitName(2)));
-
-        // 方向一律以"信号从哪面进来"为基准：inputDir = 从方块指向来源邻居的方向
-        check("无输入时输出面集合为空", DelayLogic.outputSides(null, DelayLogic.MODE_THREE).isEmpty());
-        check("无输入时任何面都不输出",
-                !DelayLogic.isOutputSide(null, DelayLogic.MODE_FRONT, EnumFacing.NORTH));
-
-        // 信号从北面进：穿过去的方向是南
-        EnumFacing fromNorth = EnumFacing.NORTH;
-        check("向前 = 直通（北面进 -> 南面出）",
-                DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_FRONT, EnumFacing.SOUTH));
-        check("向前不回头打输入面",
-                !DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_FRONT, EnumFacing.NORTH));
-        check("向左：南向行进时左手边是东",
-                DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_LEFT, EnumFacing.EAST));
-        check("向右：南向行进时右手边是西",
-                DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_RIGHT, EnumFacing.WEST));
-        check("三向 = 直通 + 左 + 右 共三面",
-                DelayLogic.outputSides(fromNorth, DelayLogic.MODE_THREE).size() == 3
-                        && DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_THREE, EnumFacing.SOUTH)
-                        && DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_THREE, EnumFacing.EAST)
-                        && DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_THREE, EnumFacing.WEST));
-        check("任何模式都不会把信号送回输入面",
-                !DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_FRONT, EnumFacing.NORTH)
-                        && !DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_LEFT, EnumFacing.NORTH)
-                        && !DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_RIGHT, EnumFacing.NORTH)
-                        && !DelayLogic.isOutputSide(fromNorth, DelayLogic.MODE_THREE, EnumFacing.NORTH));
-
-        // 换一个朝向，验证是"跟着输入走"而不是固定面
-        EnumFacing fromEast = EnumFacing.EAST;
-        check("东面进 -> 向前出西", DelayLogic.isOutputSide(fromEast, DelayLogic.MODE_FRONT, EnumFacing.WEST));
-        check("东面进 -> 左手边是南 / 右手边是北",
-                DelayLogic.isOutputSide(fromEast, DelayLogic.MODE_LEFT, EnumFacing.SOUTH)
-                        && DelayLogic.isOutputSide(fromEast, DelayLogic.MODE_RIGHT, EnumFacing.NORTH));
-        check("左 / 右互为反向（水平输入）",
-                DelayLogic.left(fromNorth) == DelayLogic.right(fromNorth).getOpposite());
-
-        // 竖直输入没有"左右"，退化成直通而不是抛异常
-        EnumFacing fromUp = EnumFacing.UP;
-        check("上面进 -> 直通出下面", DelayLogic.isOutputSide(fromUp, DelayLogic.MODE_FRONT, EnumFacing.DOWN));
-        check("上面进时向左 / 向右退化为直通",
-                DelayLogic.isOutputSide(fromUp, DelayLogic.MODE_LEFT, EnumFacing.DOWN)
-                        && DelayLogic.isOutputSide(fromUp, DelayLogic.MODE_RIGHT, EnumFacing.DOWN));
-        check("上面进时三向去重后只剩直通",
-                DelayLogic.outputSides(fromUp, DelayLogic.MODE_THREE).size() == 1);
-        boolean verticalSafe = true;
-        try {
-            DelayLogic.left(EnumFacing.UP);
-            DelayLogic.right(EnumFacing.DOWN);
-            DelayLogic.outputSides(EnumFacing.DOWN, DelayLogic.MODE_THREE);
-        } catch (RuntimeException e) {
-            verticalSafe = false;
-        }
-        check("竖直输入不会抛异常", verticalSafe);
-
-        // 序号 <-> 方向：越界必须是 null（EnumFacing.getFront 会回绕，不能用）
-        check("facingByOrdinal(0) = DOWN", DelayLogic.facingByOrdinal(0) == EnumFacing.DOWN);
-        check("facingByOrdinal(5) = EAST", DelayLogic.facingByOrdinal(5) == EnumFacing.EAST);
-        check("facingByOrdinal 越界返回 null",
-                DelayLogic.facingByOrdinal(-1) == null && DelayLogic.facingByOrdinal(6) == null);
-
-        // 来源方向判定的优先级
-        int[] zero = new int[6];
-        check("六面全 0 视为无输入", DelayLogic.pickInputSide(zero) == null);
-        int[] single = new int[6];
-        single[EnumFacing.UP.getIndex()] = 7;
-        check("只有上面有电 -> 来源 = 上面", DelayLogic.pickInputSide(single) == EnumFacing.UP);
-        int[] strongest = new int[6];
-        strongest[EnumFacing.DOWN.getIndex()] = 3;
-        strongest[EnumFacing.WEST.getIndex()] = 11;
-        check("取功率最大的那一面", DelayLogic.pickInputSide(strongest) == EnumFacing.WEST);
-        int[] tieHoriz = new int[6];
-        tieHoriz[EnumFacing.UP.getIndex()] = 9;
-        tieHoriz[EnumFacing.EAST.getIndex()] = 9;
-        check("并列时水平方向优先", DelayLogic.pickInputSide(tieHoriz) == EnumFacing.EAST);
-        int[] tieSame = new int[6];
-        tieSame[EnumFacing.SOUTH.getIndex()] = 5;
-        tieSame[EnumFacing.NORTH.getIndex()] = 5;
-        check("同优先级并列取序号小的（结果稳定）",
-                DelayLogic.pickInputSide(tieSame) == EnumFacing.NORTH);
-        check("pickInputSide(null) 安全返回 null", DelayLogic.pickInputSide(null) == null);
-        check("pickInputSide 长度不足安全返回 null", DelayLogic.pickInputSide(new int[3]) == null);
-        check("方向名 lang 后缀齐备", "north".equals(DelayLogic.facingKey(EnumFacing.NORTH))
-                && "up".equals(DelayLogic.facingKey(EnumFacing.UP))
-                && "none".equals(DelayLogic.facingKey(null)));
-        check("formatTicks(20) 显示 1 s", DelayLogic.formatTicks(20).contains("1 s"));
-        check("formatTicks(1300) 带 min", DelayLogic.formatTicks(1300).contains("min"));
-    }
-
-    // =====================================================================
-    // 25. 红石延时器：延时队列（两端都延时，短脉冲不被吞）
-    // =====================================================================
-    private static void testDelayQueue() {
-        section("Redstone delay: queue");
-        DelayQueue q = new DelayQueue();
-        check("初始电平 OFF", !q.state());
-        check("空队列 nextFire = MAX", q.nextFireTime() == Long.MAX_VALUE);
-
-        q.schedule(10, true);
-        q.schedule(15, false);
-        check("排队两条", q.size() == 2);
-        check("t=9 未到点，输出仍 OFF", !q.applyDue(9) && !q.state());
-        check("t=10 到点 -> ON", q.applyDue(10) && q.state());
-        check("t=14 保持 ON（下降沿也延时）", !q.applyDue(14) && q.state());
-        check("t=15 到点 -> OFF", q.applyDue(15) && !q.state());
-        check("队列已清空", q.isEmpty());
-
-        q.schedule(20, false);
-        q.schedule(25, false);
-        check("电平相同不算变化", !q.applyDue(30) && !q.state() && q.isEmpty());
-
-        q.schedule(30, true);
-        check("0 延时立即生效", q.applyDue(30) && q.state());
-
-        DelayQueue big = new DelayQueue();
-        for (int i = 0; i < 200; i++) {
-            big.schedule(i, i % 2 == 0);
-        }
-        check("队列不会无限增长（<=64）", big.size() <= 64);
-        big.reset(false);
-        check("reset 清空并复位电平", big.isEmpty() && !big.state());
-    }
-
-    // =====================================================================
-    // 26. 红石延时器：方块实体配置与存档
-    // =====================================================================
-    private static void testDelayTile() {
-        section("Redstone delay: tile config");
-        TileDelay te = new TileDelay();
-        check("默认 20 tick / tick / 向前",
-                te.delayTicks() == 20 && te.getUnit() == DelayLogic.UNIT_TICK
-                        && te.getMode() == DelayLogic.MODE_FRONT);
-        te.applyConfig(3, DelayLogic.UNIT_SECOND, DelayLogic.MODE_LEFT);
-        check("3 秒 = 60 tick", te.delayTicks() == 60);
-        check("模式保存为向左", te.getMode() == DelayLogic.MODE_LEFT);
-        te.applyConfig(-5, 99, 99);
-        check("非法数值 / 单位 / 模式全部 clamp",
-                te.getValue() == 0 && te.getUnit() == 0 && te.getMode() == 0);
-
-        te.applyConfig(2, DelayLogic.UNIT_MINUTE, DelayLogic.MODE_THREE);
-        NBTTagCompound tag = new NBTTagCompound();
-        te.saveConfig(tag);
-        TileDelay back = new TileDelay();
-        back.loadConfig(tag);
-        check("NBT 往返：2 分 = 2400 tick、三向",
-                back.getValue() == 2 && back.getUnit() == DelayLogic.UNIT_MINUTE
-                        && back.getMode() == DelayLogic.MODE_THREE && back.delayTicks() == 2400);
-        check("没排队时剩余 tick 为 0", back.remainingTicks(1000L) == 0);
-
-        // 坏档防护：NBT 里塞非法值时读出来必须被 clamp，而不是原样带进世界
-        NBTTagCompound bad = new NBTTagCompound();
-        bad.setInteger("value", -9999);
-        bad.setInteger("unit", 77);
-        bad.setInteger("mode", -3);
-        bad.setBoolean("out", true);
-        TileDelay salvaged = new TileDelay();
-        salvaged.loadConfig(bad);
-        check("坏档读回后被 clamp", salvaged.getValue() == 0 && salvaged.getUnit() == 0
-                && salvaged.getMode() == 0);
-        check("坏档读回的输出电平写进队列", salvaged.queue().state());
-        check("空 NBT 读回是纯默认值", new TileDelay().getValue() == 20);
-
-        check("NBT 往返带上了来源方向", back.getInputDir() == null);
-
-        back.applySync(1, DelayLogic.UNIT_SECOND, DelayLogic.MODE_FRONT, true, false,
-                EnumFacing.NORTH.getIndex(), 1500L);
-        check("同步包写入显示字段（输入 ON / 输出 OFF）", back.isInputOn() && !back.isOutputOn());
-        check("同步包换算 1 秒 = 20 tick", back.delayTicks() == 20);
-        check("同步包写入来源方向", back.getInputDir() == EnumFacing.NORTH);
-        check("剩余 tick = 下次翻转 - 当前", back.remainingTicks(1200L) == 300);
-
-        back.applySync(1, DelayLogic.UNIT_SECOND, DelayLogic.MODE_THREE, true, true,
-                EnumFacing.NORTH.getIndex(), 1500L);
-        check("三向从北面进 -> 输出南 / 东 / 西", back.outputDirs().size() == 3
-                && back.outputDirs().contains(EnumFacing.SOUTH)
-                && back.outputDirs().contains(EnumFacing.EAST)
-                && back.outputDirs().contains(EnumFacing.WEST));
-        check("来源方向在输出集合之外（不会自喂）", !back.outputDirs().contains(EnumFacing.NORTH));
-
-        back.applySync(1, DelayLogic.UNIT_SECOND, DelayLogic.MODE_FRONT, false, false, -1, 0L);
-        check("同步包 -1 表示无输入", back.getInputDir() == null);
-        check("无输入时输出面为空", back.outputDirs().isEmpty());
-
-        // 来源方向也要能过存档
-        TileDelay stored = new TileDelay();
-        stored.applyConfig(1, DelayLogic.UNIT_SECOND, DelayLogic.MODE_RIGHT);
-        NBTTagCompound dirTag = new NBTTagCompound();
-        stored.saveConfig(dirTag);
-        check("saveConfig 写出 -1（还没输入过）", dirTag.getInteger("dir") == -1);
-    }
-
-    // =====================================================================
-    // 27. 红石延时器：配置包 / 同步包往返
-    // =====================================================================
-    private static void testDelayPackets() {
-        section("Delay packets: codec round-trip");
-
-        // --- 配置包（客户端 -> 服务端：改延时/单位/模式，或请求重检输入面）---
-        boolean cfg = false;
-        boolean cfgConsumed = false;
-        try {
-            BlockPos p = new BlockPos(-1234, 42, 9876);
-            MessageDelayConfig src = new MessageDelayConfig(p, 17, 2, 3, true);
-            ByteBuf buf = Unpooled.buffer();
-            src.toBytes(buf);
-            MessageDelayConfig back = new MessageDelayConfig();
-            back.fromBytes(buf);
-            // 读写字节数必须严格对称：少读一个，后面所有包的位置都会错位
-            cfgConsumed = buf.readableBytes() == 0;
-            cfg = p.equals(get(back, "pos"))
-                    && getInt(back, "value") == 17
-                    && getInt(back, "unit") == 2
-                    && getInt(back, "mode") == 3
-                    && Boolean.TRUE.equals(get(back, "redetect"));
-        } catch (Exception e) {
-            cfg = false;
-        }
-        check("配置包编解码往返一致（坐标/延时/单位/模式/重检标志）", cfg);
-        check("配置包读写字节数严格对称", cfgConsumed);
-
-        // --- 同步包（服务端 -> 客户端：权威状态广播）---
-        boolean sync = false;
-        boolean syncConsumed = false;
-        try {
-            // 坐标取 int 极值、时间戳取 long 大值：这俩是最容易在编解码时被截断的字段
-            BlockPos p = new BlockPos(2147483647, -2147483648, 7);
-            MessageDelaySync src =
-                    new MessageDelaySync(p, 5, 1, 2, true, false, 3, 1234567890123L);
-            ByteBuf buf = Unpooled.buffer();
-            src.toBytes(buf);
-            MessageDelaySync back = new MessageDelaySync();
-            back.fromBytes(buf);
-            syncConsumed = buf.readableBytes() == 0;
-            sync = p.equals(get(back, "pos"))
-                    && getInt(back, "value") == 5
-                    && getInt(back, "unit") == 1
-                    && getInt(back, "mode") == 2
-                    && Boolean.TRUE.equals(get(back, "inputOn"))
-                    && Boolean.FALSE.equals(get(back, "outputOn"))
-                    && getInt(back, "inputDir") == 3
-                    && ((Number) get(back, "nextFireTime")).longValue() == 1234567890123L;
-        } catch (Exception e) {
-            sync = false;
-        }
-        check("同步包编解码往返一致（含 int 极值坐标与 long 时间戳）", sync);
-        check("同步包读写字节数严格对称", syncConsumed);
-
-        // 固定长度是硬约束：协议一旦加字段而两边不同步，客户端会直接错位解析
-        boolean sizeOk;
-        int cfgLen;
-        int syncLen;
-        try {
-            ByteBuf b1 = Unpooled.buffer();
-            new MessageDelayConfig(BlockPos.ORIGIN, 0, 0, 0, false).toBytes(b1);
-            cfgLen = b1.readableBytes();
-            ByteBuf b2 = Unpooled.buffer();
-            new MessageDelaySync(BlockPos.ORIGIN, 0, 0, 0, false, false, 0, 0L).toBytes(b2);
-            syncLen = b2.readableBytes();
-            // 配置 = 6 int + 1 bool = 25；同步 = 7 int + 2 bool + 1 long = 38
-            sizeOk = cfgLen == 25 && syncLen == 38;
-        } catch (Exception e) {
-            cfgLen = -1;
-            syncLen = -1;
-            sizeOk = false;
-        }
-        check("两包长度固定（配置 25 / 同步 38 字节）", sizeOk);
-
-        // 默认初值：老存档 / 字段缺失时的兜底，不能给出一个"看似有效"的假坐标
-        boolean defaultsOk;
-        try {
-            defaultsOk = BlockPos.ORIGIN.equals(get(new MessageDelayConfig(), "pos"))
-                    && Boolean.FALSE.equals(get(new MessageDelayConfig(), "redetect"))
-                    && BlockPos.ORIGIN.equals(get(new MessageDelaySync(), "pos"))
-                    && getInt(new MessageDelaySync(), "inputDir") == -1;
-        } catch (Exception e) {
-            defaultsOk = false;
-        }
-        check("默认初值安全（坐标归零 / 未输入过 / 不误触发重检）", defaultsOk);
-
-        // 构造器对 null 坐标做了兜底；一个 NPE 会打断整条同步链
-        boolean nullSafe;
-        try {
-            nullSafe = BlockPos.ORIGIN.equals(
-                    get(new MessageDelaySync(null, 0, 0, 0, false, false, 0, 0L), "pos"))
-                    && BlockPos.ORIGIN.equals(get(new MessageDelayConfig(null, 0, 0, 0), "pos"));
-        } catch (Exception e) {
-            nullSafe = false;
-        }
-        check("坐标传 null 时回落到 ORIGIN 而不是抛 NPE", nullSafe);
-
-        // 重检标志为 false 也必须原样往返（GUI「重检方向」按钮依赖这个字段）
-        boolean flagOff;
-        try {
-            ByteBuf buf = Unpooled.buffer();
-            new MessageDelayConfig(new BlockPos(1, 2, 3), 9, 1, 0, false).toBytes(buf);
-            MessageDelayConfig back = new MessageDelayConfig();
-            back.fromBytes(buf);
-            flagOff = Boolean.FALSE.equals(get(back, "redetect")) && getInt(back, "value") == 9;
-        } catch (Exception e) {
-            flagOff = false;
-        }
-        check("重检标志为 false 时也能正确往返", flagOff);
-
-        // 往返幂等：解码后再编码长度不变、值不变（抓"解码用默认值又被写回去"）
-        boolean lenSame;
-        boolean posSame;
-        boolean dirSame;
-        boolean timeSame;
-        try {
-            ByteBuf b1 = Unpooled.buffer();
-            new MessageDelaySync(new BlockPos(-9, -8, -7), 4, 2, 1, false, true, 4, 999L).toBytes(b1);
-            MessageDelaySync mid = new MessageDelaySync();
-            mid.fromBytes(b1);
-            ByteBuf b2 = Unpooled.buffer();
-            mid.toBytes(b2);
-            lenSame = b2.readableBytes() == 38;
-            MessageDelaySync back = new MessageDelaySync();
-            back.fromBytes(b2);
-            posSame = new BlockPos(-9, -8, -7).equals(get(back, "pos"));
-            dirSame = getInt(back, "inputDir") == 4;
-            timeSame = ((Number) get(back, "nextFireTime")).longValue() == 999L;
-        } catch (Exception e) {
-            lenSame = false;
-            posSame = false;
-            dirSame = false;
-            timeSame = false;
-        }
-        check("同步包二次编码长度不变", lenSame);
-        check("二次编码后坐标一致", posSame);
-        check("二次编码后来源方向一致", dirSame);
-        check("二次编码后时间戳一致", timeSame);
-
-        // 字节不足必须抛异常，绝不能静默读出一堆默认值还"看起来成功"
-        boolean throwsOnTruncated;
-        try {
-            new MessageDelaySync().fromBytes(Unpooled.buffer());
-            throwsOnTruncated = false;
-        } catch (Exception e) {
-            throwsOnTruncated = true;
-        }
-        check("读到截断的包会抛异常而非静默通过", throwsOnTruncated);
-
-        // 0 延时 / 0 单位是合法取值，不能被当成"未设置"丢掉
-        boolean zeroOk;
-        try {
-            ByteBuf buf = Unpooled.buffer();
-            new MessageDelayConfig(BlockPos.ORIGIN, 0, 0, 0, false).toBytes(buf);
-            MessageDelayConfig back = new MessageDelayConfig();
-            back.fromBytes(buf);
-            zeroOk = getInt(back, "value") == 0 && getInt(back, "unit") == 0;
-        } catch (Exception e) {
-            zeroOk = false;
-        }
-        check("0 延时 / 0 单位是合法值且能往返", zeroOk);
-
-        // 世界边界附近的坐标（约 ±3000 万）不能溢出
-        boolean extremeOk;
-        try {
-            BlockPos far = new BlockPos(30000000, -30000000, 29999984);
-            ByteBuf buf = Unpooled.buffer();
-            new MessageDelayConfig(far, 1, 1, 1, false).toBytes(buf);
-            MessageDelayConfig back = new MessageDelayConfig();
-            back.fromBytes(buf);
-            extremeOk = far.equals(get(back, "pos"));
-        } catch (Exception e) {
-            extremeOk = false;
-        }
-        check("世界边界附近的坐标能原样往返", extremeOk);
-    }
     // helpers
     // =====================================================================
     private static void section(String name) {
@@ -2956,8 +2524,8 @@ public class SelfTest {
                 com.jiezhimod.dfc.DfcBridge.resolveProxy(null) == null);
 
         // 普通方块实体不是代理，解链必须**原样返回** —— 不能把一台好好的机器换成别的东西
-        // （TileEntity 本身是 abstract，拿本模组自己的 TileDelay 当"普通 TE"用）
-        TileDelay plain = new TileDelay();
+        // （TileEntity 本身是 abstract，拿本模组自己的 TileKeypad 当"普通 TE"用）
+        com.jiezhimod.block.TileKeypad plain = new com.jiezhimod.block.TileKeypad();
         check("普通 TE 不是代理，原样返回",
                 com.jiezhimod.dfc.DfcBridge.resolveProxy(plain) == plain);
 
@@ -3217,6 +2785,52 @@ public class SelfTest {
                 com.jiezhimod.keypad.KeypadLayout.NOTE_Y
                         + com.jiezhimod.keypad.KeypadLayout.NOTE_H + 8
                         <= com.jiezhimod.keypad.KeypadLayout.PANEL_H);
+    }
+
+    /**
+     * 显示器刷新率可调（v3.9.1）。
+     *
+     * 【为什么要有这组断言】玩家反馈四块屏一起开只剩 9 FPS —— 每重绘一次就要
+     * 把 768×576 画布抓成 int[] 再整张上传纹理。刷新率从写死的 50ms 改成每台可调，
+     * 这里钉住三件事：
+     *   · 只接受白名单里的值（把 37ms 静默改成 50ms 会让玩家以为"调了没反应"）；
+     *   · 设成同样的值要返回 false（不发无意义的包、不触发多余广播）；
+     *   · 毫秒与 tick 的换算是 50ms = 1 tick，且刷新率变了 tempDelta 的除数要跟着变。
+     */
+    private static void testRefreshRate() {
+        section("screen refresh rate (debug stick)");
+        final int[] choices = com.jiezhimod.block.TileDfcScreen.REFRESH_CHOICES_MS;
+        check("刷新率：选项共 5 档", choices.length == 5);
+
+        boolean multiples = true;
+        for (int v : choices) {
+            if (v <= 0 || v % 50 != 0) {
+                multiples = false;
+            }
+        }
+        check("刷新率：每一档都是 50ms 的整数倍", multiples);
+
+        boolean ascending = true;
+        for (int i = 1; i < choices.length; i++) {
+            if (choices[i] <= choices[i - 1]) {
+                ascending = false;
+            }
+        }
+        check("刷新率：档位从小到大排列（界面按这个顺序出按钮）", ascending);
+
+        com.jiezhimod.block.TileDfcScreen te = new com.jiezhimod.block.TileDfcScreen();
+        check("刷新率：新建的屏默认 50ms（与 ScreenLayout.REFRESH_TICKS 对齐）",
+                te.getRefreshMs() == 50 && te.getIntervalTicks() == 1);
+
+        check("刷新率：可以设成 200ms", te.setRefreshMs(200) && te.getRefreshMs() == 200);
+        check("刷新率：200ms = 4 tick", te.getIntervalTicks() == 4);
+        check("刷新率：设成当前值返回 false（不产生无意义的变更）", !te.setRefreshMs(200));
+        check("刷新率：白名单外的值被拒绝（37ms）", !te.setRefreshMs(37) && te.getRefreshMs() == 200);
+        check("刷新率：0 / 负数被拒绝", !te.setRefreshMs(0) && te.getRefreshMs() == 200);
+        check("刷新率：可以设成 1000ms，换算成 20 tick",
+                te.setRefreshMs(1000) && te.getRefreshMs() == 1000 && te.getIntervalTicks() == 20);
+        check("刷新率：可以调回 50ms（最低档）",
+                te.setRefreshMs(50) && te.getIntervalTicks() == 1);
     }
 
     /** 三角形列表里有没有零面积（顶点重合 / 三点共线）的三角形 */

@@ -38,10 +38,14 @@ public class MessageDfcScreen implements IMessage {
         this.events = new ArrayList<String>();
     }
 
+    /** 这台屏的刷新周期（毫秒）；0 表示旧版本包没带这个字段，客户端按默认处理 */
+    private int refreshMs = 50;
+
     public MessageDfcScreen(TileDfcScreen te) {
         this.pos = te.getPos();
         this.powered = te.isPowered();
         this.tilt = te.getTilt();
+        this.refreshMs = te.getRefreshMs();
         this.data = DfcSnapshot.copied(te.getData());
         this.events = new ArrayList<String>(te.getEvents());
     }
@@ -51,6 +55,7 @@ public class MessageDfcScreen implements IMessage {
         this.pos = new BlockPos(buf.readInt(), buf.readInt(), buf.readInt());
         this.powered = buf.readBoolean();
         this.tilt = buf.readInt();
+        this.refreshMs = buf.readInt();
         this.data = new DfcSnapshot();
         this.data.readFrom(buf);
         int n = buf.readInt();
@@ -70,6 +75,7 @@ public class MessageDfcScreen implements IMessage {
         buf.writeInt(this.pos.getZ());
         buf.writeBoolean(this.powered);
         buf.writeInt(this.tilt);
+        buf.writeInt(this.refreshMs);
         this.data.writeTo(buf);
         List<String> ev = this.events == null ? new ArrayList<String>() : this.events;
         buf.writeInt(ev.size());
@@ -90,6 +96,9 @@ public class MessageDfcScreen implements IMessage {
                 }
                 TileEntity te = Minecraft.getMinecraft().world.getTileEntity(message.pos);
                 if (te instanceof TileDfcScreen) {
+                    if (message.refreshMs > 0) {
+                        ((TileDfcScreen) te).setClientRefreshMs(message.refreshMs);
+                    }
                     ((TileDfcScreen) te).applyServerState(
                             message.powered, message.tilt, message.data, message.events);
                 }

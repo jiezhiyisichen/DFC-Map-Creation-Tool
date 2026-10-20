@@ -227,7 +227,9 @@ public final class ScreenCanvas {
         long step = 50L;
         if (powered && faultElapsedMs < 0L
                 && ScreenLayout.phaseAt(sinceOnMs) == ScreenLayout.PHASE_MAIN) {
-            step = REFRESH_MS;
+            // 主界面按这台屏自己的刷新率重绘。开机自检/控制台/报错页仍用 50ms ——
+            // 那几段是"动画"，调慢了会像卡住。
+            step = this.mainStepMs;
         }
         long phase = powered ? sinceOnMs : paintMs();
         this.framePhaseMs = phase;
@@ -275,8 +277,22 @@ public final class ScreenCanvas {
         pixelDirty = true;
     }
 
-    /** 主界面重绘周期（毫秒）。取自 ScreenLayout，与服务端 REFRESH_TICKS 共用同一常量 */
+    /** 默认主界面重绘周期（毫秒），取自 ScreenLayout，与服务端 REFRESH_TICKS 共用同一常量 */
     public static final long REFRESH_MS = ScreenLayout.REFRESH_MS;
+
+    /**
+     * 这台屏主界面的实际重绘周期（毫秒）。由 TESR 按方块实体里的刷新率设置。
+     *
+     * 【为什么可调】每重绘一次就要把 768×576 的画布抓成 int[] 再整张上传纹理，
+     * 四块屏同时以 20Hz 刷新时这部分开销非常可观（玩家实测掉到 9 FPS）。
+     * 部件页 / 自定义屏的读数变化本来就慢，调到 100~200ms 肉眼几乎看不出差别。
+     */
+    private long mainStepMs = REFRESH_MS;
+
+    /** 设置主界面重绘周期；下限 50ms，避免被填成 0 之后每帧重绘 */
+    public void setMainStepMs(long ms) {
+        this.mainStepMs = Math.max(50L, ms);
+    }
 
     /**
      * 把像素上传到 GL 纹理。**必须在渲染线程调用**（内部会绑纹理、调 glTexSubImage）。

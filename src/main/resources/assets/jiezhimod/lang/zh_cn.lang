@@ -10,7 +10,6 @@ tile.dfc_custom.name=DFC 自定义显示屏
 item.dfc_remote.name=DFC 遥控器
 itemGroup.jiezhimod_screen=DFC显示器
 
-tile.delay_block.name=红石延时器
 itemGroup.jiezhimod_redstone=jiezhimod-红石
 
 # 通知界面
@@ -19,37 +18,6 @@ key.jiezhimod.notice=通知历史 (默认 P)
 gui.jiezhimod.notice.title=通知历史
 gui.jiezhimod.notice.hint=滚轮滑动 / Esc 退出
 gui.jiezhimod.notice.empty=暂无通知
-
-# 红石延时器界面
-gui.jiezhimod.delay.title=红石延时器
-gui.jiezhimod.delay.delay=延时
-gui.jiezhimod.delay.unit=单位
-gui.jiezhimod.delay.mode=方向
-gui.jiezhimod.delay.unit.0=tick
-gui.jiezhimod.delay.unit.1=秒
-gui.jiezhimod.delay.unit.2=分
-gui.jiezhimod.delay.mode.0=向前(直通)
-gui.jiezhimod.delay.mode.1=向左
-gui.jiezhimod.delay.mode.2=向右
-gui.jiezhimod.delay.mode.3=三向
-gui.jiezhimod.delay.actual=实际延时: %s
-gui.jiezhimod.delay.status=输入 %s / 输出 %s / 剩余 %s tick
-gui.jiezhimod.delay.on=开
-gui.jiezhimod.delay.off=关
-gui.jiezhimod.delay.close=关闭
-gui.jiezhimod.delay.io.in=输入来自: %s
-gui.jiezhimod.delay.io.out=输出: %s
-gui.jiezhimod.delay.io.none=无输入
-gui.jiezhimod.delay.hint=方向以信号进入面为基准
-gui.jiezhimod.delay.redetect=重检方向
-gui.jiezhimod.delay.hint2=进入面已锁存（同中继器）。挪动线路后请点"重检方向"。
-gui.jiezhimod.delay.dir.up=上
-gui.jiezhimod.delay.dir.down=下
-gui.jiezhimod.delay.dir.north=北
-gui.jiezhimod.delay.dir.south=南
-gui.jiezhimod.delay.dir.east=东
-gui.jiezhimod.delay.dir.west=西
-gui.jiezhimod.delay.dir.none=-
 
 # ---- 自定义显示屏（右键方块打开） ----
 gui.jiezhimod.custom.title=DFC 自定义显示屏
@@ -149,3 +117,21 @@ tooltip.jiezhimod.connector.0=蹲下右键密码盘，记录它
 tooltip.jiezhimod.connector.1=已记录：%s, %s, %s
 tooltip.jiezhimod.connector.2=蹲下右键密码控制台，完成连接
 tooltip.jiezhimod.connector.3=蹲下右键空气，清空记录
+
+# ===== 调试棒 / 调试界面（v3.9.1） =====
+item.debug_stick.name=调试棒
+
+gui.jiezhimod.debug.title=调试
+gui.jiezhimod.debug.block=方块：%s
+gui.jiezhimod.debug.refresh=屏幕刷新率
+gui.jiezhimod.debug.recommend=推荐 %s ms（%s）
+gui.jiezhimod.debug.recommend.core=核心屏读数变化快
+gui.jiezhimod.debug.recommend.component=部件页变化较慢
+gui.jiezhimod.debug.recommend.custom=只是设备读数
+gui.jiezhimod.debug.nothing=这个方块暂无可调项
+gui.jiezhimod.debug.close=关闭
+
+msg.jiezhimod.debug.notmine=调试棒只能调试本模组的方块
+
+tooltip.jiezhimod.debug_stick.0=蹲下右键任意本模组方块，打开调试界面
+tooltip.jiezhimod.debug_stick.1=目前可调：显示器的屏幕刷新率

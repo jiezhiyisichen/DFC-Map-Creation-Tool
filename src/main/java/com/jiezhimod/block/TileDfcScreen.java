@@ -69,6 +69,61 @@ public class TileDfcScreen extends TileEntity implements ITickable {
     private boolean forceSync = true;
 
     /**
+     * 这台屏自己的刷新间隔（tick）。
+     *
+     * 【为什么从常量改成每台一个】四块屏同时开着时，每块每帧都要重画 768×576 画布
+     * 再整张上传纹理，玩家实测只有 9 FPS。默认仍是 {@link ScreenLayout#REFRESH_TICKS}
+     * （1 tick = 50ms），但可以用**调试棒**按设备调慢：部件页 100ms、自定义屏 200ms 就够看，
+     * 开销立刻降到 1/2 ~ 1/4。
+     *
+     * 注意它同时是 {@code tempDelta} 的除数与 {@code runTicks} 的增量 ——
+     * 改刷新率时这两个量纲必须跟着走，否则温度变化率会凭空放大或缩小。
+     */
+    private int intervalTicks = ScreenLayout.REFRESH_TICKS;
+
+    /** 可选的刷新率（毫秒）。调试界面按这个表出按钮，服务端也按它校验 */
+    public static final int[] REFRESH_CHOICES_MS = {50, 100, 200, 500, 1000};
+
+    public int getIntervalTicks() {
+        return this.intervalTicks;
+    }
+
+    /**
+     * 客户端用：把服务端广播过来的刷新率写进本地镜像。
+     * 不 markDirty、不回推 —— 客户端那份永远只是影子。
+     */
+    public void setClientRefreshMs(int ms) {
+        this.intervalTicks = Math.max(1, ms / 50);
+    }
+
+    /** 毫秒形式的刷新周期（客户端画布按它算重绘节拍） */
+    public int getRefreshMs() {
+        return this.intervalTicks * 50;
+    }
+
+    /**
+     * 设置刷新率。只接受 {@link #REFRESH_CHOICES_MS} 里的值 ——
+     * 白名单比 clamp 好：把 37ms 这种值静默改成 50ms，玩家会以为"调了没反应"。
+     */
+    public boolean setRefreshMs(int ms) {
+        int ticks = 0;
+        for (int v : REFRESH_CHOICES_MS) {
+            if (v == ms) {
+                ticks = Math.max(1, v / 50);
+                break;
+            }
+        }
+        if (ticks <= 0 || ticks == this.intervalTicks) {
+            return false;
+        }
+        this.intervalTicks = ticks;
+        this.refreshTimer = 0;
+        this.forceSync = true;
+        markDirty();
+        return true;
+    }
+
+    /**
      * 界面上的"运行时长"。
      *
      * 【为什么不用核心自己的 getDFCTicks】那是核心从出生起累积的 tick，**不会因为停堆归零**；
@@ -110,7 +165,7 @@ public class TileDfcScreen extends TileEntity implements ITickable {
             return;   // 客户端只负责渲染，数据全靠服务端推
         }
         this.refreshTimer++;
-        if (this.forceSync || this.refreshTimer % REFRESH_INTERVAL == 0) {
+        if (this.forceSync || this.refreshTimer % this.intervalTicks == 0) {
             this.refresh();
         }
     }
@@ -145,11 +200,11 @@ public class TileDfcScreen extends TileEntity implements ITickable {
 
         // 温度变化率：getter 里没有现成字段，用前后两帧折算
         this.data.tempDelta = ScreenLayout.temperatureRate(
-                this.prev.temperature, this.data.temperature, REFRESH_INTERVAL);
+                this.prev.temperature, this.data.temperature, this.intervalTicks);
 
         // 运行时长：温度归零 = 停机，时长清零重新计（需求原话"运行时长应该是在温度归零后清零"）
         if (this.data.linked && this.data.temperature > 0.0D) {
-            this.runTicks += REFRESH_INTERVAL;
+            this.runTicks += this.intervalTicks;
         } else {
             this.runTicks = 0;
         }
@@ -358,6 +413,10 @@ public class TileDfcScreen extends TileEntity implements ITickable {
         this.sourcePos = readPos(c, "Src");
         this.corePos = readPos(c, "Core");
         this.runTicks = c.getInteger("RunTicks");
+        // 刷新率要落盘：区块重载后不能自己跳回 50ms，否则玩家调慢的屏一走动就白调了
+        this.intervalTicks = c.hasKey("RefreshMs")
+                ? Math.max(1, c.getInteger("RefreshMs") / 50)
+                : ScreenLayout.REFRESH_TICKS;
         this.forceSync = true;
     }
 
@@ -369,6 +428,7 @@ public class TileDfcScreen extends TileEntity implements ITickable {
         writePos(c, "Src", this.sourcePos);
         writePos(c, "Core", this.corePos);
         c.setInteger("RunTicks", this.runTicks);
+        c.setInteger("RefreshMs", this.intervalTicks * 50);
         return c;
     }
 

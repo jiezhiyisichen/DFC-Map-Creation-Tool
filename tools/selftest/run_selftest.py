@@ -172,7 +172,6 @@ def main():
         assert "healing_coil" in desc, "description does not document the healing coil"
         assert "countdown_add" in desc, "description lost the command manual"
         assert "/notice" in desc, "description does not document /notice"
-        assert "delay_block" in desc, "description does not document the delay block"
         # DFC 显示器是最大的一块硬件，说明书里漏掉的话玩家根本不知道有第二块屏
         assert "dfc_screen" in desc, "description does not document the DFC monitor panel"
         assert "dfc_monitor" in desc, "description does not document the component monitor"
@@ -240,6 +239,9 @@ def main():
         "assets/jiezhimod/textures/blocks/password_console.png",
         "assets/jiezhimod/models/item/connector.json",
         "assets/jiezhimod/textures/items/connector.png",
+        # 调试棒：模型 / 贴图缺一个就是紫黑块
+        "assets/jiezhimod/models/item/debug_stick.json",
+        "assets/jiezhimod/textures/items/debug_stick.png",
         # 喷漆背包 / 喷气开关：模型与贴图漏打包 -> 物品变成紫黑格，粒子变成"无贴图方块"
         "assets/jiezhimod/models/item/jetpack.json",
         "assets/jiezhimod/models/item/jet_switch.json",
@@ -250,24 +252,11 @@ def main():
         "assets/jiezhimod/lang/zh_cn.lang",
         "assets/jiezhimod/sounds.json",
         "assets/jiezhimod/sounds/coil_equip.ogg",
-        # 红石延时器：blockstates / 模型 / 贴图漏打包不会报错，只会静默变成紫黑块
-        "assets/jiezhimod/blockstates/delay_block.json",
-        "assets/jiezhimod/models/block/delay_block.json",
-        "assets/jiezhimod/models/block/delay_block_on.json",
-        "assets/jiezhimod/models/item/delay_block.json",
-        "assets/jiezhimod/textures/blocks/delay_side.png",
-        "assets/jiezhimod/textures/blocks/delay_top.png",
-        "assets/jiezhimod/textures/blocks/delay_side_on.png",
-        "assets/jiezhimod/textures/blocks/delay_top_on.png",
     ]
     # 模型 / blockstates 之间的引用完整性：任何一处对不上，游戏里就是"透明方块"或
     # 紫黑缺模型，而且日志里常常只是一行 warning，极难排查。这里静态全部查一遍。
     res_root = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod")
     json_files = [
-        "blockstates/delay_block.json",
-        "models/block/delay_block.json",
-        "models/block/delay_block_on.json",
-        "models/item/delay_block.json",
         "models/item/speed_coil.json",
         "models/item/gravity_coil.json",
         "models/item/healing_coil.json",
@@ -306,8 +295,7 @@ def main():
         return os.path.join(res_root, "textures", name.replace("/", os.sep) + ".png")
 
     # blockstates -> model（每个方块状态文件都查；漏一个就是"透明/紫黑块"）
-    for bs_rel in ("blockstates/delay_block.json",
-                   "blockstates/dfc_screen.json",
+    for bs_rel in ("blockstates/dfc_screen.json",
                    "blockstates/dfc_screen_part.json",
                    "blockstates/dfc_monitor.json",
                    "blockstates/dfc_custom.json"):
@@ -339,13 +327,13 @@ def main():
         "gui.jiezhimod.notice.title",
         "gui.jiezhimod.notice.hint",
         "gui.jiezhimod.notice.empty",
-        "tile.delay_block.name",
         "tile.dfc_screen.name",
         "tile.dfc_monitor.name",
         "tile.dfc_custom.name",
         "tile.keypad.name",
         "tile.password_console.name",
         "item.connector.name",
+        "item.debug_stick.name",
         "gui.jiezhimod.custom.title",
         "gui.jiezhimod.custom.power.on",
         "gui.jiezhimod.custom.power.off",
@@ -359,33 +347,6 @@ def main():
         "item.dfc_remote.name",
         "itemGroup.jiezhimod",
         "itemGroup.jiezhimod_redstone",
-        "gui.jiezhimod.delay.title",
-        "gui.jiezhimod.delay.delay",
-        "gui.jiezhimod.delay.unit",
-        "gui.jiezhimod.delay.mode",
-        "gui.jiezhimod.delay.unit.0",
-        "gui.jiezhimod.delay.unit.1",
-        "gui.jiezhimod.delay.unit.2",
-        "gui.jiezhimod.delay.mode.0",
-        "gui.jiezhimod.delay.mode.1",
-        "gui.jiezhimod.delay.mode.2",
-        "gui.jiezhimod.delay.mode.3",
-        "gui.jiezhimod.delay.actual",
-        "gui.jiezhimod.delay.status",
-        "gui.jiezhimod.delay.on",
-        "gui.jiezhimod.delay.off",
-        "gui.jiezhimod.delay.io.in",
-        "gui.jiezhimod.delay.io.out",
-        "gui.jiezhimod.delay.io.none",
-        "gui.jiezhimod.delay.hint",
-        "gui.jiezhimod.delay.dir.up",
-        "gui.jiezhimod.delay.dir.north",
-        "gui.jiezhimod.delay.dir.west",
-        "gui.jiezhimod.delay.dir.none",
-        "gui.jiezhimod.delay.dir.down",
-        "gui.jiezhimod.delay.dir.south",
-        "gui.jiezhimod.delay.dir.east",
-        "gui.jiezhimod.delay.close",
     ]
     for lang in ("en_us", "zh_cn"):
         path = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod", "lang", lang + ".lang")
@@ -622,7 +583,7 @@ def main():
         print("      addInformation 里还有硬编码文案（应改走 I18n）: %s" % hardcoded[:6])
         return 1
 
-    # 有些 key 是拼出来的（"gui.jiezhimod.delay.unit." + i），正则只能取到前缀。
+    # 有些 key 是拼出来的（"gui.jiezhimod.console.act." + i），正则只能取到前缀。
     # 前缀不能直接比对，但可以要求"以它为前缀的键在两种语言里都存在至少一条"。
     prefixes = sorted(k for k in used_keys if k.endswith("."))
     full = sorted(k for k in used_keys if not k.endswith("."))

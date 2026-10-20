@@ -1,9 +1,0 @@
-{
-  "variants": {
-    "powered=false": { "model": "jiezhimod:delay_block" },
-    "powered=true":  { "model": "jiezhimod:delay_block_on" }
-  },
-  "multipart": [
-    { "apply": { "model": "jiezhimod:delay_block" } }
-  ]
-}

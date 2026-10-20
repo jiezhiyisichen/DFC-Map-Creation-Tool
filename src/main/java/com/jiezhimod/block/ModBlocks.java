@@ -16,11 +16,11 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  */
 public class ModBlocks {
 
-    /** 先建页签：匿名类里只在 getTabIconItem() 方法体内引用 DELAY_BLOCK，静态初始化顺序安全 */
+    /** 先建页签：匿名类里只在 getTabIconItem() 方法体内引用 KEYPAD，静态初始化顺序安全 */
     public static final CreativeTabs TAB_REDSTONE = new CreativeTabs("jiezhimod_redstone") {
         @Override
         public ItemStack getTabIconItem() {
-            return new ItemStack(ModBlocks.DELAY_BLOCK);
+            return new ItemStack(ModBlocks.KEYPAD);
         }
     };
 
@@ -31,11 +31,6 @@ public class ModBlocks {
             return new ItemStack(ModBlocks.DFC_SCREEN);
         }
     };
-
-    public static final Block DELAY_BLOCK = new BlockDelay();
-
-    /** 物品形态（ItemBlock），在 Register&lt;Item&gt; 里注册 */
-    public static final ItemBlock ITEM_DELAY_BLOCK = new ItemBlock(DELAY_BLOCK);
 
     /** DFC 监控显示器（4x3x1 多方块，TESR 渲染） */
     public static final Block DFC_SCREEN = new BlockDfcScreen();
@@ -73,8 +68,6 @@ public class ModBlocks {
 
     static {
         // 注册名必须显式跟方块一致，否则创造页拿到的物品没有模型
-        ITEM_DELAY_BLOCK.setRegistryName(DELAY_BLOCK.getRegistryName());
-        ITEM_DELAY_BLOCK.setCreativeTab(TAB_REDSTONE);
         ITEM_DFC_SCREEN.setRegistryName(DFC_SCREEN.getRegistryName());
         ITEM_DFC_SCREEN.setCreativeTab(TAB_SCREEN);
         ITEM_DFC_MONITOR.setRegistryName(DFC_MONITOR.getRegistryName());
@@ -89,7 +82,6 @@ public class ModBlocks {
 
     @SubscribeEvent
     public void onRegisterBlocks(RegistryEvent.Register<Block> event) {
-        event.getRegistry().register(DELAY_BLOCK);
         event.getRegistry().register(DFC_SCREEN);
         event.getRegistry().register(DFC_MONITOR);
         event.getRegistry().register(DFC_CUSTOM);
@@ -100,7 +92,6 @@ public class ModBlocks {
 
     @SubscribeEvent
     public void onRegisterItems(RegistryEvent.Register<Item> event) {
-        event.getRegistry().register(ITEM_DELAY_BLOCK);
         event.getRegistry().register(ITEM_DFC_SCREEN);
         event.getRegistry().register(ITEM_DFC_MONITOR);
         event.getRegistry().register(ITEM_DFC_CUSTOM);

@@ -1,7 +1,6 @@
 package com.jiezhimod.proxy;
 
 import com.jiezhimod.block.ContainerCustomScreen;
-import com.jiezhimod.block.ContainerDelay;
 import com.jiezhimod.block.TileCustomScreen;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.tileentity.TileEntity;
@@ -17,12 +16,12 @@ import net.minecraftforge.fml.common.network.IGuiHandler;
  */
 public class CommonProxy implements IGuiHandler {
 
-    /** 红石延时器 GUI 编号 */
-    public static final int GUI_DELAY = 0;
     /** 自定义显示屏 GUI 编号（右键方块打开） */
     public static final int GUI_CUSTOM_SCREEN = 1;
     /** 密码控制台 GUI 编号（右键方块打开） */
     public static final int GUI_PASSWORD_CONSOLE = 2;
+    /** 调试界面（调试棒蹲下右键本模组方块） */
+    public static final int GUI_DEBUG = 3;
 
     public void preInit() {
         // 服务端/通用侧无需注册客户端渲染事件
@@ -33,8 +32,8 @@ public class CommonProxy implements IGuiHandler {
 
     @Override
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
-        if (id == GUI_DELAY) {
-            return new ContainerDelay();
+        if (id == GUI_DEBUG) {
+            return new com.jiezhimod.block.ContainerDebug(new BlockPos(x, y, z));
         }
         if (id == GUI_PASSWORD_CONSOLE) {
             // 界面本身没有物品槽，但服务端必须给出一个容器，否则客户端开不出界面

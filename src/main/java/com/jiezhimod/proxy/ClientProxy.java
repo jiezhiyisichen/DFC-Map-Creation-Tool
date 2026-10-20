@@ -2,10 +2,8 @@ package com.jiezhimod.proxy;
 
 import com.jiezhimod.JiezhiMod;
 import com.jiezhimod.block.ModBlocks;
-import com.jiezhimod.block.TileDelay;
 import com.jiezhimod.client.ClientEventHandler;
 import com.jiezhimod.client.ClientUiCore;
-import com.jiezhimod.client.gui.GuiDelayBlock;
 import com.jiezhimod.item.ModItems;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.entity.player.EntityPlayer;
@@ -46,11 +44,10 @@ public class ClientProxy extends CommonProxy {
 
     @Override
     public Object getClientGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
-        if (id == GUI_DELAY) {
-            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
-            if (te instanceof TileDelay) {
-                return new GuiDelayBlock((TileDelay) te);
-            }
+        if (id == GUI_DEBUG) {
+            BlockPos p = new BlockPos(x, y, z);
+            return new com.jiezhimod.client.gui.GuiDebug(p,
+                    new com.jiezhimod.block.ContainerDebug(p));
         }
         if (id == GUI_PASSWORD_CONSOLE) {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
@@ -92,14 +89,7 @@ public class ClientProxy extends CommonProxy {
         // 喷气背包 / 喷气开关
         bindItemModel(ModItems.JETPACK, "jiezhimod:jetpack");
         bindItemModel(ModItems.JET_SWITCH, "jiezhimod:jet_switch");
-        // 方块的"世界内"模型由 blockstates/delay_block.json 决定（BlockRenderType.MODEL），
-        // 这里只负责物品形态（创造物品栏 / 手持 / 掉落物）。
-        Item delayItem = Item.getItemFromBlock(ModBlocks.DELAY_BLOCK);
-        if (delayItem != null) {
-            bindItemModel(delayItem, "jiezhimod:delay_block");
-        } else {
-            JiezhiMod.warn("Delay block ItemBlock is missing; its item model is not bound.");
-        }
+        // 方块的"世界内"模型由各自的 blockstates 决定，这里只负责物品形态
         // DFC 显示器 / 遥控器
         Item screenItem = Item.getItemFromBlock(ModBlocks.DFC_SCREEN);
         if (screenItem != null) {
@@ -129,6 +119,7 @@ public class ClientProxy extends CommonProxy {
             JiezhiMod.warn("Password console ItemBlock is missing; its item model is not bound.");
         }
         bindItemModel(ModItems.CONNECTOR, "jiezhimod:connector");
+        bindItemModel(ModItems.DEBUG_STICK, "jiezhimod:debug_stick");
         // DFC 自定义显示屏（第三块显示器）
         Item customItem = Item.getItemFromBlock(ModBlocks.DFC_CUSTOM);
         if (customItem != null) {

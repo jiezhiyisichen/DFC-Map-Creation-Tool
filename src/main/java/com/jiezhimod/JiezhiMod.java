@@ -1,7 +1,6 @@
 package com.jiezhimod;
 
 import com.jiezhimod.block.ModBlocks;
-import com.jiezhimod.block.TileDelay;
 import com.jiezhimod.countdown.ServerCountdownManager;
 import com.jiezhimod.seal.SealA;
 import com.jiezhimod.seal.SealB;
@@ -24,7 +23,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "3.9-beta";
+    public static final String VERSION = "3.9.1";
 
     @Instance(MODID)
     public static JiezhiMod instance;
@@ -72,9 +71,8 @@ public class JiezhiMod
         logger.info("\n" + LOGO);
         logger.info("{} v{} is loading.", NAME, VERSION);
         com.jiezhimod.network.ModNetwork.init();
-        // 方块（红石延时器）+ 专属方块页 jiezhimod-红石
+        // 方块 + 专属方块页 jiezhimod-红石
         MinecraftForge.EVENT_BUS.register(new ModBlocks());
-        GameRegistry.registerTileEntity(TileDelay.class, new ResourceLocation(MODID, "delay_block"));
         // DFC 显示器的方块实体。**必须注册**：TileEntity.writeToNBT 里会做
         // REGISTRY.getNameForObject(this.getClass())，查不到就抛
         // "xxx is missing a mapping! This is a bug!"（区块保存时炸，并且
