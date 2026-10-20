@@ -54,11 +54,32 @@ public class ItemDebugStick extends Item {
             }
             return EnumActionResult.SUCCESS;
         }
+        // 【点显示器任意一格都能开】多方块只有控制器那格有方块实体，
+        // 玩家戳到其它 11 格时要把坐标换算到控制器，否则会开出"方块：空气 / 暂无可调项"。
+        // （实机反馈：必须正好点到控制器那一格才行，非常反直觉）
+        BlockPos target = pos;
+        if (com.jiezhimod.block.ScreenMultiblock.isPart(block)) {
+            BlockPos ctrl = com.jiezhimod.block.ScreenMultiblock.findController(world, pos);
+            if (ctrl != null) {
+                target = ctrl;
+            }
+        }
         if (!world.isRemote) {
+            dbg("open debug at " + target + " (clicked " + pos + ", block="
+                    + id + ", resolved=" + (!target.equals(pos)) + ")");
             player.openGui(JiezhiMod.instance, CommonProxy.GUI_DEBUG, world,
-                    pos.getX(), pos.getY(), pos.getZ());
+                    target.getX(), target.getY(), target.getZ());
         }
         return EnumActionResult.SUCCESS;
+    }
+
+    /** 排错用：前 20 次打日志 */
+    private static int dbgCount;
+
+    private static void dbg(String msg) {
+        if (dbgCount++ < 20) {
+            JiezhiMod.warn("[DebugStick] " + msg);
+        }
     }
 
     @Override

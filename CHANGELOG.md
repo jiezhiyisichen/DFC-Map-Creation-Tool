@@ -5,6 +5,69 @@
 
 ---
 
+## 3.9.2
+
+> 实机反馈的 5 个问题集中修一次。**底纹透明这个从 3.5 拖到现在的老问题，这次找到根因了。**
+
+### ① 界面底纹：终于找到根因（GL_TRIANGLES）
+
+把"能显示的"和"不能显示的"摆在一起对比：
+
+| 能用 | 用的图元 |
+| --- | --- |
+| DFC 屏幕外壳（TESR 自绘） | `GL_QUADS + POSITION_COLOR` |
+| 所有文字 | `POSITION_TEX_COLOR` |
+| 原版按钮 | `POSITION_TEX` |
+| **不能用的**：自绘底纹 | v3.7 `GL_TRIANGLES+POSITION_COLOR`、v3.8 `GL_TRIANGLES+POSITION_TEX_COLOR` |
+
+两次失败**唯一的共同点就是 `GL_TRIANGLES`**。所以这次：
+
+- 普通矩形**直接调用原版 `Gui.drawRect`**（所有原版 GUI 的底纹都走它，零风险）；
+- 圆角矩形改成**逐行四边形**（每行一个 `GL_QUADS`，一次提交），不再用三角扇。
+
+影响范围：自定义显示屏面板、密码控制台、调试界面、通知 HUD、热量条、通知列表 —— 一次性全部恢复。
+
+### ② 密码盘不可见
+
+v3.9 把方块设成 `INVISIBLE`、底座用 `POSITION_COLOR` 在 TESR 里自绘，实机只看得见一个半格高的碰撞框。
+
+现在 **底座交给普通方块模型**（`models/block/keypad.json`，0~8 像素高的立方体 + 金属贴图），
+TESR 只画顶面那块动态面板。即使面板出问题，玩家也至少看到一块金属方台，不再是"空气方块"。
+
+### ③ 调试棒：显示器任意一格都能开
+
+多方块只有控制器那格有方块实体，之前必须正好点到控制器。
+现在点其余 11 格会先 `ScreenMultiblock.findController()` 换算到控制器再开界面。
+
+### ④ 密码控制台右键无界面
+
+补了整条链路的日志，方便定位是"没走到"还是"容器没建出来"：
+
+```
+[PasswordConsole] open gui at <pos> te=... hand=... held=...
+[GuiServer] id=2 pos=... te=TilePasswordConsole
+[GuiClient] id=2 pos=... te=TilePasswordConsole
+```
+
+三行都出现 → 界面确实开了；缺哪一行就说明卡在哪一段。
+
+### ⑤ 新增日志清单（排查用）
+
+| 前缀 | 说明 |
+| --- | --- |
+| `[GuiDraw]` | 第一次画底纹时打一行（行数 + 颜色），确认新路径真的被调用 |
+| `[KeypadRender]` | 每台密码盘首帧：纹理 id / 是否拿到画布 / 渲染异常 |
+| `[Keypad]` | 前 20 次点击：命中坐标、换算后的面板坐标、算出的键号 |
+| `[DebugStick]` | 前 20 次：点了哪格、是否换算到控制器 |
+| `[PasswordConsole]` / `[GuiServer]` / `[GuiClient]` | 右键与界面解析链路 |
+
+### 校验
+
+- 离线自测 **599 PASS / 0 FAIL**（几何断言换成"逐行四边形"的覆盖率/无漏行检查）
+- `check_stackmap` OK ｜ `TestMain` SEAL OK ｜ 资源 39 条
+
+---
+
 ## 3.9.1
 
 > **紧急修复 + 测试版**：主要是性能问题，外加一个调试工具和一个"减法"。

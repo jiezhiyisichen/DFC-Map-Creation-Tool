@@ -65,9 +65,21 @@ public class BlockPasswordConsole extends BlockContainer {
         if (world.isRemote) {
             return true;
         }
+        net.minecraft.tileentity.TileEntity te = world.getTileEntity(pos);
+        dbg("open gui at " + pos + " te=" + (te == null ? "null" : te.getClass().getSimpleName())
+                + " hand=" + hand + " held=" + player.getHeldItem(hand).getItem().getRegistryName());
         player.openGui(JiezhiMod.instance, CommonProxy.GUI_PASSWORD_CONSOLE, world,
                 pos.getX(), pos.getY(), pos.getZ());
         return true;
+    }
+
+    /** 排错用：前 20 次打日志 */
+    private static int dbgCount;
+
+    private static void dbg(String msg) {
+        if (dbgCount++ < 20) {
+            com.jiezhimod.JiezhiMod.warn("[PasswordConsole] " + msg);
+        }
     }
 
     // ==================== 红石输出 ====================

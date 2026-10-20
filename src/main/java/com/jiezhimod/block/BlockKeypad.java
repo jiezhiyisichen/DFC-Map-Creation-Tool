@@ -69,9 +69,14 @@ public class BlockKeypad extends BlockContainer {
         return false;
     }
 
+    /**
+     * 【v3.9.2 改回 MODEL】v3.9 用的是 INVISIBLE + 全 TESR 自绘（POSITION_COLOR），
+     * 实机结果是整块方不可见、只剩一个半格高的碰撞框。
+     * 现在底座交给普通模型（models/block/keypad.json），TESR 只画顶面那块动态面板。
+     */
     @Override
     public EnumBlockRenderType getRenderType(IBlockState state) {
-        return EnumBlockRenderType.INVISIBLE;
+        return EnumBlockRenderType.MODEL;
     }
 
     // ==================== 方块实体 ====================
@@ -135,6 +140,9 @@ public class BlockKeypad extends BlockContainer {
         }
 
         int key = KeypadLayout.hitWorld(localX, localZ);
+        dbg("use face=" + facing + " hit=(" + fmt(hitX) + "," + fmt(hitY) + "," + fmt(hitZ)
+                + ") local=(" + fmt(localX) + "," + fmt(localZ) + ") key=" + key
+                + " locked=" + keypad.isLocked());
         if (key < 0) {
             // 点在台面边缘 / 键缝里：不出声、不输入，避免"手滑就输错一位"
             return true;
@@ -148,6 +156,19 @@ public class BlockKeypad extends BlockContainer {
                     SoundCategory.BLOCKS, 0.4F, 0.8F);
         }
         return true;
+    }
+
+    /** 排错用：前 20 次交互打日志（玩家点一下就刷屏没意义，但排查期够用） */
+    private static int dbgCount;
+
+    private static void dbg(String msg) {
+        if (dbgCount++ < 20) {
+            com.jiezhimod.JiezhiMod.warn("[Keypad] " + msg);
+        }
+    }
+
+    private static String fmt(float v) {
+        return String.format("%.3f", v);
     }
 
     // ==================== 生命周期 ====================

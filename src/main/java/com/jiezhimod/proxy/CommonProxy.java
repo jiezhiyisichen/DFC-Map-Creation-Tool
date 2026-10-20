@@ -32,6 +32,10 @@ public class CommonProxy implements IGuiHandler {
 
     @Override
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
+        // 排错用：GUI 打不开时先看这一行有没有出现，判断是"没走到这里"还是"容器没建出来"
+        com.jiezhimod.JiezhiMod.warn("[GuiServer] id=" + id + " pos=" + x + "," + y + "," + z
+                + " te=" + (world.getTileEntity(new BlockPos(x, y, z)) == null ? "null"
+                : world.getTileEntity(new BlockPos(x, y, z)).getClass().getSimpleName()));
         if (id == GUI_DEBUG) {
             return new com.jiezhimod.block.ContainerDebug(new BlockPos(x, y, z));
         }

@@ -1,121 +1,118 @@
 package com.jiezhimod.client.util;
 
-import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.Gui;
 import net.minecraft.client.renderer.BufferBuilder;
 import net.minecraft.client.renderer.GlStateManager;
 import net.minecraft.client.renderer.Tessellator;
 import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
-import net.minecraft.util.ResourceLocation;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
 import org.lwjgl.opengl.GL11;
 
 /**
- * 2D 绘制小工具（实心矩形 / 圆角矩形）。
+ * 2D 绘制小工具（实心矩形 / 圆角矩形 / 半透明底纹）。
  *
  * ==================================================================
- * 【v3.8：改成"和 drawString 完全一样"的绘制方式】
+ * 【v3.9.2：改用 GL_QUADS —— 这是三轮排查后的结论】
  *
- * 之前用 {@code disableTexture2D() + POSITION_COLOR} 画纯色三角形，在游戏里**完全不显示** ——
- * 而同一帧、同一个方法里 {@code fontRenderer.drawString} 画的字却在。
- * 两者的唯一差别就是"带不带纹理"。这个整合包里 HBM 会直接改 GL 状态，
- * {@code GlStateManager} 的纹理开关缓存很可能已经失同步：这时 {@code disableTexture2D()}
- * 成了空操作、纹理仍然开着，而 POSITION_COLOR 的顶点没有 UV，采样结果不确定，
- * 表现就是"画了但看不见"。
+ * 症状：自定义显示屏 / 密码控制台 / 调试界面的**底纹完全不显示**，
+ * 而同一个方法里 {@code fontRenderer.drawString} 画的字、原版按钮都正常。
  *
- * 所以现在**不关纹理**：绑定自带的纯白 8×8 纹理（{@code textures/gui/white.png}），
- * 用 {@code POSITION_TEX_COLOR} 提交、所有顶点 UV 都取白色像素中心。
- * 这条路径与 {@code FontRenderer} 完全一致 —— 字能显示，填充就一定能显示。
- * 而且换了纹理之后，无论 GlStateManager 的纹理缓存是对是错都成立：
- *   · 纹理本来就被打开 → 我们绑白纹理 → 正确；
- *   · 纹理是正常关闭的 → enableTexture2D + bind → 正确。
+ * 事实对比（关键证据，不是猜的）：
+ *   · **能显示**：DFC 屏幕外壳（TESR，{@code GL_QUADS + POSITION_COLOR}）、
+ *     所有文字（{@code POSITION_TEX_COLOR}）、原版按钮（{@code POSITION_TEX}）；
+ *   · **不显示**：这里原来的自绘填充 —— v3.7 是 {@code GL_TRIANGLES + POSITION_COLOR}，
+ *     v3.8 改成 {@code GL_TRIANGLES + POSITION_TEX_COLOR}（绑白纹理），**两次都不可见**。
+ * 两次唯一的共同点就是 **GL_TRIANGLES**。
  *
- * 几何仍在 {@link GuiGeometry}（不 import 任何 MC 类），{@code SelfTest} 有断言。
+ * 所以现在：普通矩形直接调用原版 {@link Gui#drawRect}（和所有原版 GUI 同一条路，风险为零），
+ * 圆角矩形用**逐行四边形**拼（每行一个 GL_QUADS），全部走 QUADS。
  * ==================================================================
  */
 @SideOnly(Side.CLIENT)
 public final class GuiDraw {
 
-    /** 纯白 8×8 纹理；所有填充都靠它 + 逐顶点颜色上色 */
-    public static final ResourceLocation WHITE =
-            new ResourceLocation("jiezhimod", "textures/gui/white.png");
-
-    /** 白色像素正中间的 UV（8×8，中心 = 4/8） */
-    private static final float U = 0.5F;
-    private static final float V = 0.5F;
-
-    /** 排错用：只在第一次真正提交顶点时打一行日志，不刷屏 */
+    /** 排错用：第一次真正提交时打一行日志（不刷屏） */
     private static boolean loggedOnce = false;
 
     private GuiDraw() {
     }
 
-    /** 圆角矩形填充；radius 会自动收敛到不超过短边的一半。 */
-    public static void drawRoundedRect(float x, float y, float w, float h, float radius, int color) {
-        if (w <= 0.0F || h <= 0.0F) {
-            return;
-        }
-        upload(GuiGeometry.roundedRectTriangles(x, y, w, h, radius), color, "rounded");
-    }
-
     /**
      * 实心矩形填充（ARGB）。
      *
-     * 与 drawRoundedRect 分开：热量条这种"必须精确对齐 1px 槽位"的 UI
-     * 不该走三角扇（圆弧顶点会让 1px 线看起来发虚），直接画两个三角形最稳。
+     * 直接委托 {@link Gui#drawRect} —— 原版所有 GUI 的底纹、格子、tooltip 背景都走它，
+     * 是这套渲染里唯一不需要再验证的路径。
      */
     public static void drawRect(int x1, int y1, int x2, int y2, int color) {
         if (x2 <= x1 || y2 <= y1) {
             return;
         }
-        upload(GuiGeometry.rectTriangles(x1, y1, x2, y2), color, "rect");
+        Gui.drawRect(x1, y1, x2, y2, color);
     }
 
-    /** 把三角形列表一次性提交（整块图形只 begin/draw 一次，避免丢批次）。 */
-    private static void upload(float[] tris, int color, String kind) {
-        if (tris == null || tris.length < 6) {
+    /**
+     * 圆角矩形填充。
+     *
+     * 实现是**逐行四边形**：第 i 行按圆弧算一个左右内缩量，画一条 1px 高的矩形。
+     * 全部顶点塞进同一个 {@code BufferBuilder}，一次 draw 提交（一屏面板约 150~240 个 quad，
+     * 对 GUI 来说完全无压力）。
+     *
+     * 为什么不用三角扇：见类注释 —— GL_TRIANGLES 在本整合包的 GUI 阶段画不出来。
+     */
+    public static void drawRoundedRect(float x, float y, float w, float h, float radius, int color) {
+        if (w <= 0.0F || h <= 0.0F) {
             return;
         }
+        float r = Math.max(0.0F, Math.min(radius, Math.min(w, h) / 2.0F));
+
+        // 没有圆角就直接交给原版，省一层
+        if (r < 0.5F) {
+            drawRect(Math.round(x), Math.round(y),
+                    Math.round(x + w), Math.round(y + h), color);
+            return;
+        }
+
         float a = ((color >>> 24) & 255) / 255.0F;
         float rr = ((color >> 16) & 255) / 255.0F;
         float gg = ((color >> 8) & 255) / 255.0F;
         float bb = (color & 255) / 255.0F;
 
-        Minecraft mc = Minecraft.getMinecraft();
-        if (mc == null || mc.getTextureManager() == null) {
-            return;
-        }
-
         Tessellator tess = Tessellator.getInstance();
         BufferBuilder buf = tess.getBuffer();
         GlStateManager.enableBlend();
-        // 关键：**不关纹理**，改成绑一张白纹理（见类注释）
-        GlStateManager.enableTexture2D();
+        GlStateManager.disableTexture2D();
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                 GL11.GL_ONE, GL11.GL_ZERO);
-        mc.getTextureManager().bindTexture(WHITE);
 
-        buf.begin(GL11.GL_TRIANGLES, DefaultVertexFormats.POSITION_TEX_COLOR);
-        for (int i = 0; i + 1 < tris.length; i += 2) {
-            buf.pos(tris[i], tris[i + 1], 0.0D).tex(U, V).color(rr, gg, bb, a).endVertex();
+        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+
+        int rows = (int) Math.ceil(h);
+        int drawn = 0;
+        for (int i = 0; i < rows; i++) {
+            float inset = GuiGeometry.rowInset(r, h, i);
+            float x0 = x + inset;
+            float x1 = x + w - inset;
+            if (x1 - x0 < 0.5F) {
+                continue;
+            }
+            float y0 = y + i;
+            float y1 = y0 + 1.0F;
+            // 顶点顺序照抄原版 Gui.drawRect：左下 -> 右下 -> 右上 -> 左上
+            buf.pos(x0, y1, 0.0D).color(rr, gg, bb, a).endVertex();
+            buf.pos(x1, y1, 0.0D).color(rr, gg, bb, a).endVertex();
+            buf.pos(x1, y0, 0.0D).color(rr, gg, bb, a).endVertex();
+            buf.pos(x0, y0, 0.0D).color(rr, gg, bb, a).endVertex();
+            drawn++;
         }
         tess.draw();
 
+        GlStateManager.enableTexture2D();
+
         if (!loggedOnce) {
             loggedOnce = true;
-            int texId = -1;
-            try {
-                net.minecraft.client.renderer.texture.ITextureObject t =
-                        mc.getTextureManager().getTexture(WHITE);
-                if (t != null) {
-                    texId = t.getGlTextureId();
-                }
-            } catch (Throwable ignored) {
-                // 纹理没加载出来时这里可能抛；不打断绘制，让日志说明问题
-            }
-            com.jiezhimod.JiezhiMod.warn("[GuiDraw] first fill: kind={} verts={} color=#{} "
-                            + "tex={} texId={} (texId<=0 表示白纹理没加载出来)",
-                    kind, tris.length / 2, Integer.toHexString(color).toUpperCase(), WHITE, texId);
+            com.jiezhimod.JiezhiMod.warn("[GuiDraw] first rounded fill: rows=" + drawn
+                    + " color=#" + Integer.toHexString(color).toUpperCase());
         }
     }
 

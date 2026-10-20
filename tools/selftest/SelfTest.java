@@ -128,7 +128,7 @@ public class SelfTest {
         testDfcSnapshotCodec();
         testDfcDeviceLookup();
         testCustomScreenGuiLayout();
-        testGuiGeometry();
+        testRoundedRows();
         testKeypadLayout();
         testRefreshRate();
 
@@ -2662,42 +2662,53 @@ public class SelfTest {
     }
 
     /**
-     * GUI 填充物的三角化。
+     * 圆角矩形的逐行四边形填充（v3.9.2 起 GUI 底纹的唯一实现）。
      *
-     * 【为什么这条测试必须存在】v3.6 及以前 `GuiDraw.drawRoundedRect` 在 GL_TRIANGLES
-     * 模式下只发了一次中心点、后面跟 28 个轮廓点，导致除了第一个三角形以外全成了细缝；
-     * `drawRect` 的 4 个三角形更是顶点重合、面积恒为 0。
-     * 结果就是**面板底色和物品格子从来没画出来过**，而按钮/文字（原版带纹理路径）正常，
-     * 很容易被误判成 GL 状态问题。退化三角形在源码里看着"顶点数是对的"，只有算面积才露馅。
+     * 【为什么这条必须有】底纹在 v3.6~v3.9.1 一直画不出来，换了三种画法都没用，
+     * 最后才发现是 GL_TRIANGLES 的问题。现在改成"每行一个四边形"，
+     * 几何退化成"每行左右缩多少"—— 这里钉住三件事：
+     *   · 中间的行不缩、上下两端的行要缩（否则不是圆角，是矩形）；
+     *   · 任何一行都不能缩到宽度为负（否则整行消失、面板漏缝）；
+     *   · 逐行拼出来的覆盖面积要接近 w·h（缺口 = 四个圆角），不能明显偏小。
      */
-    private static void testGuiGeometry() {
-        section("GUI triangle geometry");
+    private static void testRoundedRows() {
+        section("rounded rect rows (GUI fill)");
 
-        // ---------- 实心矩形 ----------
-        float[] q = com.jiezhimod.client.util.GuiGeometry.rectTriangles(10, 20, 60, 40);
-        check("几何：矩形 = 2 个三角形 = 12 个分量", q.length == 12);
-        check("几何：矩形每个三角形面积都不为 0（v3.6 的 bug 就死在这里）",
-                allTrianglesNonDegenerate(q));
-        check("几何：矩形总面积 = 宽 × 高 (50×20=1000)",
-                Math.abs(triangleArea(q) - 1000.0F) < 0.01F);
-        check("几何：矩形所有顶点都在给定范围内", allWithin(q, 10, 20, 60, 40));
+        final float r = 8.0F;
+        final float h = 60.0F;
+        check("圆角行：第一行必须有内缩（否则没有圆角）",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 0) > 0.5F);
+        check("圆角行：最后一行必须有内缩",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 59) > 0.5F);
+        check("圆角行：正中间那行不缩（不然整块板会变窄）",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 30) == 0.0F);
+        check("圆角行：越往中间缩得越少（单调）",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 0)
+                        > com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 4));
+        check("圆角行：内缩不会超过半径",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 0) <= r + 0.01F);
+        check("圆角行：越界的行号返回 0（不会算出 NaN 把整行画没）",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, -1) == 0.0F
+                        && com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, 999) == 0.0F);
 
-        // ---------- 圆角矩形 ----------
-        float[] rr = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 100, 60, 8);
-        check("几何：圆角矩形顶点数是 3 的倍数", rr.length > 0 && (rr.length / 2) % 3 == 0);
-        check("几何：圆角矩形每个三角形面积都不为 0", allTrianglesNonDegenerate(rr));
-        check("几何：圆角矩形所有顶点都在矩形范围内", allWithin(rr, 0, 0, 100, 60));
-        // 圆角会切掉 4 个 (1 - π/4)r² ≈ 55 → 覆盖率应略低于 100%，但不能低于 95%
-        float filled = triangleArea(rr);
-        check("几何：圆角矩形覆盖率在 95%~100% 之间（缺口 = 四个圆角）",
-                filled > 0.95F * 6000.0F && filled <= 6000.01F);
+        // 覆盖面积：逐行累加出来的面积应接近 w·h，缺口就是四个圆角（约 (4-π)r²）
+        double area = com.jiezhimod.client.util.GuiGeometry.coveredArea(100.0F, h, r);
+        double full = 100.0 * h;
+        check("圆角行：覆盖率在 97%~100% 之间（缺口 = 四个圆角）",
+                area > 0.97 * full && area <= full + 0.01);
 
-        // 半径为 0 / 超过短边一半时都不许崩、不许出界
-        float[] flat = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 40, 10, 0);
-        check("几何：radius=0 退化成矩形", flat.length == 12 && allTrianglesNonDegenerate(flat));
-        float[] huge = com.jiezhimod.client.util.GuiGeometry.roundedRectTriangles(0, 0, 40, 10, 999);
-        check("几何：radius 超短边时会收敛、不外溢",
-                allTrianglesNonDegenerate(huge) && allWithin(huge, 0, 0, 40, 10));
+        // 每行宽度必须为正：逐行检查，漏一行就是一条横缝
+        boolean allPositive = true;
+        for (int i = 0; i < (int) h; i++) {
+            float inset = com.jiezhimod.client.util.GuiGeometry.rowInset(r, h, i);
+            if (100.0F - 2.0F * inset <= 0.0F) {
+                allPositive = false;
+            }
+        }
+        check("圆角行：每一行都还剩正宽度（不会漏出横缝）", allPositive);
+
+        check("圆角行：半径为 0 时完全不缩（退化成矩形）",
+                com.jiezhimod.client.util.GuiGeometry.rowInset(0.0F, h, 0) == 0.0F);
     }
 
     /**
@@ -2833,46 +2844,7 @@ public class SelfTest {
                 te.setRefreshMs(50) && te.getIntervalTicks() == 1);
     }
 
-    /** 三角形列表里有没有零面积（顶点重合 / 三点共线）的三角形 */
-    private static boolean allTrianglesNonDegenerate(float[] v) {
-        if (v == null || v.length < 6 || (v.length / 2) % 3 != 0) {
-            return false;
-        }
-        for (int i = 0; i + 5 < v.length; i += 6) {
-            double ax = v[i], ay = v[i + 1];
-            double bx = v[i + 2], by = v[i + 3];
-            double cx = v[i + 4], cy = v[i + 5];
-            double area = Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2.0D;
-            if (area <= 1.0E-6D) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    /** 三角形列表的总面积（有向面积取绝对值后累加） */
-    private static float triangleArea(float[] v) {
-        double sum = 0.0D;
-        for (int i = 0; i + 5 < v.length; i += 6) {
-            double ax = v[i], ay = v[i + 1];
-            double bx = v[i + 2], by = v[i + 3];
-            double cx = v[i + 4], cy = v[i + 5];
-            sum += Math.abs((bx - ax) * (cy - ay) - (cx - ax) * (by - ay)) / 2.0D;
-        }
-        return (float) sum;
-    }
-
     /** 所有顶点是否落在 [x, x+w] × [y, y+h] 内（留 0.01 容差） */
-    private static boolean allWithin(float[] v, float x, float y, float w, float h) {
-        for (int i = 0; i + 1 < v.length; i += 2) {
-            if (v[i] < x - 0.01F || v[i] > x + w + 0.01F
-                    || v[i + 1] < y - 0.01F || v[i + 1] > y + h + 0.01F) {
-                return false;
-            }
-        }
-        return true;
-    }
-
     private static boolean copyIsIndependent(DfcSnapshot s) {        DfcSnapshot c = DfcSnapshot.copied(s);
         c.lensType = "MUTATED";
         c.temperature = -1.0D;

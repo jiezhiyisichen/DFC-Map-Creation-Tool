@@ -44,6 +44,10 @@ public class ClientProxy extends CommonProxy {
 
     @Override
     public Object getClientGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
+        // 排错用：服务端发出 openGui 之后，客户端到底有没有解析出界面
+        JiezhiMod.warn("[GuiClient] id=" + id + " pos=" + x + "," + y + "," + z
+                + " te=" + (world.getTileEntity(new BlockPos(x, y, z)) == null ? "null"
+                : world.getTileEntity(new BlockPos(x, y, z)).getClass().getSimpleName()));
         if (id == GUI_DEBUG) {
             BlockPos p = new BlockPos(x, y, z);
             return new com.jiezhimod.client.gui.GuiDebug(p,

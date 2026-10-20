@@ -1,5 +1,5 @@
 {
   "variants": {
-    "normal": { "model": "jiezhimod:keypad_empty" }
+    "normal": { "model": "jiezhimod:keypad" }
   }
 }

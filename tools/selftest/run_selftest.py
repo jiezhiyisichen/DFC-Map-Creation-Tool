@@ -229,7 +229,8 @@ def main():
         "assets/jiezhimod/textures/gui/white.png",
         # 密码盘 / 密码控制台 / 密码连接器：模型与贴图缺一个，游戏里就是紫黑块
         "assets/jiezhimod/blockstates/keypad.json",
-        "assets/jiezhimod/models/block/keypad_empty.json",
+        "assets/jiezhimod/models/block/keypad.json",
+        "assets/jiezhimod/textures/blocks/keypad.png",
         "assets/jiezhimod/models/item/keypad.json",
         "assets/jiezhimod/textures/items/keypad.png",
         "assets/jiezhimod/blockstates/password_console.json",
