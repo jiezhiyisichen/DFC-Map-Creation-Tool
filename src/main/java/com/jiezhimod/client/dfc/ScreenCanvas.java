@@ -242,6 +242,9 @@ public final class ScreenCanvas {
         if (wantOverlay != OverlayBanner.KIND_NONE || this.overlayKind != OverlayBanner.KIND_NONE) {
             step = Math.min(step, 40L);
         }
+        // "大弹窗"= 熔毁预警 / 引爆，会整块盖住屏幕；熔毁进行中的小条不算
+        boolean bigBanner = wantOverlay == OverlayBanner.KIND_MELTDOWN
+                || wantOverlay == OverlayBanner.KIND_DETONATE;
         long phase = powered ? sinceOnMs : paintMs();
         this.framePhaseMs = phase;
         long bucket = phase / step;
@@ -259,8 +262,11 @@ public final class ScreenCanvas {
 
         if (!powered) {
             drawOff();
-        } else if (faultElapsedMs >= 0L && wantOverlay == OverlayBanner.KIND_NONE) {
-            // 有倒计时弹窗时让开报错页：正在数秒的时候整屏切到 301，反而看不出还剩多久
+        } else if (faultElapsedMs >= 0L && !bigBanner) {
+            // 【只有大弹窗才让开报错页】正在数秒时整屏切到 301，反而看不出还剩多久；
+            // 但"熔毁进行中"那条顶部小条**不能**把 301 顶掉 —— 301 本来就是
+            // "与核心失去连接"的正式告警页，坍缩期恰恰是最该看到它的时候。
+            // 小条画在 301 之上（见下面的 drawOverlay），两者叠加正好。
             drawFault(faultElapsedMs);
         } else {
             int p = ScreenLayout.phaseAt(sinceOnMs);

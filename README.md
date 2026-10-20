@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.4.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.5.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.4--beta-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.5--beta-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -519,7 +519,7 @@
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
 2. 把 `jiezhi-1.12.2-dfcmaptools-3.9.1.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.4 is loading.` 即加载成功；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.5 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。
@@ -695,7 +695,7 @@ jar 内置完整性校验，说明文件被改动过（反编译、二次打包�
 
 摘要（完整版见 [CHANGELOG.md](CHANGELOG.md)）：
 
-- **3.9.4**（紧急修复） —— 界面底纹彻底改用原版 `Gui.drawRect`；密码盘面板加纯色兜底；弹窗改三态（熔毁进行中只显示顶部小条，不遮挡核心数据）；倒计时单位从读数自动校准。\n- **3.9.3** —— 新增屏幕**覆盖弹窗**：核心开始坍缩（熔毁）或检测到 **DFC 引爆器启动**时，所有连着该核心的显示屏一起弹出红/橙警告带 + `>>>> m:ss <<<<` 倒计时，带弹入/弹出动画、呼吸闪烁与箭头脉冲。\n- **3.9.2**（实测修复） —— 找到界面**底纹透明**的根因：自绘用了 `GL_TRIANGLES`，本整合包 GUI 阶段画不出来；改用原版 `Gui.drawRect` + 逐行四边形。密码盘底座改回普通模型（不再不可见）；调试棒对显示器**任意一格**都能开；补齐全链路日志。\n- **3.9.1**（紧急修复 + 测试版） —— **屏幕刷新率可调**（50/100/200/500/1000 ms，默认仍 50ms，四块屏同时开掉帧的问题靠它缓解）；新增**调试棒**（蹲下右键任意本模组方块，显示器可调刷新率并显示推荐值）；**彻底删除红石延时器**。
+- **3.9.5** —— 修好「熔毁进行中把 301 报错页顶掉」：只有大弹窗（熔毁预警/引爆）才让开 301，小条与 301 叠加显示。\n- **3.9.4**（紧急修复） —— 界面底纹彻底改用原版 `Gui.drawRect`；密码盘面板加纯色兜底；弹窗改三态（熔毁进行中只显示顶部小条，不遮挡核心数据）；倒计时单位从读数自动校准。\n- **3.9.3** —— 新增屏幕**覆盖弹窗**：核心开始坍缩（熔毁）或检测到 **DFC 引爆器启动**时，所有连着该核心的显示屏一起弹出红/橙警告带 + `>>>> m:ss <<<<` 倒计时，带弹入/弹出动画、呼吸闪烁与箭头脉冲。\n- **3.9.2**（实测修复） —— 找到界面**底纹透明**的根因：自绘用了 `GL_TRIANGLES`，本整合包 GUI 阶段画不出来；改用原版 `Gui.drawRect` + 逐行四边形。密码盘底座改回普通模型（不再不可见）；调试棒对显示器**任意一格**都能开；补齐全链路日志。\n- **3.9.1**（紧急修复 + 测试版） —— **屏幕刷新率可调**（50/100/200/500/1000 ms，默认仍 50ms，四块屏同时开掉帧的问题靠它缓解）；新增**调试棒**（蹲下右键任意本模组方块，显示器可调刷新率并显示推荐值）；**彻底删除红石延时器**。
 - **3.9-beta**（测试版） —— 新增**密码盘**（占一格、高半格、触摸式、密码随机、便签展示）、**密码控制台**（接收红石信号后锁定/解锁/清空密码盘；密码正确时输出红石）、**密码连接器**（蹲下右键密码盘记录 → 蹲下右键控制台绑定）。
 - **3.8** —— 面板底色仍不可见，根因是自绘填充走 `disableTexture2D() + POSITION_COLOR`（HBM 会直接改 GL 状态，`GlStateManager` 纹理缓存失同步时这条路等于没画）。改走**和文字完全相同**的路径：绑自带纯白纹理 + `POSITION_TEX_COLOR`；面板底色改为**完全不透明**；新增 `[GuiCustomScreen]` / `[GuiDraw]` 排错日志；修掉自测脚本"永远在验最老 jar"的 bug。
 - **3.7** —— 修好「面板底色是透明的」：`GuiDraw` 的三角化写错（圆角路径的中心点只发一次、方角路径的三角形全是零面积），**底色 / 斑马纹 / 物品格子从来没画出来过**。几何抽到 `GuiGeometry` 并补 10 条几何自测。连带修好延迟方块 GUI、通知列表、热量条、通知 HUD 的底纹。
