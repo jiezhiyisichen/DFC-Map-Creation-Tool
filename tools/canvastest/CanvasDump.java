@@ -334,6 +334,17 @@ public class CanvasDump {
         Thread.sleep(220L);
         c2.render(1000300L, true, det, ev, ScreenCanvas.PAGE_CORE);
         writeKeypad(c2, "banner_detonate");
+
+        // 熔毁进行中：只画顶部小条（不挡核心数据）
+        ScreenCanvas c3 = new ScreenCanvas();
+        DfcSnapshot active = new DfcSnapshot();
+        active.linked = true;
+        active.collapsing = 0.55D;
+        active.secondsToExplosion = 54.0F;
+        c3.render(999999L, true, active, ev, ScreenCanvas.PAGE_CORE);
+        Thread.sleep(220L);
+        c3.render(1000300L, true, active, ev, ScreenCanvas.PAGE_CORE);
+        writeKeypad(c3, "banner_active_strip");
     }
 
     /** 从 RGBA 像素数组里裁一块（逻辑坐标，内部 ×SS）并做整数倍最近邻放大 */

@@ -52,14 +52,16 @@ public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
                     te.isLocked(), te.isAccepted(), te.isRejecting(), now);
             canvas.uploadIfDirty(now);
 
-            if (canvas.texture() == null) {
-                logOnce(te, "canvas.texture() == null（画布还没建纹理），本帧跳过面板");
-                return;
-            }
-
             GlStateManager.pushMatrix();
             GlStateManager.translate(x, y, z);
-            drawPanel(canvas);
+            if (canvas.texture() == null) {
+                // 兜底：纹理没建出来时画一块深色顶面，至少让玩家看到"这里有块面板"。
+                // TESR 里 POSITION_COLOR + GL_QUADS 是能显示的（DFC 外壳就是这条路）。
+                logOnce(te, "canvas.texture() == null，改用纯色顶面兜底");
+                drawFallbackPanel();
+            } else {
+                drawPanel(canvas);
+            }
             GlStateManager.popMatrix();
 
             logOnce(te, "first frame ok, texId=" + canvas.texture().getGlTextureId());
@@ -75,6 +77,28 @@ public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
         }
         LOGGED.add(key);
         com.jiezhimod.JiezhiMod.warn("[KeypadRender] " + key + " " + msg);
+    }
+
+    /** 兜底顶面：没有纹理时画一块深色板，保证"看得见" */
+    private void drawFallbackPanel() {
+        float p0 = KeypadLayout.PANEL_MIN;
+        float p1 = KeypadLayout.PANEL_MAX;
+        Tessellator tess = Tessellator.getInstance();
+        BufferBuilder buf = tess.getBuffer();
+        GlStateManager.disableTexture2D();
+        GlStateManager.disableLighting();
+        GlStateManager.disableBlend();
+        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
+        float r = 0.10F;
+        float g = 0.12F;
+        float b = 0.16F;
+        buf.pos(p0, PANEL_Y, p0).color(r, g, b, 1.0F).endVertex();
+        buf.pos(p1, PANEL_Y, p0).color(r, g, b, 1.0F).endVertex();
+        buf.pos(p1, PANEL_Y, p1).color(r, g, b, 1.0F).endVertex();
+        buf.pos(p0, PANEL_Y, p1).color(r, g, b, 1.0F).endVertex();
+        tess.draw();
+        GlStateManager.enableTexture2D();
+        GlStateManager.enableLighting();
     }
 
     // ==================== 面板 ====================

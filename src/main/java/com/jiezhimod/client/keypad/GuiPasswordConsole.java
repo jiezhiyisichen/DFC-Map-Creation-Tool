@@ -152,11 +152,30 @@ public class GuiPasswordConsole extends GuiContainer {
 
     @Override
     protected void drawGuiContainerBackgroundLayer(float partialTicks, int mouseX, int mouseY) {
+        // 整段兜底：界面画不出来时，至少留一条日志和一行能看见的提示，
+        // 而不是"鼠标出现了、屏幕一片空白"。
+        try {
+            drawPanelSafe();
+        } catch (Throwable t) {
+            if (!LOGGED_PAINT_ERROR) {
+                LOGGED_PAINT_ERROR = true;
+                net.minecraft.client.Minecraft.getMinecraft().fontRenderer.drawString(
+                        "GUI paint error: " + t, 8, 8, 0xFFFF4040);
+                com.jiezhimod.JiezhiMod.warn("[GuiPasswordConsole] paint failed: "
+                        + t.getClass().getName() + ": " + t.getMessage());
+            }
+        }
+    }
+
+    /** 排错用：绘制异常只打一次 */
+    private static boolean LOGGED_PAINT_ERROR;
+
+    private void drawPanelSafe() {
         int px = this.guiLeft;
         int py = this.guiTop;
 
         // 不透明底：背后就是世界，半透明会和方块本身糊在一起
-        GuiDraw.drawRoundedRect(px, py, W, H, 8.0F, 0xFF0B0B10);
+        GuiDraw.drawRoundedRect(px, py, W, H, 0.0F, 0xFF0B0B10);
 
         String title = I18n.format("gui.jiezhimod.console.title");
         this.fontRenderer.drawString(title,

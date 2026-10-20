@@ -2732,12 +2732,35 @@ public class SelfTest {
 
         check("弹窗：没连接核心 -> 不弹",
                 com.jiezhimod.dfc.OverlayBanner.decide(0.9D, true, false) == NONE);
-        check("弹窗：坍缩度 > 0 -> 熔毁弹窗",
-                com.jiezhimod.dfc.OverlayBanner.decide(0.2D, false, true) == MELT);
+        // v3.9.4 起：坍缩已经开始了就切成顶部小条（大弹窗只留给预警期与引爆），
+        // 否则核心数据被整块盖住，玩家没法判断局势。
+        check("弹窗：坍缩度 > 0 -> 顶部小条（不是大弹窗）",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.2D, false, true)
+                        == com.jiezhimod.dfc.OverlayBanner.KIND_MELTDOWN_ACTIVE);
         check("弹窗：引爆器启动 -> 引爆弹窗（优先于熔毁）",
                 com.jiezhimod.dfc.OverlayBanner.decide(0.2D, true, true) == DET);
         check("弹窗：一切正常 -> 不弹",
                 com.jiezhimod.dfc.OverlayBanner.decide(0.0D, false, true) == NONE);
+        check("弹窗：已在坍缩 -> 改小条（不挡核心数据）",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.2D, false, true, 90.0D)
+                        == com.jiezhimod.dfc.OverlayBanner.KIND_MELTDOWN_ACTIVE);
+        check("弹窗：达到熔毁温度、还没坍缩 -> 大弹窗预警",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.0D, false, true, 120.0D) == MELT);
+        check("弹窗：预警值为 0 -> 不弹",
+                com.jiezhimod.dfc.OverlayBanner.decide(0.0D, false, true, 0.0D) == NONE);
+
+        check("单位校准：每次刷新掉 4（tick 计时）-> 每秒 20",
+                com.jiezhimod.dfc.OverlayBanner.calibrateUnits(4.0D, 4) == 20.0D);
+        check("单位校准：每次刷新掉 0.2（秒计时）-> 每秒 1",
+                com.jiezhimod.dfc.OverlayBanner.calibrateUnits(0.2D, 4) == 1.0D);
+        check("单位校准：读数没动 -> 默认按 tick",
+                com.jiezhimod.dfc.OverlayBanner.calibrateUnits(0.0D, 4) == 20.0D);
+        check("秒换算：600 / 20 = 30 秒",
+                com.jiezhimod.dfc.OverlayBanner.secondsFrom(600.0D, 20.0D) == 30);
+        check("秒换算：30 / 1 = 30 秒",
+                com.jiezhimod.dfc.OverlayBanner.secondsFrom(30.0D, 1.0D) == 30);
+        check("秒换算：负数 -> -1",
+                com.jiezhimod.dfc.OverlayBanner.secondsFrom(-1.0D, 20.0D) == -1);
 
         check("倒计时：坍缩度 0.35 -> 还剩 78 秒",
                 com.jiezhimod.dfc.OverlayBanner.remainSeconds(0.35D) == 78);

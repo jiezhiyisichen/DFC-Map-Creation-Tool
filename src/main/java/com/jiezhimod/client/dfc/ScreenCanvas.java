@@ -228,7 +228,8 @@ public final class ScreenCanvas {
         // 覆盖弹窗（熔毁 / 引爆）需要连贯动画，所以有弹窗时把节拍压到 40ms；
         // 没弹窗时仍按各自设定的刷新率走（那是玩家为了省性能调慢的）。
         int wantOverlay = powered
-                ? OverlayBanner.decide(data.collapsing, data.detonation, data.linked)
+                ? OverlayBanner.decide(data.collapsing, data.detonation, data.linked,
+                        data.explosionIn)
                 : OverlayBanner.KIND_NONE;
 
         long step = 50L;
@@ -1541,7 +1542,11 @@ public final class ScreenCanvas {
                 this.overlayStartMs = now;
                 this.overlayHideStartMs = -1L;
             }
-            this.overlaySeconds = OverlayBanner.remainSeconds(data.collapsing);
+            // 优先用服务端按"校准后的单位"算好的秒数；没有就退回按坍缩度反算
+            float secs = want == OverlayBanner.KIND_DETONATE
+                    ? data.secondsToDetonation : data.secondsToExplosion;
+            this.overlaySeconds = secs >= 0.0F
+                    ? (int) secs : OverlayBanner.remainSeconds(data.collapsing);
         } else if (this.overlayKind != OverlayBanner.KIND_NONE) {
             if (this.overlayHideStartMs < 0L) {
                 this.overlayHideStartMs = now;
@@ -1568,6 +1573,10 @@ public final class ScreenCanvas {
     }
 
     private void paintBanner(int kind, int seconds, float alpha, float slideY, long now) {
+        if (kind == OverlayBanner.KIND_MELTDOWN_ACTIVE) {
+            paintActiveStrip(seconds, alpha, now);
+            return;
+        }
         boolean melt = kind == OverlayBanner.KIND_MELTDOWN;
         int theme = melt ? 0xFFE03030 : 0xFFFF8A2A;
         int themeSoft = melt ? 0xFF7A1414 : 0xFF7A3C0A;
@@ -1602,7 +1611,7 @@ public final class ScreenCanvas {
 
         // 正文两行（序号固定，别再往下加 —— 下面 30px 是倒计时专用的）
         String l1 = melt ? "反应堆核心已达到危急临界级别" : "检测到 DFC 引爆器已启动";
-        String l2 = melt ? "立即撤离至储备仓库或尝试停用反应堆" : "核心即将引爆，立即撤离";
+        String l2 = melt ? "立即撤离或紧急关机" : "核心即将引爆，立即撤离";
         textCenterIn(l1, x, w, y + 46, argb(0xFFE8D8D0, alpha), fCjk(8));
         textCenterIn(l2, x, w, y + 59, argb(0xFFE8D8D0, alpha), fCjk(8));
 
@@ -1620,6 +1629,32 @@ public final class ScreenCanvas {
         text(arrowsL, cx, baseY, argb(theme, alpha * 0.85F), big);
         text(time, cx + aw + 9, baseY, argb(theme, alpha), big);
         text(arrowsR, cx + aw + 9 + tw, baseY, argb(theme, alpha * 0.85F), big);
+    }
+
+    /**
+     * 熔毁**进行中**的小条：贴顶、20px 高、轻微左右摆动。
+     *
+     * 【为什么这里不用大弹窗】核心已经在坍缩、玩家正盯着读数想办法，
+     * 这时候用一块 214x104 的大板盖住中间，等于把最需要看的数据挡了。
+     * 顶部这条只占标题栏，扫光会慢慢经过，既有存在感又不碍事。
+     */
+    private void paintActiveStrip(int seconds, float alpha, long now) {
+        int theme = 0xFFE03030;
+        float pulse = OverlayBanner.pulse(now);
+        float sway = (float) Math.sin(now / 900.0D) * 3.0F;
+        int shift = Math.round(sway);
+
+        rect(0, 0, LW, 20, argb(0xFF2A0505, alpha * 0.94F));
+        rect(0, 0, LW, 2, argb(theme, alpha * (0.50F + 0.50F * pulse)));
+        rect(0, 19, LW, 1, argb(theme, alpha * (0.55F + 0.45F * pulse)));
+
+        text("熔毁进行中", 8 + shift, 14, argb(theme, alpha), fCjkBold(9));
+        textRight(OverlayBanner.mmss(seconds), LW - 8 + shift, 14, argb(theme, alpha),
+                fMonoBold(11));
+
+        // 一道缓慢扫过的高光，让这条"在动"而不是死板地贴着
+        int sweep = (int) ((now / 12L) % (LW + 80L)) - 40;
+        rect(sweep, 3, 26, 15, argb(0xFFFFE0E0, alpha * 0.06F));
     }
 
     /** 斜纹条：45 度短斜线，模拟警戒带 */

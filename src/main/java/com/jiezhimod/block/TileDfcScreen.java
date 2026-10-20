@@ -157,6 +157,14 @@ public class TileDfcScreen extends TileEntity implements ITickable {
     /** 引爆器原始值只打一次日志（每个进程一次，不随屏幕数量翻倍） */
     private static boolean DETONATION_LOGGED;
 
+    /**
+     * 两个倒计时量的"每秒多少单位"（20 = tick 计时，1 = 秒计时）。
+     * 由 {@link com.jiezhimod.dfc.OverlayBanner#calibrateUnits} 从读数下降速率反推 ——
+     * 作者代码里这两个变量都没有单位注释，只能靠实测。
+     */
+    private double unitsPerSecExplosion = 20.0D;
+    private double unitsPerSecDetonation = 20.0D;
+
     // ==================== 生命周期 ====================
 
     @Override
@@ -218,8 +226,28 @@ public class TileDfcScreen extends TileEntity implements ITickable {
             this.data.componentCount = this.countOwnParts();
         }
 
-        // 引爆器启动时打一次原始值：detonationTimer 的单位（秒还是 tick）在作者代码里
-        // 没有注释，先记下来，下次实机就能校准倒计时的换算。
+        // 单位自校准：只有"在下降"的两次读数才能算出速率
+        if (this.prev.explosionIn > 0.0D && this.data.explosionIn > 0.0D
+                && this.data.explosionIn < this.prev.explosionIn) {
+            this.unitsPerSecExplosion = com.jiezhimod.dfc.OverlayBanner.calibrateUnits(
+                    this.prev.explosionIn - this.data.explosionIn, this.intervalTicks);
+        }
+        if (this.prev.detonationTimer > 0 && this.data.detonationTimer > 0
+                && this.data.detonationTimer < this.prev.detonationTimer) {
+            this.unitsPerSecDetonation = com.jiezhimod.dfc.OverlayBanner.calibrateUnits(
+                    this.prev.detonationTimer - this.data.detonationTimer, this.intervalTicks);
+        }
+        this.data.secondsToExplosion = this.data.explosionIn > 0.0D
+                ? com.jiezhimod.dfc.OverlayBanner.secondsFrom(
+                        this.data.explosionIn, this.unitsPerSecExplosion)
+                : -1.0F;
+        this.data.secondsToDetonation = this.data.detonation
+                ? com.jiezhimod.dfc.OverlayBanner.secondsFrom(
+                        this.data.detonationTimer, this.unitsPerSecDetonation)
+                : -1.0F;
+
+        // 引爆器启动时打一次原始值：万一校准还没跑起来，也能靠这一行手工核对
+        // 倒计时的换算（detonationTimer 的单位在作者代码里没有注释）。
         if (this.data.detonation && !DETONATION_LOGGED) {
             DETONATION_LOGGED = true;
             com.jiezhimod.JiezhiMod.warn("[DFC] detonation started: raw timer="

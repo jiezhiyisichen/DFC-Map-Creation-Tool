@@ -1,13 +1,8 @@
 package com.jiezhimod.client.util;
 
 import net.minecraft.client.gui.Gui;
-import net.minecraft.client.renderer.BufferBuilder;
-import net.minecraft.client.renderer.GlStateManager;
-import net.minecraft.client.renderer.Tessellator;
-import net.minecraft.client.renderer.vertex.DefaultVertexFormats;
 import net.minecraftforge.fml.relauncher.Side;
 import net.minecraftforge.fml.relauncher.SideOnly;
-import org.lwjgl.opengl.GL11;
 
 /**
  * 2D 绘制小工具（实心矩形 / 圆角矩形 / 半透明底纹）。
@@ -54,66 +49,17 @@ public final class GuiDraw {
     /**
      * 圆角矩形填充。
      *
-     * 实现是**逐行四边形**：第 i 行按圆弧算一个左右内缩量，画一条 1px 高的矩形。
-     * 全部顶点塞进同一个 {@code BufferBuilder}，一次 draw 提交（一屏面板约 150~240 个 quad，
-     * 对 GUI 来说完全无压力）。
-     *
-     * 为什么不用三角扇：见类注释 —— GL_TRIANGLES 在本整合包的 GUI 阶段画不出来。
+     * 【v3.9.4 起**退化成直角矩形**】实机反馈：3.9.2 用逐行四边形之后，
+     * 密码控制台界面依然"鼠标出来了、界面一片空白"。
+     * 与其继续在一个看不清的渲染问题上试探，不如把这条路径彻底收敛到
+     * **原版 {@link Gui#drawRect}** —— 全游戏每一个 GUI 的底纹都走它，不可能出错。
+     * 圆角等以后有实机条件了再用贴图做（贴图不经过 Tessellator）。
      */
     public static void drawRoundedRect(float x, float y, float w, float h, float radius, int color) {
         if (w <= 0.0F || h <= 0.0F) {
             return;
         }
-        float r = Math.max(0.0F, Math.min(radius, Math.min(w, h) / 2.0F));
-
-        // 没有圆角就直接交给原版，省一层
-        if (r < 0.5F) {
-            drawRect(Math.round(x), Math.round(y),
-                    Math.round(x + w), Math.round(y + h), color);
-            return;
-        }
-
-        float a = ((color >>> 24) & 255) / 255.0F;
-        float rr = ((color >> 16) & 255) / 255.0F;
-        float gg = ((color >> 8) & 255) / 255.0F;
-        float bb = (color & 255) / 255.0F;
-
-        Tessellator tess = Tessellator.getInstance();
-        BufferBuilder buf = tess.getBuffer();
-        GlStateManager.enableBlend();
-        GlStateManager.disableTexture2D();
-        GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
-                GL11.GL_ONE, GL11.GL_ZERO);
-
-        buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_COLOR);
-
-        int rows = (int) Math.ceil(h);
-        int drawn = 0;
-        for (int i = 0; i < rows; i++) {
-            float inset = GuiGeometry.rowInset(r, h, i);
-            float x0 = x + inset;
-            float x1 = x + w - inset;
-            if (x1 - x0 < 0.5F) {
-                continue;
-            }
-            float y0 = y + i;
-            float y1 = y0 + 1.0F;
-            // 顶点顺序照抄原版 Gui.drawRect：左下 -> 右下 -> 右上 -> 左上
-            buf.pos(x0, y1, 0.0D).color(rr, gg, bb, a).endVertex();
-            buf.pos(x1, y1, 0.0D).color(rr, gg, bb, a).endVertex();
-            buf.pos(x1, y0, 0.0D).color(rr, gg, bb, a).endVertex();
-            buf.pos(x0, y0, 0.0D).color(rr, gg, bb, a).endVertex();
-            drawn++;
-        }
-        tess.draw();
-
-        GlStateManager.enableTexture2D();
-
-        if (!loggedOnce) {
-            loggedOnce = true;
-            com.jiezhimod.JiezhiMod.warn("[GuiDraw] first rounded fill: rows=" + drawn
-                    + " color=#" + Integer.toHexString(color).toUpperCase());
-        }
+        drawRect(Math.round(x), Math.round(y), Math.round(x + w), Math.round(y + h), color);
     }
 
     /** 把 ARGB 整数按比例套一层不透明度，返回同形式的值 */

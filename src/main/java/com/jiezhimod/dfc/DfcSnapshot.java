@@ -106,6 +106,11 @@ public final class DfcSnapshot {
     public boolean detonation;
     /** 引爆倒计时（getDetonationTimer） */
     public int detonationTimer;
+
+    /** 距熔毁还剩多少**秒**（服务端按校准后的单位算好；-1 = 没有倒计时） */
+    public float secondsToExplosion = -1.0F;
+    /** 距引爆还剩多少**秒**（同上） */
+    public float secondsToDetonation = -1.0F;
     /** 检测到的多方块部件数量（getDFCComponentPositions 的长度）—— 反映结构是否完整 */
     public int componentCount;
 
@@ -217,6 +222,8 @@ public final class DfcSnapshot {
         this.overloadTimer = o.overloadTimer;
         this.detonation = o.detonation;
         this.detonationTimer = o.detonationTimer;
+        this.secondsToExplosion = o.secondsToExplosion;
+        this.secondsToDetonation = o.secondsToDetonation;
         this.componentCount = o.componentCount;
         this.emitterCount = o.emitterCount;
         this.emitterActiveCount = o.emitterActiveCount;
@@ -277,6 +284,8 @@ public final class DfcSnapshot {
         buf.writeInt(overloadTimer);
         buf.writeBoolean(detonation);
         buf.writeInt(detonationTimer);
+        buf.writeFloat(secondsToExplosion);
+        buf.writeFloat(secondsToDetonation);
         buf.writeInt(componentCount);
         // ---- 部件聚合（第二屏） ----
         buf.writeInt(emitterCount);
@@ -353,6 +362,8 @@ public final class DfcSnapshot {
         this.overloadTimer = buf.readInt();
         this.detonation = buf.readBoolean();
         this.detonationTimer = buf.readInt();
+        this.secondsToExplosion = buf.readFloat();
+        this.secondsToDetonation = buf.readFloat();
         this.componentCount = buf.readInt();
         // ---- 部件聚合（第二屏），顺序必须与 writeTo 严格一致 ----
         this.emitterCount = buf.readInt();

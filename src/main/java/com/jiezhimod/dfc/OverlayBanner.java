@@ -18,6 +18,13 @@ public final class OverlayBanner {
     public static final int KIND_MELTDOWN = 1;
     /** 引爆器已启动（橙） */
     public static final int KIND_DETONATE = 2;
+    /**
+     * **熔毁进行中**（核心已经在坍缩）。
+     *
+     * 这个阶段玩家最需要看核心数据，所以这里只画一条贴着顶部的小条、轻微移动，
+     * 绝不遮挡中间的读数区。真正的大弹窗只留给"预警倒计时"和"引爆"两个瞬间。
+     */
+    public static final int KIND_MELTDOWN_ACTIVE = 3;
 
     /** 弹入动画时长（毫秒） */
     public static final long IN_MS = 260L;
@@ -40,6 +47,20 @@ public final class OverlayBanner {
      * @param linked     是否连接到了核心；没连接就不弹
      */
     public static int decide(double collapsing, boolean detonation, boolean linked) {
+        return decide(collapsing, detonation, linked, 0.0D);
+    }
+
+    /**
+     * 同上，外加"熔毁预警倒计时"的值。
+     *
+     * 【为什么要看 explosionIn，不能只看 collapsing】
+     * 作者的时序是：**核心达到熔毁温度 → 先走一段预警倒计时 → 倒计时结束才开始坍缩**
+     * （坍缩度从 0 涨起来）。如果只盯 {@code collapsing > 0}，
+     * 整段"还剩两分钟"的预警期屏幕上什么都没有 —— 那正是最该警告的时候。
+     *
+     * @param explosionIn 预警倒计时原始值（&gt;0 表示已在预警期，单位未知，见 {@link #calibrateUnits}）
+     */
+    public static int decide(double collapsing, boolean detonation, boolean linked, double explosionIn) {
         if (!linked) {
             return KIND_NONE;
         }
@@ -47,9 +68,44 @@ public final class OverlayBanner {
             return KIND_DETONATE;
         }
         if (collapsing > 0.0D) {
+            // 已经在坍缩：改小条，别挡住核心数据
+            return KIND_MELTDOWN_ACTIVE;
+        }
+        if (explosionIn > 0.0D) {
             return KIND_MELTDOWN;
         }
         return KIND_NONE;
+    }
+
+    /**
+     * 从两次读数推断"这个量的单位是 tick 还是秒"。
+     *
+     * 【为什么需要校准】作者代码里 {@code explosionIn} / {@code detonationTimer} 都没有单位注释：
+     * 按 tick 算 600 就是 30 秒，按秒算 600 就是 10 分钟，差 20 倍。
+     * 但**变化速率**能直接说明问题：每 refresh 掉多少，除以经过的真实秒数，
+     * 得到"每秒掉多少单位" —— 约 20 就是 tick 计时，约 1 就是秒计时。
+     *
+     * @return 每秒包含多少个"单位"（20 = tick，1 = 秒）。数据不足时返回默认 20
+     */
+    public static double calibrateUnits(double deltaUnits, int intervalTicks) {
+        if (deltaUnits <= 0.0D || intervalTicks <= 0) {
+            return 20.0D;
+        }
+        double elapsedSec = intervalTicks * 0.05D;
+        if (elapsedSec <= 0.0D) {
+            return 20.0D;
+        }
+        double perSec = deltaUnits / elapsedSec;
+        // 20 上下（tick）/ 1 上下（秒）；中间地带默认按 tick 处理
+        return perSec > 5.0D ? 20.0D : 1.0D;
+    }
+
+    /** 用校准出来的单位把原始值换成秒 */
+    public static int secondsFrom(double raw, double unitsPerSecond) {
+        if (raw <= 0.0D || unitsPerSecond <= 0.0D) {
+            return -1;
+        }
+        return (int) Math.max(0L, Math.round(raw / unitsPerSecond));
     }
 
     /**
