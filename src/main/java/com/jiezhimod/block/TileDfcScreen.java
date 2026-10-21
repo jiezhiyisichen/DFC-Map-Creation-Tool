@@ -232,17 +232,22 @@ public class TileDfcScreen extends TileEntity implements ITickable {
             this.unitsPerSecExplosion = com.jiezhimod.dfc.OverlayBanner.calibrateUnits(
                     this.prev.explosionIn - this.data.explosionIn, this.intervalTicks);
         }
+        // 【引爆器的 timer 是往上数的】作者原文 timeRemaining = 30 - timer/20，
+        // 所以校准必须看 **|变化量|**，只认"下降"会让 unitsPerSecDetonation 永远停在默认 20。
         if (this.prev.detonationTimer > 0 && this.data.detonationTimer > 0
-                && this.data.detonationTimer < this.prev.detonationTimer) {
+                && this.data.detonationTimer != this.prev.detonationTimer) {
             this.unitsPerSecDetonation = com.jiezhimod.dfc.OverlayBanner.calibrateUnits(
-                    this.prev.detonationTimer - this.data.detonationTimer, this.intervalTicks);
+                    Math.abs(this.data.detonationTimer - this.prev.detonationTimer),
+                    this.intervalTicks);
         }
         this.data.secondsToExplosion = this.data.explosionIn > 0.0D
                 ? com.jiezhimod.dfc.OverlayBanner.secondsFrom(
                         this.data.explosionIn, this.unitsPerSecExplosion)
                 : -1.0F;
+        // 【倒计时，不是正计时】30 - timer/20（见 OverlayBanner.DETONATE_FUSE_SECONDS）。
+        // 早期直接把 timer 当"剩余"送进界面，屏幕上就变成 0 → 1 → 2 … 一路涨到 30。
         this.data.secondsToDetonation = this.data.detonation
-                ? com.jiezhimod.dfc.OverlayBanner.secondsFrom(
+                ? com.jiezhimod.dfc.OverlayBanner.detonateRemain(
                         this.data.detonationTimer, this.unitsPerSecDetonation)
                 : -1.0F;
 

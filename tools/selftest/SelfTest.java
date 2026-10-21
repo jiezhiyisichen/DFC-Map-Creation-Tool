@@ -24,6 +24,7 @@ import com.jiezhimod.countdown.ServerCountdownManager;
 import com.jiezhimod.dfc.DfcFormat;
 import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.GraphHistory;
+import com.jiezhimod.dfc.OverlayBanner;
 import com.jiezhimod.dfc.ScreenLayout;
 import com.jiezhimod.dfc.ScreenStructure;
 import com.jiezhimod.item.JetHeat;
@@ -2945,6 +2946,33 @@ public class SelfTest {
             }
         }
         check("闪烁强度：始终在 0~1", pulseOk);
+
+        // ---- 引爆倒计时：30 秒，且是**倒着**数的 ----
+        // 作者原文 timeRemaining = 30 - getDetonationTimer()/20（timer 从 0 往上数 tick），
+        // 早期把 timer 当"剩余"直接显示，屏幕上就成了 0→1→2…的正计时。
+        check("引爆器保险丝是 30 秒", OverlayBanner.DETONATE_FUSE_SECONDS == 30);
+        check("timer=0 -> 还剩 30 秒", OverlayBanner.detonateRemain(0.0D, 20.0D) == 30);
+        check("timer=200 tick(10s) -> 还剩 20 秒",
+                OverlayBanner.detonateRemain(200.0D, 20.0D) == 20);
+        check("timer=400 tick(20s) -> 还剩 10 秒",
+                OverlayBanner.detonateRemain(400.0D, 20.0D) == 10);
+        check("timer=600 tick(30s) -> 0 秒", OverlayBanner.detonateRemain(600.0D, 20.0D) == 0);
+        check("超过 30 秒也不显示负数", OverlayBanner.detonateRemain(900.0D, 20.0D) == 0);
+        check("单位是秒时同样成立（timer=15 -> 15 秒）",
+                OverlayBanner.detonateRemain(15.0D, 1.0D) == 15);
+        check("单位非法时给满 30，不显示 0 吓人",
+                OverlayBanner.detonateRemain(100.0D, 0.0D) == 30);
+        // 倒计时必须**单调不增**：取一串递增的 timer，剩余只能一路往下
+        boolean countdownMonotonic = true;
+        int prevLeft = Integer.MAX_VALUE;
+        for (int t = 0; t <= 600; t += 20) {
+            int left = OverlayBanner.detonateRemain(t, 20.0D);
+            if (left > prevLeft) {
+                countdownMonotonic = false;
+            }
+            prevLeft = left;
+        }
+        check("timer 递增时剩余秒数单调不增（是倒计时不是正计时）", countdownMonotonic);
     }
 
     /**

@@ -8,7 +8,7 @@
 #   · libraryjars 用 <user.home> 占位，Gradle 缓存目录按 artifact 版本固定，
 #     换机器同样成立（首次构建前先跑一次 gradlew 让缓存就绪）。
 
--injars ../build/libs/jiezhi-1.12.2-dfcmaptools-3.9.7.jar
+-injars ../build/libs/jiezhi-1.12.2-dfcmaptools-3.9.8.jar
 -outjars obf.jar
 
 -libraryjars <user.home>/.gradle/caches/forge_gradle/minecraft_user_repo/net/minecraftforge/forge/1.12.2-14.23.5.2864_mapped_snapshot_20171003-1.12/forge-1.12.2-14.23.5.2864_mapped_snapshot_20171003-1.12.jar
@@ -58,20 +58,27 @@
 # TileDelay 实现 ITickable，同理必须整包保留，否则红石与 GUI 全线失效。
 -keep class com.jiezhimod.block.** { *; }
 
-# 客户端 UI：JiezhiChatGui 覆写 GuiNewChat 的 drawChat/printChatMessage/getChatComponent，
-# GuiNoticeList 覆写 GuiScreen 的 drawScreen/keyTyped/handleMouseInput。
-# 同上理由（forge universal jar 不含 net.minecraft.*，解析不到继承关系），必须整包保留。
--keep class com.jiezhimod.client.chat.** { *; }
--keep class com.jiezhimod.client.notice.** { *; }
--keep class com.jiezhimod.client.ClientUiCore { *; }
-
-# 方块 GUI：GuiDelayBlock 覆写 GuiScreen 的 initGui/drawScreen/actionPerformed/keyTyped
--keep class com.jiezhimod.client.gui.** { *; }
-
-# DFC 显示器渲染器：RenderDfcScreen extends TileEntitySpecialRenderer，覆写 render；
-# ScreenCanvas 用 AWT 画到 BufferedImage 再上传 DynamicTexture，ScreenFonts 做字体探测。
-# 与上面同理（forge universal jar 不含 net.minecraft.*，解析不到继承关系），整包保留。
--keep class com.jiezhimod.client.dfc.** { *; }
+# ============================================================================
+# ★★ 整包保留 com.jiezhimod.client.**  —— 别再拆成一个个子包！
+#
+# 【为什么必须整包】ProGuard 的 libraryjars 里**解析不到 net.minecraft.***
+# （forge universal jar 不含这些类），于是它根本不知道
+# `RenderKeypad.render(...)` 是在覆写 `TileEntitySpecialRenderer.render(...)`。
+# 结果它把这个方法改名成 `a(...)`，再补一个 `a(TileEntity,...)` 的桥接方法 ——
+# 但基类那个 `render` 一点没变，MC 调的是基类的方法体（空的）：
+#   * TESR 静默永不执行
+#   * 日志里一个字都不报（不是异常，是根本没进这个方法）
+#   * 方块模型照常显示，所以看起来"方块在，只是面板没画"
+#
+# 这个坑已经连续吃掉了三个版本（v3.9 / v3.9.2 / v3.9.6 的"密码盘不可见"），
+# 同期还把 `GuiPasswordConsole` 的 initGui / drawGuiContainerBackgroundLayer
+# 一起改名 → 3.9.2~3.9.6 的"右键控制台有鼠标但界面一片空白"也是它。
+#
+# 教训：**新增任何一个 client 子包都必须保留**，而"逐个列子包"这种事迟早会漏。
+# 所以这里直接整包保留。obfuscation 的真正价值在 com.jiezhimod.dfc / keypad /
+# network 这些纯逻辑包上，client 层本来也不需要藏。
+# ============================================================================
+-keep class com.jiezhimod.client.** { *; }
 
 # 颜色码解码：纯工具，指令与 UI 都用到
 -keep class com.jiezhimod.util.** { *; }

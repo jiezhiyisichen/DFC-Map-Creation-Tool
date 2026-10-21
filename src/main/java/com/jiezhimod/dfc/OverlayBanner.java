@@ -109,6 +109,39 @@ public final class OverlayBanner {
     }
 
     /**
+     * DFC **脉冲引爆器**的保险丝时长（秒）。
+     *
+     * 【依据是作者自己的代码，不是我定的】
+     * 诅咒版 {@code CoreDetonatorGUI} 与 {@code CoreDetonatorTE} 里都是同一句：
+     * <pre>
+     *   timeRemaining = 30.0f - (float) getDetonationTimer() / 20.0f;
+     * </pre>
+     * 也就是说 {@code detonationTimer} 是**从 0 往上数的 tick**，满 600 tick（30 秒）就炸。
+     * 所以屏幕上要显示的是 {@code 30 - timer/20}，**不是** timer 本身
+     * （拿 timer 当"剩余"会变成正计时：0、1、2… 一直涨到 30）。
+     */
+    public static final int DETONATE_FUSE_SECONDS = 30;
+
+    /**
+     * 引爆倒计时的剩余秒数。
+     *
+     * @param rawTimer        {@code getDetonationTimer()} 原始值（tick，从 0 往上数）
+     * @param unitsPerSecond  每秒多少单位（20 = tick 计时，1 = 秒计时）
+     * @return 30 .. 0；拿不到计时器时给满 30（宁可显示"刚开始"，也不要显示 0 吓人）
+     */
+    public static int detonateRemain(double rawTimer, double unitsPerSecond) {
+        if (!(unitsPerSecond > 0.0D)) {
+            return DETONATE_FUSE_SECONDS;
+        }
+        double elapsed = Math.max(0.0D, rawTimer) / unitsPerSecond;
+        int left = (int) Math.round(DETONATE_FUSE_SECONDS - elapsed);
+        if (left < 0) {
+            return 0;
+        }
+        return Math.min(DETONATE_FUSE_SECONDS, left);
+    }
+
+    /**
      * 剩余秒数。
      *
      * 【为什么用坍缩度反算，而不是直接用 explosionIn】

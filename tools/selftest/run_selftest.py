@@ -692,6 +692,45 @@ def main():
         return 1
     print("      密码盘顶面：绕序 A->D->C->B（法线 +Y）+ 关闭背面剔除")
 
+    # ---- 混淆后覆写方法必须还在 -------------------------------------------
+    # 【为什么必须查这个】ProGuard 的 libraryjars 里解析不到 net.minecraft.*，
+    # 于是它不知道 `RenderKeypad.render(...)` 是在覆写 `TileEntitySpecialRenderer.render(...)`，
+    # 会把它改名成 `a(...)` 再加一个桥接方法。基类的 render 一点没变，
+    # MC 调到的就是我们那个方法体 —— **空的**，而且不报错、不写日志。
+    # 同理 `GuiPasswordConsole` 的 initGui / drawGuiContainerBackgroundLayer 被改名后，
+    # 界面一片空白（"右键有鼠标，但什么都没画"）。
+    #
+    # 这个坑吃掉了 v3.9 / v3.9.2 / v3.9.6 三个版本的"密码盘不可见"，
+    # 修法是 tools/proguard.pro 里整包保留 com.jiezhimod.client.**。
+    # 这里再从**产物**反查一遍：类名保持原名（说明 -keep 生效）+ 方法名还在常量池里。
+    # 方法名在**产品 jar 里是 SRG 名**（initGui -> func_73866_w_ 等），
+    # 但 TESR 的 render 在 1.12.2 里就叫 render，所以两张表分别写。
+    kept_overrides = [
+        ("com/jiezhimod/client/keypad/RenderKeypad.class", ["render"]),
+        ("com/jiezhimod/client/keypad/GuiPasswordConsole.class",
+         ["func_73866_w_", "func_146976_a", "func_146284_a"]),
+        ("com/jiezhimod/client/dfc/RenderDfcScreen.class", ["render"]),
+        ("com/jiezhimod/client/gui/GuiCustomScreen.class",
+         ["func_73866_w_", "func_146976_a"]),
+        ("com/jiezhimod/client/chat/JiezhiChatGui.class", ["func_146230_a"]),
+    ]
+    with zipfile.ZipFile(FINAL_JAR) as z:
+        jar_names = set(z.namelist())
+        broken = []
+        for cls_path, methods in kept_overrides:
+            if cls_path not in jar_names:
+                broken.append(cls_path + " (类名被混淆: -keep 没覆盖到这个包)")
+                continue
+            blob = z.read(cls_path)
+            for m in methods:
+                # 方法名在常量池里是 UTF-8 字面量，直接按字节找
+                if m.encode("utf-8") not in blob:
+                    broken.append("%s#%s (覆写方法被改名)" % (cls_path, m))
+    if broken:
+        print("      ProGuard 把覆写方法改名了，运行时会静默失效: %s" % broken[:4])
+        return 1
+    print("      %d 个客户端类的覆写方法没被混淆改名" % len(kept_overrides))
+
     print("ALL DONE")
     return 0
 

@@ -5,6 +5,49 @@
 
 ---
 
+## 3.9.8
+
+### ★★★ 真正的元凶：ProGuard 把 client 包里的覆写方法改名了
+
+三个版本的"密码盘不可见"，加上 3.9.2~3.9.6 的"右键控制台有鼠标但界面一片空白"，
+**同一个原因**：
+
+`tools/proguard.pro` 的 `-keep` 是**逐个列出 client 子包**的
+（`client.chat.**` / `client.notice.**` / `client.gui.**` / `client.dfc.**` / `client.particle.**`），
+**唯独漏了 `client.keypad.**`**。
+
+而 ProGuard 的 `-libraryjars` 里解析不到运行时的 `net.minecraft.*`，
+它不知道我们的方法是在覆写基类，于是把
+`RenderKeypad.render(...)` 改名成 `a(...)`、把
+`GuiPasswordConsole.initGui / drawGuiContainerBackgroundLayer` 改名成 `b() / c()`。
+
+改名后**基类的方法体还在那儿**：MC 照样调 `render` / `drawGuiContainerBackgroundLayer`，
+调到的是基类那个空实现 —— **不报错、不写日志、什么都不画**。
+（对比反编译结果：3.9.7 的 `RenderKeypad` 只剩 `a(TileKeypad,…)` 和一个
+不覆写任何东西的桥接 `a(TileEntity,…)`；`GuiPasswordConsole` 只剩 `b() c()`。）
+
+修法：`-keep class com.jiezhimod.client.** { *; }` —— **整包保留，不再列子包**。
+以后再往 client 里加子包也不会再踩。
+
+> 哨兵：`run_selftest.py` 从**最终产物**里反查 5 个关键客户端类，
+> 类名必须保持原名、覆写方法名必须在常量池里。改名就构建失败。
+
+### DFC 脉冲引爆器：倒计时 30 秒，不是正计时
+
+作者的 `CoreDetonatorGUI` / `CoreDetonatorTE` 写的是
+`timeRemaining = 30.0f - getDetonationTimer() / 20.0f` ——
+`detonationTimer` 是**从 0 往上数的 tick**，满 600 tick 炸。
+之前直接把 timer 当"剩余"送进界面，屏幕上就一路 0 → 1 → 2 … 涨到 30。
+
+现在显示 `30 - timer/20`，从 `0:30` 倒数到 `0:00`；
+校准也改成看 `|变化量|`（原来只认"数值下降"，而它是往上数的，校准永远跑不起来）。
+
+### 校验
+
+- 自测 **680 PASS / 0 FAIL** ｜ `check_stackmap` OK ｜ `TestMain` SEAL OK
+
+---
+
 ## 3.9.7
 
 ### ① 密码盘面板不可见 —— 真正的根因找到了：顶面 quad 绕序反了
