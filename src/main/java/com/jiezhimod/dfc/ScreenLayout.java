@@ -284,9 +284,9 @@ public final class ScreenLayout {
 
     // ==================== 显示哪一页 ====================
     //
-    // 两种显示器（核心屏 / 部件监视器）是同一台硬件、同一套多方块，
-    // 唯一差别就是主界面画哪一页。判定放在这里是为了能在离线自测里断言，
-    // 而不是埋进需要 OpenGL 的渲染类里。
+    // 四块显示器（核心屏 / 部件监视器 / 自定义屏 / 曲线屏）是同一台硬件、
+    // 同一套多方块外壳，唯一差别就是主界面画哪一页。判定放在这里是为了能在离线
+    // 自测里断言，而不是埋进需要 OpenGL 的渲染类里。
 
     /** 页面 0：核心遥测（温度 / 稳定度 / 能量 / 崩溃圆盘 / 事件日志） */
     public static final int PAGE_CORE = 0;
@@ -294,18 +294,28 @@ public final class ScreenLayout {
     public static final int PAGE_COMPONENTS = 1;
     /** 页面 2：自定义数据列表（最多 8 项，由 GUI 增删） */
     public static final int PAGE_CUSTOM = 2;
+    /** 页面 3：折线图（温度 + 发电量两条历史曲线，自动量程） */
+    public static final int PAGE_GRAPH = 3;
 
     /**
      * 由"控制器方块是哪一种显示器"决定画哪一页。
      *
      * 【注意】判定必须基于**控制器**方块，不能看占位块 ——
-     * 11 个占位块三种显示器共用，从它身上分辨不出是哪一种屏。
+     * 11 个占位块四块显示器共用，从它身上分辨不出是哪一种屏。
      */
-    public static int pageFor(boolean customScreen, boolean componentMonitor) {
+    public static int pageFor(boolean customScreen, boolean componentMonitor, boolean graphScreen) {
         if (customScreen) {
             return PAGE_CUSTOM;
         }
+        if (graphScreen) {
+            return PAGE_GRAPH;
+        }
         return componentMonitor ? PAGE_COMPONENTS : PAGE_CORE;
+    }
+
+    /** 兼容旧调用：没有曲线屏时等价于三参版本传 false */
+    public static int pageFor(boolean customScreen, boolean componentMonitor) {
+        return pageFor(customScreen, componentMonitor, false);
     }
 
     /**

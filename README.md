@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.5.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.6.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.5--beta-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.6--beta-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -63,13 +63,14 @@
 
 ## 📸 界面预览
 
-### DFC 监控显示器 —— 三种页面，同一台硬件
+### DFC 监控显示器 —— 四种页面，同一台硬件
 
 <table>
 <tr>
-<td width="33%"><img src="screenshots/dfc-main.png" alt="核心页"><br><b>核心页</b>（DFC 监控显示器）</td>
-<td width="33%"><img src="screenshots/dfc-components.png" alt="部件页"><br><b>部件页</b>（DFC 部件监视器）</td>
-<td width="33%"><img src="screenshots/dfc-custom.png" alt="自定义页"><br><b>自定义页</b>（DFC 自定义显示屏）</td>
+<td width="24%"><img src="screenshots/dfc-main.png" alt="核心页"><br><b>核心页</b>（DFC 监控显示器）</td>
+<td width="24%"><img src="screenshots/dfc-components.png" alt="部件页"><br><b>部件页</b>（DFC 部件监视器）</td>
+<td width="24%"><img src="screenshots/dfc-custom.png" alt="自定义页"><br><b>自定义页</b>（DFC 自定义显示屏）</td>
+<td width="24%"><img src="screenshots/dfc-graph.png" alt="曲线页"><br><b>曲线页</b>（DFC 曲线显示器）</td>
 </tr>
 </table>
 
@@ -112,7 +113,7 @@
 | **线圈道具** | 加速线圈、重力线圈、治愈线圈 | 创造物品栏「jiezhimod物品」 |
 | **喷气背包** | 胸甲槽飞行 + 热量条 + 过热锁定 | 创造物品栏「jiezhimod物品」 |
 | **密码盘** | 占一格、高半格，触摸式数字键盘 | 创造物品栏「jiezhimod-红石」 |
-| **DFC 显示器** | 监控显示器 / 部件监视器 / 自定义显示屏 + 遥控器 | 创造物品栏「DFC显示器」 |
+| **DFC 显示器** | 监控显示器 / 部件监视器 / 自定义显示屏 / 曲线显示器 + 遥控器 | 创造物品栏「DFC显示器」 |
 
 <details>
 <summary><b>展开：全部特性细节</b></summary>
@@ -156,15 +157,16 @@
 
 放下任意一格会**自动铺满 4×3**（空间不够则整体取消并返还物品），正面朝向玩家。屏幕顶部有吊架连着天花板，**右键开关机**。
 
-### 三块屏，同一台硬件
+### 四块屏，同一台硬件
 
 | 方块 | 注册名 | 画哪一页 |
 |---|---|---|
 | **DFC 监控显示器** | `jiezhimod:dfc_screen` | **核心页** —— 反应堆实时数据 |
 | **DFC 部件监视器** | `jiezhimod:dfc_monitor` | **部件页** —— 同类部件合并统计 |
 | **DFC 自定义显示屏** | `jiezhimod:dfc_custom` | **自定义页** —— 最多 8 条自选数据 |
+| **DFC 曲线显示器** | `jiezhimod:dfc_graph` | **曲线页** —— 温度 / 发电量两条历史折线 |
 
-> 三块屏共用同一套 11 个占位方块，只是**控制器方块**不同；选页的判据就是控制器本身，所以三块屏可以并排装、互不干扰。
+> 四块屏共用同一套 11 个占位方块，只是**控制器方块**不同；选页的判据就是控制器本身，所以四块屏可以并排装、互不干扰。
 
 ### 核心页
 
@@ -210,6 +212,29 @@
 同一台重复记录会被忽略。GUI 列表每行右侧有「删除」按钮，底部有「清空」；设备被拆后本条显示**离线**而不是继续报假读数。
 
 > **点不到设备？** 大桶模型会放大到好几格、9×9 叶片的准心也常常落在空处。遥控器会**顺代理链解到真实机器**（识别多方块外壳块），读不出还会**就近扫描 3 格**取最近的一台可读设备。蹲下右键认不出来时会明确告诉你原因（附近没有可读设备 / 这个方块读不出数据），不会毫无反应。
+
+### 曲线页（DFC 曲线显示器）
+
+并排两张**折线图**：左边温度、右边发电量。每张图带曲线下方的面积填充、5 条横向网格 + 4 条纵向网格，
+右上角是当前实时值（温度按热工分级变色：正常绿 / 接近熔点黄 / 超熔点红）。
+
+- **纵轴自动量程**：初始区间 `0~100`。读数一旦超出，上界就抬到能包住峰值的"好看刻度"
+  （100 → 150 → 200 → … → 1000 → 1500 ），**量程被抬高时顶栏那个刻度值转成暖黄色**，
+  一眼看出现在不是固定量程。
+- **历史窗口约 60 秒**：每 0.5 秒采一个点，环形缓冲 120 点，最新点贴着右边界、历史往左滚。
+  **采样完全在客户端做** —— 服务端照旧只发当前读数，曲线上一个字节的额外网络流量都没有；
+  每块屏各记各的曲线。
+- **断点不是 0**：未连接 / 堆芯离线时记的是**断点**，折线在那里断开，
+  不会画成"温度突然掉到 0 又跳回来"的假悬崖。
+- 关机再开机，曲线从空白重新记。
+- 右键开关机；用调试棒蹲下右键可调刷新率（曲线页推荐 **200 ms** —— 曲线本身 0.5 秒才采一个点）。
+
+<table>
+<tr>
+<td width="49%"><img src="screenshots/dfc-graph.png" alt="曲线页"><br>有数据：温度与发电量各自成线</td>
+<td width="49%"><img src="screenshots/dfc-graph-nolink.png" alt="曲线页未连接"><br>未绑定数据源：两张图都给引导文案，不画假 0 线</td>
+</tr>
+</table>
 
 ### 绑定反应堆源
 
@@ -519,7 +544,7 @@
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
 2. 把 `jiezhi-1.12.2-dfcmaptools-3.9.1.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.5 is loading.` 即加载成功；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.6 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。

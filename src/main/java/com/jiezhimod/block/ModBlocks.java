@@ -53,6 +53,13 @@ public class ModBlocks {
     public static final Block DFC_CUSTOM = new BlockCustomScreen();
     public static final ItemBlock ITEM_DFC_CUSTOM = new ItemBlock(DFC_CUSTOM);
     /**
+     * DFC 曲线显示器（第四块显示器）。
+     * 与前几块共用外壳与多方块，主界面画两张折线图（温度 / 发电量），
+     * 历史采样全在客户端做，服务端不额外发一个字节 —— 见 {@link BlockDfcGraph}。
+     */
+    public static final Block DFC_GRAPH = new BlockDfcGraph();
+    public static final ItemBlock ITEM_DFC_GRAPH = new ItemBlock(DFC_GRAPH);
+    /**
      * 显示器的占位块（结构里除控制器之外的 11 格）。
      * 故意**不注册 ItemBlock**：玩家拿不到它，只能由放置显示器生成；
      * 破坏时统一掉显示器本体，避免"拆一格掉一堆零件"。
@@ -74,6 +81,8 @@ public class ModBlocks {
         ITEM_DFC_MONITOR.setCreativeTab(TAB_SCREEN);
         ITEM_DFC_CUSTOM.setRegistryName(DFC_CUSTOM.getRegistryName());
         ITEM_DFC_CUSTOM.setCreativeTab(TAB_SCREEN);
+        ITEM_DFC_GRAPH.setRegistryName(DFC_GRAPH.getRegistryName());
+        ITEM_DFC_GRAPH.setCreativeTab(TAB_SCREEN);
         ITEM_KEYPAD.setRegistryName(KEYPAD.getRegistryName());
         ITEM_KEYPAD.setCreativeTab(TAB_REDSTONE);
         ITEM_PASSWORD_CONSOLE.setRegistryName(PASSWORD_CONSOLE.getRegistryName());
@@ -85,6 +94,7 @@ public class ModBlocks {
         event.getRegistry().register(DFC_SCREEN);
         event.getRegistry().register(DFC_MONITOR);
         event.getRegistry().register(DFC_CUSTOM);
+        event.getRegistry().register(DFC_GRAPH);
         event.getRegistry().register(DFC_SCREEN_PART);
         event.getRegistry().register(KEYPAD);
         event.getRegistry().register(PASSWORD_CONSOLE);
@@ -95,6 +105,7 @@ public class ModBlocks {
         event.getRegistry().register(ITEM_DFC_SCREEN);
         event.getRegistry().register(ITEM_DFC_MONITOR);
         event.getRegistry().register(ITEM_DFC_CUSTOM);
+        event.getRegistry().register(ITEM_DFC_GRAPH);
         event.getRegistry().register(ITEM_KEYPAD);
         event.getRegistry().register(ITEM_PASSWORD_CONSOLE);
     }

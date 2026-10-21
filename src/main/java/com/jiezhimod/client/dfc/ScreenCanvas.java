@@ -3,6 +3,7 @@ package com.jiezhimod.client.dfc;
 import com.jiezhimod.dfc.DfcFormat;
 import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.DfcWatch;
+import com.jiezhimod.dfc.GraphHistory;
 import com.jiezhimod.dfc.OverlayBanner;
 import com.jiezhimod.dfc.ScreenLayout;
 import com.jiezhimod.keypad.KeypadLayout;
@@ -90,6 +91,27 @@ public final class ScreenCanvas {
      */
     private static final int NEEDLE = 0xFFFFE9A8;
 
+    // ==================== 折线图配色 ====================
+    /**
+     * 曲线页的两条线各一个色：温度暖橙、发电量青。
+     *
+     * 【为什么不用状态色（绿/黄/红）】这两条线画的是"历史形状"，
+     * 已经持续了几十秒 —— 用告警色会让"十分钟前曾经过热"和"现在正在过热"
+     * 长得一模一样。要表达当前状态，标题行的实时数值会变红/变黄。
+     * 面积填充取同色的极低透明度，只用来把曲线下方的区域压暗一点，
+     * 让两条曲线隔着网格也能分清谁在上。
+     */
+    private static final int TEMP_LINE = 0xFFFF9A4D;
+    private static final int TEMP_FILL = 0x24FF9A4D;
+    private static final int PWR_LINE = 0xFF48D6FF;
+    private static final int PWR_FILL = 0x2048D6FF;
+    /** 图表网格线（极淡的白，压在深底上刚好够分清格子） */
+    private static final int GRID_LINE = 0x1AFFFFFF;
+    /** 纵轴刻度文字 */
+    private static final int AXIS_TXT = 0xFF44586B;
+    /** 量程被抬高时，顶栏那个刻度值改成这个色（提醒"现在是自动放宽过的"） */
+    private static final int AXIS_TXT_HI = 0xFFC79A4A;
+
     // ==================== 崩溃告警配色 ====================
     /**
      * 核心一开始崩溃（{@code collapsing > 0}），整块屏立刻切进"告警主题"：
@@ -120,6 +142,8 @@ public final class ScreenCanvas {
     public static final int PAGE_COMPONENTS = ScreenLayout.PAGE_COMPONENTS;
     /** 页面 2：自定义数据列表（最多 8 项，外部设备读数） */
     public static final int PAGE_CUSTOM = ScreenLayout.PAGE_CUSTOM;
+    /** 页面 3：折线图（温度 + 发电量，纵轴自动量程） */
+    public static final int PAGE_GRAPH = ScreenLayout.PAGE_GRAPH;
 
     // ==================== 布局（逻辑坐标，256x192） ====================
     /** 顶栏高度 */
@@ -162,6 +186,15 @@ public final class ScreenCanvas {
     private int themeTitle = TXT_DIM;
     /** 本帧的时间相位（开机态 = sinceOnMs）。闪烁动画一律用它，保证同一时刻可复现 */
     private long framePhaseMs;
+
+    // ==================== 折线图（第四页）的历史采样 ====================
+    //
+    // 【为什么放在画布上，而不是方块实体或服务端】一台屏一个 ScreenCanvas，
+    // 所以"每块屏各记各的曲线"天然成立；服务端照旧只发当前读数，
+    // 曲线上一个字节的网络流量都不多花。见 GraphHistory 的说明。
+    private final GraphHistory graph = new GraphHistory();
+    /** 上一次采样时刻（毫秒）；{@link Long#MIN_VALUE} = 这一轮还没采过 */
+    private long graphLastSampleMs = Long.MIN_VALUE;
 
     public ScreenCanvas() {
         this.image = new BufferedImage(TEX_W, TEX_H, BufferedImage.TYPE_INT_ARGB);
@@ -247,6 +280,16 @@ public final class ScreenCanvas {
                 || wantOverlay == OverlayBanner.KIND_DETONATE;
         long phase = powered ? sinceOnMs : paintMs();
         this.framePhaseMs = phase;
+
+        // 【断电 = 曲线清零】关机后重新开机是一次"新的一轮观察"，
+        // 上一轮的历史留着会让玩家以为关机期间温度还在涨。
+        // 同时把采样时刻复位：sinceOnMs 会从 0 重新开始，旧的时刻会让
+        // "已经过半分钟了"这类判断永远成立（甚至溢成负数）。
+        if (!powered) {
+            graph.clear();
+            graphLastSampleMs = Long.MIN_VALUE;
+        }
+
         long bucket = phase / step;
         if (bucket == lastBucket && !pixelDirty) {
             return;
@@ -282,6 +325,8 @@ public final class ScreenCanvas {
                         drawComponents(data);
                     } else if (page == PAGE_CUSTOM) {
                         drawCustom(data);
+                    } else if (page == PAGE_GRAPH) {
+                        drawGraph(data, sinceOnMs);
                     } else {
                         drawMain(data, events);
                     }
@@ -1366,6 +1411,265 @@ public final class ScreenCanvas {
     /** 进度条配色：快见底（<15%）转黄，其余青色 */
     private static int barColor(double ratio) {
         return ratio < 0.15D ? WARN : CYAN;
+    }
+
+    // ==================== 画面：折线图（第四页） ====================
+    //
+    // 需求："2 个图表，显示发电量和温度折线图，初始区间为 0-100 度，
+    // 当温度超过范围时，以最大的温度设置为区间，也就是现实中的样子。"
+    //
+    // 【版面】并排两张图，各占一半宽度：左温度、右发电量。两块屏本身是 4x3 格，
+    // 玩家站在下面抬头看，两张图并排比上下叠放更符合"一眼扫过"的读法。
+    //
+    // 【纵轴】量程逻辑全在 GraphHistory 里（纯函数，离线自测有断言）：
+    // 初始 0~100，观测到更高读数就把上界抬到一个"好看"的刻度（100 -> 150 -> 200 …）。
+    // 量程被抬高时顶栏那个刻度值转成暖黄色，操作员能看出"现在不是固定量程"。
+
+    /** 图表块上边界（顶栏下面留 4 像素） */
+    private static final int G_TOP = 23;
+    /** 图表块高度：23..187，底部留 5 像素给扫描线以外的空白 */
+    private static final int G_H = 164;
+    /** 左图（温度） */
+    private static final int G_L_X = 4;
+    /** 右图（发电量） */
+    private static final int G_R_X = 130;
+    /** 单张图宽度；130 + 122 = 252，右边留 4 像素，两张之间留 4 像素 */
+    private static final int G_W = 122;
+    /** 纵轴刻度文字占的左边距（曲线从它右边开始画） */
+    private static final int GUTTER = 22;
+
+    /**
+     * 曲线页总入口。
+     *
+     * 【为什么要传 ms】采样的节拍要靠它（每 {@link GraphHistory#SAMPLE_MS} 毫秒一个点），
+     * 而且这个时刻必须是**本屏自己的开机时间轴** —— 读挂钟会让离屏导出的两帧永远一样。
+     */
+    private void drawGraph(DfcSnapshot d, long ms) {
+        // 曲线页不参与崩溃告警：它画的是历史形状，转成红色会和"过去的峰值"混起来。
+        this.alert = false;
+        this.themeLine = LINE;
+        this.themeTitle = TXT_DIM;
+
+        sampleGraph(d, ms);
+        drawHeader(d, "· 曲线记录");
+
+        boolean lk = d != null && d.linked;
+        boolean on = ScreenLayout.online(d);
+
+        String empty = !lk ? "未绑定数据源" : (on ? "等待数据" : "堆芯离线 无采样");
+
+        double temp = lk ? d.temperature : 0.0D;
+        double pwr = lk ? GraphHistory.powerOf(d.expellingSpk, d.expellingEnergy) : 0.0D;
+
+        drawChart(G_L_X, G_TOP, G_W, G_H, "温度", true,
+                lk ? DfcFormat.temperature(temp) : "--",
+                lk ? tempColor(d) : TXT_DIM, empty);
+        drawChart(G_R_X, G_TOP, G_W, G_H, "发电量", false,
+                lk ? DfcFormat.si(pwr * DfcFormat.SPK_SCALE, "SPK") : "--",
+                lk ? PWR_LINE : TXT_DIM, empty);
+    }
+
+    /**
+     * 往历史里补一个采样点。
+     *
+     * 【不足间隔就什么都不做】主界面重绘比采样快得多（刷新率调到 50ms 时差 10 倍），
+     * 每帧都塞点会让 120 个格子在 6 秒内滚完，曲线上什么都看不出来。
+     *
+     * 【离线 / 未连接记"断点"而不是 0】温度真的是 0 和"根本没读数"在图上
+     * 长得必须不一样，否则操作员会看到一道"温度突然掉到 0 又跳回来"的假悬崖。
+     */
+    private void sampleGraph(DfcSnapshot d, long ms) {
+        if (graphLastSampleMs != Long.MIN_VALUE
+                && ms - graphLastSampleMs < GraphHistory.SAMPLE_MS) {
+            return;
+        }
+        if (d != null && d.linked && ScreenLayout.online(d)) {
+            graph.push(d.temperature, GraphHistory.powerOf(d.expellingSpk, d.expellingEnergy));
+        } else {
+            graph.pushGap();
+        }
+        graphLastSampleMs = ms;
+    }
+
+    /** 温度实时值的配色：走和核心页同一套热工分级（正常绿 / 接近熔点黄 / 超熔点红） */
+    private static int tempColor(DfcSnapshot d) {
+        int lv = DfcFormat.heatLevel(d.temperature, d.meltingPoint);
+        return lv == 2 ? CRIT : (lv == 1 ? WARN : OK);
+    }
+
+    /**
+     * 画一张折线图。
+     *
+     * @param tempSeries true = 画温度序列，false = 画发电量序列
+     * @param value      标题行右边那个实时值（未连接时传 "--"）
+     * @param emptyText  一个有效点都没有时，绘图区中央的提示语
+     */
+    private void drawChart(int x, int y, int w, int h, String title, boolean tempSeries,
+                           String value, int valueColor, String emptyText) {
+        panel(x, y, w, h);
+
+        // ---------- 标题行：左边名字，右边实时值 ----------
+        text(title, x + 5, y + 15, themeTitle, fCjkBold(10));
+        Font vf = hasCjk(value) ? fitCjk(value, w - 48, 10, 8) : fitMono(value, w - 48, 10, 8, true);
+        textRight(value, x + w - 5, y + 15, valueColor, vf);
+
+        // ---------- 绘图区 ----------
+        int px = x + 5;
+        int py = y + 22;
+        int pw = w - 10;
+        int ph = h - 34;                      // 底部留 12 像素放窗口提示
+        int cx = px + GUTTER;                 // 曲线起点（刻度文字之后）
+        int cw = pw - GUTTER;
+        int baseY = py + ph;                  // y = 0 的那条线
+
+        rect(px, py, pw, ph, 0xFF060A0F);     // 比面板更暗的绘图底，让曲线浮起来
+
+        double axisMax = tempSeries ? graph.tempAxisMax() : graph.powerAxisMax();
+        double baseMax = tempSeries ? GraphHistory.TEMP_BASE_MAX : GraphHistory.POWER_BASE_MAX;
+        boolean widened = axisMax > baseMax + 1e-9D;
+
+        // 横向网格 + 纵轴刻度（k = 0 是最上面那条，也就是量程上界）
+        for (int k = 0; k <= GraphHistory.DIVISIONS; k++) {
+            int gy = py + ph * k / GraphHistory.DIVISIONS;
+            rect(cx, gy, cw, 1, GRID_LINE);
+            boolean top = k == 0;
+            textRight(axisNum(GraphHistory.gridValue(axisMax, k)), cx - 2, gy + 3,
+                    top && widened ? AXIS_TXT_HI : AXIS_TXT, fMono(7));
+        }
+        // 纵向网格（首尾两条就是绘图区边界，不用再画）
+        for (int k = 1; k < GraphHistory.DIVISIONS; k++) {
+            rect(cx + cw * k / GraphHistory.DIVISIONS, py, 1, ph, GRID_LINE);
+        }
+
+        // 右下角标：这块图装了多少秒的历史。窗口长度随刷新率变（见 GraphHistory 说明），
+        // 所以不能写死 60 —— 玩家调慢刷新率后窗口会真的变长，屏幕得跟着说实话。
+        long windowS = GraphHistory.CAPACITY * Math.max(GraphHistory.SAMPLE_MS, mainStepMs) / 1000L;
+        textRight(windowS + "s", x + w - 5, y + h - 4, AXIS_TXT, fMono(7));
+
+        // ---------- 曲线 ----------
+        int n = graph.size();
+        if (n <= 0 || !graph.hasData()) {
+            // 提示语垫一块比绘图区更暗的底：一条横网格线正好从字中间穿过去，
+            // 不垫的话 "未绑定数据源" 看起来像被划掉了。
+            Font ef = fCjk(9);
+            int ew = textWidthLog(emptyText, ef);
+            int ey = py + ph / 2;
+            rect(cx + (cw - ew) / 2 - 4, ey - 9, ew + 8, 14, 0xE0060A0F);
+            textCenterIn(emptyText, cx, cw, ey + 3, TXT_DIM, ef);
+            return;
+        }
+
+        // 最新的点贴着右边界，历史从右往左堆 —— 和真实记录仪一样，
+        // 刚开机时曲线是从右边"长出来"的，而不是从左边慢慢爬。
+        double perPt = cw / (double) (GraphHistory.CAPACITY - 1);
+        // 【顶部留 2 像素】量程上界那一格正好是绘图区的上边框，读数顶到量程时
+        // 曲线会压在那条网格线上（离屏图里看着像被切掉了半根线）。
+        int span = Math.max(1, ph - 2);
+        int[] xs = new int[n];
+        int[] ys = new int[n];
+        for (int i = 0; i < n; i++) {
+            double v = tempSeries ? graph.tempAt(i) : graph.powerAt(i);
+            xs[i] = cx + (int) Math.round(cw - (n - 1 - i) * perPt);
+            if (Double.isNaN(v)) {
+                ys[i] = Integer.MIN_VALUE;    // 断点
+            } else {
+                double r = axisMax <= 0.0D ? 0.0D : Math.max(0.0D, Math.min(1.0D, v / axisMax));
+                ys[i] = baseY - (int) Math.round(span * r);
+            }
+        }
+
+        int fillColor = tempSeries ? TEMP_FILL : PWR_FILL;
+        int lineColor = tempSeries ? TEMP_LINE : PWR_LINE;
+        int i = 0;
+        while (i < n) {
+            while (i < n && ys[i] == Integer.MIN_VALUE) {
+                i++;                          // 跳过断点：折线在这里断开，不连成一条假线
+            }
+            int start = i;
+            while (i < n && ys[i] != Integer.MIN_VALUE) {
+                i++;
+            }
+            int end = i - 1;
+            if (start > end) {
+                break;
+            }
+            fillUnderProfile(xs, ys, start, end, baseY, fillColor);
+            if (start == end) {
+                ovalFill(xs[start] - 1, ys[start] - 1, 3, 3, lineColor);
+            } else {
+                polyline(xs, ys, start, end, lineColor, 1.6F);
+            }
+        }
+
+        // 最新点的脉冲圆点：告诉操作员"这条线还在动"
+        if (ys[n - 1] != Integer.MIN_VALUE) {
+            int dot = ScreenLayout.blinkOn(framePhaseMs, 900L) ? 2 : 1;
+            ovalFill(xs[n - 1] - dot, ys[n - 1] - dot, dot * 2 + 1, dot * 2 + 1, lineColor);
+        }
+    }
+
+    /**
+     * 纵轴刻度文字：不带单位（单位在标题行的实时值里已经有了），
+     * 只用最少的字符表达量级 —— 刻度栏只有 22 逻辑像素宽（约 5 个字符）。
+     *
+     * 【为什么阈值放在 1e4 而不是 1e3】刻度值几乎都是"上万以内的 4 位数"
+     * （2500 / 1875 / 625…），直接写全比缩写成 "1.3k" 精确得多 ——
+     * 1250 写成 1.3k 是**四舍五入后的错数**，会被当成真实刻度去读。
+     */
+    private static String axisNum(double v) {
+        double a = Math.abs(v);
+        if (a >= 1.0e6D) {
+            return trimNum(v / 1.0e6D) + "M";
+        }
+        if (a >= 1.0e4D) {
+            return trimNum(v / 1.0e3D) + "k";
+        }
+        return trimNum(v);
+    }
+
+    private static String trimNum(double v) {
+        if (Math.abs(v - Math.rint(v)) < 0.05D) {
+            return String.valueOf((long) Math.rint(v));
+        }
+        return String.format(java.util.Locale.ROOT, "%.1f", v);
+    }
+
+    /** 折线（逻辑坐标，内部 ×SS）。用 AWT 的 drawPolyline，线宽/圆角头由描边决定 */
+    private void polyline(int[] xs, int[] ys, int from, int to, int argb, float thickness) {
+        int n = to - from + 1;
+        if (n < 2) {
+            return;
+        }
+        int[] px = new int[n];
+        int[] py = new int[n];
+        for (int i = 0; i < n; i++) {
+            px[i] = xs[from + i] * SS;
+            py[i] = ys[from + i] * SS;
+        }
+        g.setColor(new Color(argb, true));
+        g.setStroke(new BasicStroke(thickness * SS, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g.drawPolyline(px, py, n);
+        g.setStroke(new BasicStroke(1.0F));
+    }
+
+    /** 曲线到基线的面积填充（把曲线下方压暗一点，两条线隔着网格也分得清） */
+    private void fillUnderProfile(int[] xs, int[] ys, int from, int to, int baseY, int argb) {
+        int n = to - from + 1;
+        if (n < 2) {
+            return;
+        }
+        int[] px = new int[n + 2];
+        int[] py = new int[n + 2];
+        for (int i = 0; i < n; i++) {
+            px[i] = xs[from + i] * SS;
+            py[i] = ys[from + i] * SS;
+        }
+        px[n] = px[n - 1];
+        py[n] = baseY * SS;
+        px[n + 1] = px[0];
+        py[n + 1] = baseY * SS;
+        g.setColor(new Color(argb, true));
+        g.fillPolygon(px, py, n + 2);
     }
 
     // ==================== 密码盘面板（第四种画法） ====================

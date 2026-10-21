@@ -107,6 +107,9 @@ public class CanvasDump {
         // 一条都没有时的引导文案
         dump("custom_empty", 999999L, true, DfcSnapshot.empty(), ev, ScreenCanvas.PAGE_CUSTOM);
 
+        // 第四块显示器（曲线页）：连喂 120 个采样点，让曲线真的有形状
+        dumpGraph();
+
         // 日志折行：故意塞几条**长到放不下**的中文句子，确认它们折成多行而不是被 ".." 截断
         List<String> longEv = new ArrayList<String>();
         longEv.add("已连接 暗核聚变堆核心");
@@ -361,6 +364,58 @@ public class CanvasDump {
         }
         return img;
     }
+
+    /**
+     * 导出曲线页（第四块显示器）。
+     *
+     * 【为什么要"连着喂"而不是一次渲染】历史是**累积**出来的：
+     * 一块刚放下的屏上什么都没有，得按 500ms 的节拍喂满 120 个点才看得出曲线形状。
+     * 这里用同一个 ScreenCanvas 反复 render，模拟真实的采样过程 ——
+     * 顺便验证"点确实被记进去了、而且不是每帧都记"（否则 120 点在 6 秒内就滚完了）。
+     */
+    private static void dumpGraph() throws Exception {
+        List<String> ev = new ArrayList<String>();
+        DfcSnapshot d = DfcSnapshot.empty();
+        d.linked = true;
+        d.sourceKind = DfcSnapshot.SOURCE_CORE;
+        d.hasCore = true;
+        d.meltingPoint = 6000;
+        d.stabilization = 10.0D;
+
+        // 温度从 120 缓慢爬到 ~950，叠一点正弦抖动；发电量同步爬升
+        ScreenCanvas c = new ScreenCanvas();
+        long ms = 60000L;                      // 早已过了开机自检，直接画主界面
+        int n = com.jiezhimod.dfc.GraphHistory.CAPACITY;
+        for (int i = 0; i < n; i++) {
+            double k = i / (double) (n - 1);
+            d.temperature = 120.0D + 830.0D * k + 55.0D * Math.sin(i * 0.35D);
+            double spk = 0.30e6D + 2.20e6D * k * (0.65D + 0.35D * Math.sin(i * 0.21D));
+            d.expellingSpk = spk / 1000.0D;    // powerOf 收的是原始值（×1000 = SPK）
+            d.expellingEnergy = d.expellingSpk;
+            c.render(ms, true, d, ev, ScreenCanvas.PAGE_GRAPH);
+            ms += com.jiezhimod.dfc.GraphHistory.SAMPLE_MS;
+        }
+        writeKeypad(c, "graph");
+
+        // 全部读数都很低：纵轴应该停在初始的 0~100，曲线贴着底。
+        // 温度给 100 是刻意的 —— 恰好等于"在线门槛"，再低一点就会被判离线而记成断点，
+        // 那样导出的就不是"低读数"而是"没有读数"了。
+        ScreenCanvas flat = new ScreenCanvas();
+        DfcSnapshot low = DfcSnapshot.copied(d);
+        low.temperature = 100.0D;
+        low.expellingSpk = 0.012D;
+        low.expellingEnergy = 0.012D;
+        long t = 60000L;
+        for (int i = 0; i < n; i++) {
+            flat.render(t, true, low, ev, ScreenCanvas.PAGE_GRAPH);
+            t += com.jiezhimod.dfc.GraphHistory.SAMPLE_MS;
+        }
+        writeKeypad(flat, "graph_flat");
+
+        // 未绑定数据源：两张图都该是引导文案，不是一条 0 线
+        dump("graph_nolink", 999999L, true, DfcSnapshot.empty(), ev, ScreenCanvas.PAGE_GRAPH);
+    }
+
 
     private static DfcSnapshot realistic() {
         DfcSnapshot d = DfcSnapshot.empty();

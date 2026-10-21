@@ -74,13 +74,14 @@ public class RenderDfcScreen extends TileEntitySpecialRenderer<TileDfcScreen> {
 
         ScreenCanvas canvas = te.canvas();
         boolean powered = te.isPowered();
-        // 同一台"外壳 + 屏幕"承载三种显示器：控制器方块决定显示哪一页。
-        // 这样后两块屏不需要另写 TESR / 会话，只有数据页不同。
+        // 同一台"外壳 + 屏幕"承载四块显示器：控制器方块决定显示哪一页。
+        // 这样后几块屏不需要另写 TESR / 会话，只有数据页不同。
         // 判定走 ScreenLayout.pageFor（纯函数，离线自测里钉住"哪种方块 -> 哪一页"）。
         Block ctrl = state.getBlock();
         int page = ScreenLayout.pageFor(
                 ctrl instanceof com.jiezhimod.block.BlockCustomScreen,
-                ctrl instanceof BlockDfcMonitor);
+                ctrl instanceof BlockDfcMonitor,
+                ctrl instanceof com.jiezhimod.block.BlockDfcGraph);
         // 【熔毁报错页】核心开始炸（坍缩度离开 0）时整屏改画 301，4 秒后自动重启。
         // 优先级最高：报错页连开机自检都盖掉 —— 屏幕"已经坏了"，还在画进度条就不像了。
         // 只有开着的屏才推进这段状态机（关着的屏本来就什么都不显示）。

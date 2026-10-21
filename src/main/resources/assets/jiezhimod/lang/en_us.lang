@@ -7,6 +7,7 @@ itemGroup.jiezhimod=jiezhimod Items
 tile.dfc_screen.name=DFC Monitor Panel
 tile.dfc_monitor.name=DFC Component Monitor
 tile.dfc_custom.name=DFC Custom Display
+tile.dfc_graph.name=DFC Graph Display
 item.dfc_remote.name=DFC Remote
 itemGroup.jiezhimod_screen=DFC Screens
 
@@ -81,6 +82,12 @@ tooltip.jiezhimod.dfc_custom.2=Right-click: open the panel (power + data list)
 tooltip.jiezhimod.dfc_custom.3=Shows up to %s readings from tanks / batteries / turbine parts
 tooltip.jiezhimod.dfc_custom.4=Put the DFC remote in the panel slot, then click Add
 tooltip.jiezhimod.dfc_custom.5=(Record devices first: sneak + right-click them with the remote)
+tooltip.jiezhimod.dfc_graph.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
+tooltip.jiezhimod.dfc_graph.1=Place against the underside of a ceiling to hang it overhead
+tooltip.jiezhimod.dfc_graph.2=Shows a temperature curve and a power-output curve
+tooltip.jiezhimod.dfc_graph.3=Y axis starts at 0-100 and widens to fit the peak reading
+tooltip.jiezhimod.dfc_graph.4=Right-click: power on / off
+tooltip.jiezhimod.dfc_graph.5=History window is about %s seconds, kept per screen
 
 # ===== Keypad / password console (v3.9-beta) =====
 tile.keypad.name=Keypad
@@ -128,6 +135,7 @@ gui.jiezhimod.debug.recommend=Recommended %s ms (%s)
 gui.jiezhimod.debug.recommend.core=core page changes fast
 gui.jiezhimod.debug.recommend.component=component page is slower
 gui.jiezhimod.debug.recommend.custom=just device readings
+gui.jiezhimod.debug.recommend.graph=one sample every 0.5 s
 gui.jiezhimod.debug.nothing=Nothing to tweak on this block
 gui.jiezhimod.debug.close=Close
 

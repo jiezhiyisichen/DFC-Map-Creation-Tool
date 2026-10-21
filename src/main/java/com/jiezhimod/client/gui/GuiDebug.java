@@ -1,6 +1,7 @@
 package com.jiezhimod.client.gui;
 
 import com.jiezhimod.block.BlockCustomScreen;
+import com.jiezhimod.block.BlockDfcGraph;
 import com.jiezhimod.block.BlockDfcMonitor;
 import com.jiezhimod.block.BlockDfcScreen;
 import com.jiezhimod.block.ContainerDebug;
@@ -29,7 +30,8 @@ import java.io.IOException;
  * 【推荐值】**按设备类型给建议**，而不是一刀切：
  *   · 核心屏（暗核聚变堆核心）—— 50ms，温度/稳定度跳得快；
  *   · 部件监视器 —— 100ms，发射器/储罐读数慢；
- *   · 自定义显示屏 —— 200ms，只是几个设备读数，没人盯着看小数第三位。
+ *   · 自定义显示屏 —— 200ms，只是几个设备读数，没人盯着看小数第三位；
+ *   · 曲线显示器 —— 200ms，曲线本身 500ms 才采一个点，重绘再快也画不出新形态。
  *
  * 【状态来源】当前值读方块实体的客户端镜像（服务端广播回来的）；
  * 点按钮只发包，不本地改 —— 服务端拒绝时界面不会显示假选中。
@@ -164,12 +166,19 @@ public class GuiDebug extends GuiContainer {
         int[] rec = recommend(block);
         if (rec != null) {
             String text = I18n.format("gui.jiezhimod.debug.recommend", rec[0],
-                    I18n.format(rec[1] == 1 ? "gui.jiezhimod.debug.recommend.core"
-                            : rec[1] == 2 ? "gui.jiezhimod.debug.recommend.component"
-                            : "gui.jiezhimod.debug.recommend.custom"));
+                    I18n.format(RECOMMEND_KEY[rec[1]]));
             this.fontRenderer.drawString(clip(text, W - 28), px + 14, py + 94, 0xFFD8B25A);
         }
     }
+
+    /** {@link #recommend} 返回的第二个数字就是这张表的索引（下标 1 起用，0 留空） */
+    private static final String[] RECOMMEND_KEY = {
+            "gui.jiezhimod.debug.recommend.custom",
+            "gui.jiezhimod.debug.recommend.core",
+            "gui.jiezhimod.debug.recommend.component",
+            "gui.jiezhimod.debug.recommend.custom",
+            "gui.jiezhimod.debug.recommend.graph",
+    };
 
     @Override
     protected void drawGuiContainerForegroundLayer(int mouseX, int mouseY) {
@@ -179,12 +188,15 @@ public class GuiDebug extends GuiContainer {
     /**
      * 按设备类型给推荐刷新率。
      *
-     * @return {毫秒, 1=核心屏 / 2=部件页 / 3=自定义屏}，不是本模组的屏返回 null
+     * @return {毫秒, {@link #RECOMMEND_KEY} 的索引}，不是本模组的屏返回 null
      */
     private static int[] recommend(Block block) {
-        // 注意判定顺序：两个子类都 extends BlockDfcScreen，必须先判子类
+        // 注意判定顺序：几个子类都 extends BlockDfcScreen，必须先判子类
         if (block instanceof BlockCustomScreen) {
             return new int[]{200, 3};
+        }
+        if (block instanceof BlockDfcGraph) {
+            return new int[]{200, 4};
         }
         if (block instanceof BlockDfcMonitor) {
             return new int[]{100, 2};

@@ -7,6 +7,7 @@ itemGroup.jiezhimod=jiezhimod物品
 tile.dfc_screen.name=DFC 监控显示器
 tile.dfc_monitor.name=DFC 部件监视器
 tile.dfc_custom.name=DFC 自定义显示屏
+tile.dfc_graph.name=DFC 曲线显示器
 item.dfc_remote.name=DFC 遥控器
 itemGroup.jiezhimod_screen=DFC显示器
 
@@ -81,6 +82,12 @@ tooltip.jiezhimod.dfc_custom.2=右键：打开面板（开关机 + 数据列表�
 tooltip.jiezhimod.dfc_custom.3=最多显示 %s 条来自储罐 / 电池 / 涡轮部件的读数
 tooltip.jiezhimod.dfc_custom.4=把 DFC 遥控器放进面板里的槽位，点「添加」即接入
 tooltip.jiezhimod.dfc_custom.5=（设备要先用遥控器蹲下右键记录）
+tooltip.jiezhimod.dfc_graph.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
+tooltip.jiezhimod.dfc_graph.1=对着天花板下表面放置，就会向下垂挂在头顶
+tooltip.jiezhimod.dfc_graph.2=显示：温度折线图 + 发电量折线图
+tooltip.jiezhimod.dfc_graph.3=纵轴初始 0~100，读数超了就自动放宽到包住峰值
+tooltip.jiezhimod.dfc_graph.4=右键：开机 / 关机
+tooltip.jiezhimod.dfc_graph.5=历史窗口约 %s 秒，每块屏各记各的
 
 # ===== 密码盘 / 密码控制台（v3.9-beta） =====
 tile.keypad.name=密码盘
@@ -128,6 +135,7 @@ gui.jiezhimod.debug.recommend=推荐 %s ms（%s）
 gui.jiezhimod.debug.recommend.core=核心屏读数变化快
 gui.jiezhimod.debug.recommend.component=部件页变化较慢
 gui.jiezhimod.debug.recommend.custom=只是设备读数
+gui.jiezhimod.debug.recommend.graph=曲线 0.5 秒才采一个点
 gui.jiezhimod.debug.nothing=这个方块暂无可调项
 gui.jiezhimod.debug.close=关闭
 

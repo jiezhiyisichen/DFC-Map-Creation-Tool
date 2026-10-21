@@ -176,8 +176,10 @@ def main():
         assert "dfc_screen" in desc, "description does not document the DFC monitor panel"
         assert "dfc_monitor" in desc, "description does not document the component monitor"
         assert "dfc_custom" in desc, "description does not document the custom display"
+        assert "dfc_graph" in desc, "description does not document the graph display"
         assert "部件监视器" in desc, "description does not explain the component page"
         assert "自定义显示屏" in desc, "description does not explain the custom display page"
+        assert "曲线显示器" in desc, "description does not explain the graph page"
         assert "崩溃告警" in desc, "description does not document the collapse alert"
         assert "离线" in desc, "description does not document the offline state"
         print("      mcmod.info JSON OK (%d char description)" % len(desc))
@@ -224,6 +226,10 @@ def main():
         "assets/jiezhimod/blockstates/dfc_custom.json",
         "assets/jiezhimod/models/item/dfc_custom.json",
         "assets/jiezhimod/textures/items/dfc_custom.png",
+        # 第四块显示器（曲线显示器）：同样三件套，缺一个在创造页里就是紫黑格
+        "assets/jiezhimod/blockstates/dfc_graph.json",
+        "assets/jiezhimod/models/item/dfc_graph.json",
+        "assets/jiezhimod/textures/items/dfc_graph.png",
         # GUI 纯色填充用的白纹理。缺了它 GuiDraw 绑不上纹理，
         # 所有自绘面板/格子/进度条都会变成紫黑（或直接看不见）
         "assets/jiezhimod/textures/gui/white.png",
@@ -265,10 +271,12 @@ def main():
         "models/item/dfc_remote.json",
         "models/item/dfc_monitor.json",
         "models/item/dfc_custom.json",
+        "models/item/dfc_graph.json",
         "blockstates/dfc_screen.json",
         "blockstates/dfc_screen_part.json",
         "blockstates/dfc_monitor.json",
         "blockstates/dfc_custom.json",
+        "blockstates/dfc_graph.json",
         "models/block/dfc_screen_empty.json",
         "models/item/jetpack.json",
         "models/item/jet_switch.json",
@@ -299,7 +307,8 @@ def main():
     for bs_rel in ("blockstates/dfc_screen.json",
                    "blockstates/dfc_screen_part.json",
                    "blockstates/dfc_monitor.json",
-                   "blockstates/dfc_custom.json"):
+                   "blockstates/dfc_custom.json",
+                   "blockstates/dfc_graph.json"):
         with open(os.path.join(res_root, bs_rel.replace("/", os.sep)), encoding="utf-8") as fh:
             bs = json.load(fh)
         bs_models = [v["model"] for v in bs.get("variants", {}).values()]

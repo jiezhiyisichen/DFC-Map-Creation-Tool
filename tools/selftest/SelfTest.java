@@ -23,6 +23,7 @@ import com.jiezhimod.countdown.Countdown;
 import com.jiezhimod.countdown.ServerCountdownManager;
 import com.jiezhimod.dfc.DfcFormat;
 import com.jiezhimod.dfc.DfcSnapshot;
+import com.jiezhimod.dfc.GraphHistory;
 import com.jiezhimod.dfc.ScreenLayout;
 import com.jiezhimod.dfc.ScreenStructure;
 import com.jiezhimod.item.JetHeat;
@@ -132,6 +133,7 @@ public class SelfTest {
         testKeypadLayout();
         testRefreshRate();
         testOverlayBanner();
+        testGraphHistory();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -1324,6 +1326,116 @@ public class SelfTest {
                 "".equals(back2.getTitle()) && "".equals(back2.getBody()));
     }
 
+    // =====================================================================
+    // GraphHistory —— 折线图的历史采样与自动量程
+    // =====================================================================
+    //
+    // 曲线这一块最容易出错的不是"怎么画"，而是"记进去的是什么"：
+    // 环形缓冲写满之后最旧的有没有真的被丢、断点有没有被当成 0、
+    // 纵轴量程在读数超范围时到底抬没抬。这三条全在这里钉死。
+    private static void testGraphHistory() {
+        section("Graph history (line chart: ring buffer + auto range)");
+
+        // ---- 初始状态 ----
+        GraphHistory g = new GraphHistory();
+        check("新图没有点", g.size() == 0 && !g.hasData());
+        check("没有点时温度轴停在初始区间 0~100",
+                g.tempAxisMax() == GraphHistory.TEMP_BASE_MAX);
+        check("没有点时发电量轴也停在初始区间",
+                g.powerAxisMax() == GraphHistory.POWER_BASE_MAX);
+
+        // ---- 读数没超范围：轴不许动 ----
+        g.push(20.0D, 5.0D);
+        g.push(55.0D, 12.0D);
+        check("两个点都记下来了", g.size() == 2);
+        check("最高 55°C 时温度轴仍是 100", g.tempAxisMax() == 100.0D);
+        check("tempMax 只报观测到的最高温", g.tempMax() == 55.0D);
+
+        // ---- 超范围：轴要抬到把峰值包进去 ----
+        g.push(812.5D, 3.0D);
+        check("812.5°C -> 量程抬到 1000", g.tempAxisMax() == 1000.0D);
+        check("轴一定 >= 观测最大值（曲线永远不会顶出面板）",
+                g.tempAxisMax() >= g.tempMax());
+        check("发电量没超范围，轴不动", g.powerAxisMax() == 100.0D);
+
+        // ---- 环形缓冲：写满之后最旧的必须被丢 ----
+        GraphHistory ring = new GraphHistory();
+        int cap = GraphHistory.CAPACITY;
+        for (int i = 0; i < cap + 5; i++) {
+            ring.push(i + 1.0D, 0.0D);
+        }
+        check("写满后 size 封顶在 CAPACITY", ring.size() == cap);
+        check("溢出后最旧的点是第 6 个（前 5 个被丢）", ring.tempAt(0) == 6.0D);
+        check("最新的点仍然是最新的", ring.tempAt(cap - 1) == cap + 5.0D);
+        // 顺序必须严格递增 —— 环形缓冲算错 start 会让曲线中间出现一个折返
+        boolean ordered = true;
+        for (int i = 1; i < cap; i++) {
+            if (ring.tempAt(i) <= ring.tempAt(i - 1)) {
+                ordered = false;
+            }
+        }
+        check("环形缓冲读出来仍是时间顺序", ordered);
+
+        // ---- 断点：未连接 / 离线记的是 NaN，不是 0 ----
+        GraphHistory gap = new GraphHistory();
+        gap.push(500.0D, 1.0D);
+        gap.pushGap();
+        gap.push(520.0D, 2.0D);
+        check("断点被标成 gap", gap.gapAt(1) && !gap.gapAt(0) && !gap.gapAt(2));
+        check("断点不会被算成 0 参与求最大值", gap.tempMax() == 520.0D);
+        check("断点所在的位置读到 NaN（画布据此断开折线）",
+                Double.isNaN(gap.tempAt(1)) && Double.isNaN(gap.powerAt(1)));
+        // 非法输入一律按断点处理：Infinity 画到图上会让整条线飞出面板
+        gap.push(Double.NaN, 1.0D);
+        check("NaN 输入记成断点", gap.gapAt(3));
+        gap.push(Double.POSITIVE_INFINITY, 1.0D);
+        check("Infinity 输入记成断点", gap.gapAt(4));
+        gap.push(-50.0D, -1.0D);
+        check("负数被夹到 0（不是断点）", !gap.gapAt(5) && gap.tempAt(5) == 0.0D);
+
+        // ---- clear：关机重开要从头开始 ----
+        gap.clear();
+        check("clear 之后没有任何点", gap.size() == 0 && !gap.hasData());
+        check("clear 之后量程回到初始", gap.tempAxisMax() == GraphHistory.TEMP_BASE_MAX);
+
+        // ---- niceCeil：把数值抬到"好看"的刻度 ----
+        check("niceCeil(100) = 100", GraphHistory.niceCeil(100.0D) == 100.0D);
+        check("niceCeil(101) = 150", GraphHistory.niceCeil(101.0D) == 150.0D);
+        check("niceCeil(250) = 250", GraphHistory.niceCeil(250.0D) == 250.0D);
+        check("niceCeil(812.5) = 1000", GraphHistory.niceCeil(812.5D) == 1000.0D);
+        check("niceCeil(1240) = 1500", GraphHistory.niceCeil(1240.0D) == 1500.0D);
+        check("niceCeil(3587) = 4000", GraphHistory.niceCeil(3587.0D) == 4000.0D);
+        check("niceCeil(0) 兜底为 1（不许返回 0 之外还会除零的值）",
+                GraphHistory.niceCeil(0.0D) == 1.0D);
+        boolean neverBelow = true;
+        for (double v = 0.5D; v < 100000.0D; v *= 1.37D) {
+            if (GraphHistory.niceCeil(v) < v) {
+                neverBelow = false;
+            }
+        }
+        check("对任意正数 niceCeil 都不小于入参", neverBelow);
+
+        // ---- 网格刻度：0 在最底、上界在最顶 ----
+        check("第 0 条网格线就是量程上界",
+                GraphHistory.gridValue(1000.0D, 0) == 1000.0D);
+        check("最后一条网格线是 0",
+                GraphHistory.gridValue(1000.0D, GraphHistory.DIVISIONS) == 0.0D);
+        check("中间刻度按等分走",
+                GraphHistory.gridValue(1000.0D, 2) == 500.0D);
+
+        // ---- 发电量口径：优先 expellingSpk，退化到 expellingEnergy ----
+        check("有 expellingSpk 就用它",
+                GraphHistory.powerOf(3400.0D, 1200.0D) == 3400.0D);
+        check("expellingSpk 为 0 时退到 expellingEnergy",
+                GraphHistory.powerOf(0.0D, 1200.0D) == 1200.0D);
+        check("两个都没有就是 0", GraphHistory.powerOf(0.0D, 0.0D) == 0.0D);
+
+        // ---- 采样节奏：500ms 一个点，120 个点约 60 秒 ----
+        check("采样间隔 500ms", GraphHistory.SAMPLE_MS == 500L);
+        check("窗口长度 = 容量 x 采样间隔（约 60 秒）",
+                GraphHistory.CAPACITY * GraphHistory.SAMPLE_MS / 1000L == 60L);
+    }
+
     // helpers
     // =====================================================================
     private static void section(String name) {
@@ -1745,17 +1857,25 @@ public class SelfTest {
     private static void testDfcMonitorAndAlert() {
         section("DFC component monitor page + collapse alert");
 
-        // ---- 页面选择（三种显示器） ----
+        // ---- 页面选择（四种显示器） ----
         check("部件监视器画部件页",
-                ScreenLayout.pageFor(false, true) == ScreenLayout.PAGE_COMPONENTS);
+                ScreenLayout.pageFor(false, true, false) == ScreenLayout.PAGE_COMPONENTS);
         check("核心屏画核心页",
-                ScreenLayout.pageFor(false, false) == ScreenLayout.PAGE_CORE);
+                ScreenLayout.pageFor(false, false, false) == ScreenLayout.PAGE_CORE);
         check("自定义屏画自定义页",
-                ScreenLayout.pageFor(true, false) == ScreenLayout.PAGE_CUSTOM);
-        // 三个页面必须是三个不同的值，否则"多装一块屏"等于没装
-        check("三页编号两两不同", ScreenLayout.PAGE_CORE != ScreenLayout.PAGE_COMPONENTS
+                ScreenLayout.pageFor(true, false, false) == ScreenLayout.PAGE_CUSTOM);
+        // 曲线显示器：判据同样是**控制器方块**，而且它与另外三种互斥
+        check("曲线显示器画曲线页",
+                ScreenLayout.pageFor(false, false, true) == ScreenLayout.PAGE_GRAPH);
+        check("曲线屏不会被误判成部件页/自定义页",
+                ScreenLayout.pageFor(false, true, true) == ScreenLayout.PAGE_GRAPH);
+        // 四个页面必须是四个不同的值，否则"多装一块屏"等于没装
+        check("四页编号两两不同", ScreenLayout.PAGE_CORE != ScreenLayout.PAGE_COMPONENTS
                 && ScreenLayout.PAGE_CORE != ScreenLayout.PAGE_CUSTOM
-                && ScreenLayout.PAGE_COMPONENTS != ScreenLayout.PAGE_CUSTOM);
+                && ScreenLayout.PAGE_CORE != ScreenLayout.PAGE_GRAPH
+                && ScreenLayout.PAGE_COMPONENTS != ScreenLayout.PAGE_CUSTOM
+                && ScreenLayout.PAGE_COMPONENTS != ScreenLayout.PAGE_GRAPH
+                && ScreenLayout.PAGE_CUSTOM != ScreenLayout.PAGE_GRAPH);
 
         // ---- 断线 / 离线 / 在线 三态 ----
         DfcSnapshot cold = new DfcSnapshot();
