@@ -108,18 +108,35 @@ public final class GraphHistory {
     }
 
     /**
-     * 发电量口径：优先取 {@code getDFCExpellingSpk()}（瞬时输出速率）。
+     * 发电量口径：**所有接收器上一 tick 收到能量的总和**。
      *
-     * 万一那台核心的 {@code getDFCExpellingSpk} 恒为 0（不同版本 addon 的实现不一样），
-     * 退回到 {@code getDFCExpellingEnergy}（最近 1 秒放出的能量之和）。
-     * 两者原始值都是 **×1000 = SPK**，所以换口径只是"速率"与"1 秒累计"的差别，
-     * 曲线上看不出跳变。这条回退写在纯逻辑里，是为了让自测能钉住它。
+     * 【为什么不是核心自己的 expelling】需求原话："发电量应该是所有接收器总和"。
+     * 一台堆周围的接收器才是真正把 SPK 换成电的地方，
+     * 核心那个 {@code getDFCExpellingSpk()} 只是"吐出去多少"，
+     * 场上接了 8 台接收器时两者并不相等，而玩家要看的显然是"我这套场子一共发多少"。
+     *
+     * 口径来源（`DfcBridge` 汇总 {@code TileEntityCoreReceiver#leafia$syncJoules}）：
+     * 诅咒版在 tick 末尾做 {@code syncJoules = joules; joules = 0;}，
+     * 所以 {@code syncJoules} 就是**这一 tick 收到的能量**，跨接收器求和即是"总发电量"。
+     *
+     * 【没有接收器时】退回核心自己的吐出量 —— 用涡轮 / 望远镜取能、
+     * 或者接收器还没接上时，曲线不至于是一条死的 0 线。
+     * 单位随之切换（见 {@link #powerUnit(int)}）。
      */
-    public static double powerOf(double expellingSpk, double expellingEnergy) {
+    public static double powerOf(double receiverJoules, int receiverCount,
+                                 double expellingSpk, double expellingEnergy) {
+        if (receiverCount > 0) {
+            return isFinite(receiverJoules) && receiverJoules > 0.0D ? receiverJoules : 0.0D;
+        }
         if (isFinite(expellingSpk) && expellingSpk > 0.0D) {
             return expellingSpk;
         }
         return isFinite(expellingEnergy) && expellingEnergy > 0.0D ? expellingEnergy : 0.0D;
+    }
+
+    /** 与 {@link #powerOf} 配对：有接收器时是「每 tick 焦耳」，否则是核心的 SPK */
+    public static String powerUnit(int receiverCount) {
+        return receiverCount > 0 ? "J/t" : "SPK";
     }
 
     public int size() {

@@ -84,8 +84,8 @@ tooltip.jiezhimod.dfc_custom.4=Put the DFC remote in the panel slot, then click 
 tooltip.jiezhimod.dfc_custom.5=(Record devices first: sneak + right-click them with the remote)
 tooltip.jiezhimod.dfc_graph.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
 tooltip.jiezhimod.dfc_graph.1=Place against the underside of a ceiling to hang it overhead
-tooltip.jiezhimod.dfc_graph.2=Shows a temperature curve and a power-output curve
-tooltip.jiezhimod.dfc_graph.3=Y axis starts at 0-100 and widens to fit the peak reading
+tooltip.jiezhimod.dfc_graph.2=Power = energy received by ALL receivers in the last tick
+tooltip.jiezhimod.dfc_graph.3=Y axis starts at 0-100 and widens to fit the peak; cold cores still plot
 tooltip.jiezhimod.dfc_graph.4=Right-click: power on / off
 tooltip.jiezhimod.dfc_graph.5=History window is about %s seconds, kept per screen
 

@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.6.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-3.9.7.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.6--beta-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-3.9.7--beta-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -224,8 +224,10 @@
 - **历史窗口约 60 秒**：每 0.5 秒采一个点，环形缓冲 120 点，最新点贴着右边界、历史往左滚。
   **采样完全在客户端做** —— 服务端照旧只发当前读数，曲线上一个字节的额外网络流量都没有；
   每块屏各记各的曲线。
-- **断点不是 0**：未连接 / 堆芯离线时记的是**断点**，折线在那里断开，
-  不会画成"温度突然掉到 0 又跳回来"的假悬崖。
+- **发电量 = 所有接收器总和**：`receiverJoules` 是各接收器上一 tick 收到的能量之和（单位 **J/t**）。
+  场上没有接收器（用涡轮 / 望远镜取能）时退回核心自己的吐出量，单位 SPK。
+- **断点不是 0**：只有**未绑定数据源**时记断点，折线在那里断开，
+  不会画成"温度突然掉到 0 又跳回来"的假悬崖。冷堆照画 —— 10°C 也是一条真实读数。
 - 关机再开机，曲线从空白重新记。
 - 右键开关机；用调试棒蹲下右键可调刷新率（曲线页推荐 **200 ms** —— 曲线本身 0.5 秒才采一个点）。
 
@@ -544,7 +546,7 @@
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
 2. 把 `jiezhi-1.12.2-dfcmaptools-3.9.1.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.6 is loading.` 即加载成功；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v3.9.7 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。

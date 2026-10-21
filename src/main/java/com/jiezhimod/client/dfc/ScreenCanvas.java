@@ -1454,18 +1454,23 @@ public final class ScreenCanvas {
         drawHeader(d, "· 曲线记录");
 
         boolean lk = d != null && d.linked;
-        boolean on = ScreenLayout.online(d);
 
-        String empty = !lk ? "未绑定数据源" : (on ? "等待数据" : "堆芯离线 无采样");
+        // 空状态文案：只分"没绑数据源"与"还没有采样点"两种。
+        // **不再因为温度低于 100°C 就说"堆芯离线 无采样"** —— 见 sampleGraph 的说明，
+        // 冷堆的温度是一条真实的读数，曲线照画。
+        String empty = lk ? "等待数据" : "未绑定数据源";
 
         double temp = lk ? d.temperature : 0.0D;
-        double pwr = lk ? GraphHistory.powerOf(d.expellingSpk, d.expellingEnergy) : 0.0D;
+        int receivers = lk ? d.receiverCount : 0;
+        double pwr = lk ? GraphHistory.powerOf(d.receiverJoules, d.receiverCount,
+                d.expellingSpk, d.expellingEnergy) : 0.0D;
+        String pwrUnit = GraphHistory.powerUnit(receivers);
 
         drawChart(G_L_X, G_TOP, G_W, G_H, "温度", true,
                 lk ? DfcFormat.temperature(temp) : "--",
                 lk ? tempColor(d) : TXT_DIM, empty);
         drawChart(G_R_X, G_TOP, G_W, G_H, "发电量", false,
-                lk ? DfcFormat.si(pwr * DfcFormat.SPK_SCALE, "SPK") : "--",
+                lk ? DfcFormat.si(pwr, pwrUnit) : "--",
                 lk ? PWR_LINE : TXT_DIM, empty);
     }
 
@@ -1475,16 +1480,21 @@ public final class ScreenCanvas {
      * 【不足间隔就什么都不做】主界面重绘比采样快得多（刷新率调到 50ms 时差 10 倍），
      * 每帧都塞点会让 120 个格子在 6 秒内滚完，曲线上什么都看不出来。
      *
-     * 【离线 / 未连接记"断点"而不是 0】温度真的是 0 和"根本没读数"在图上
-     * 长得必须不一样，否则操作员会看到一道"温度突然掉到 0 又跳回来"的假悬崖。
+     * 【只有"未绑定数据源"才记断点】
+     * v3.9.6 把"反应堆温度 &lt; 100°C（判离线）"也当成断点，实机反馈是
+     * **升降温时曲线会被切成两段、左边空一大片，看上去像断层**：
+     * 冷堆的温度 10.29°C 本来就是一条真实读数，没有理由不画。
+     * 现在只在 {@code !linked}（真读不到数据源）时断开 —— 那才是"没有数据"。
+     * 至于"这块屏连着的堆是不是凉着"，顶栏的状态灯已经说了。
      */
     private void sampleGraph(DfcSnapshot d, long ms) {
         if (graphLastSampleMs != Long.MIN_VALUE
                 && ms - graphLastSampleMs < GraphHistory.SAMPLE_MS) {
             return;
         }
-        if (d != null && d.linked && ScreenLayout.online(d)) {
-            graph.push(d.temperature, GraphHistory.powerOf(d.expellingSpk, d.expellingEnergy));
+        if (d != null && d.linked) {
+            graph.push(d.temperature, GraphHistory.powerOf(d.receiverJoules, d.receiverCount,
+                    d.expellingSpk, d.expellingEnergy));
         } else {
             graph.pushGap();
         }

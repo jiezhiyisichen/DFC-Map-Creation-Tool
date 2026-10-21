@@ -131,6 +131,16 @@ public class ClientProxy extends CommonProxy {
         } else {
             JiezhiMod.warn("DFC custom screen ItemBlock is missing; its item model is not bound.");
         }
+        // DFC 曲线显示器（第四块显示器）
+        // 【漏了这一行的后果】物品栏里显示成紫黑格（缺模型），而 tooltip、名字、
+        // 放下去之后的方块全都正常 —— 因为方块模型走 blockstates，
+        // 物品模型走这里。v3.9.6 就是漏了这一行（实机截图：创造页第一格是紫黑方块）。
+        Item graphItem = Item.getItemFromBlock(ModBlocks.DFC_GRAPH);
+        if (graphItem != null) {
+            bindItemModel(graphItem, "jiezhimod:dfc_graph");
+        } else {
+            JiezhiMod.warn("DFC graph screen ItemBlock is missing; its item model is not bound.");
+        }
     }
 
     private void bindItemModel(Item item, String modelPath) {

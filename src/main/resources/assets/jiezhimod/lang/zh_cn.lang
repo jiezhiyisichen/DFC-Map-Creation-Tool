@@ -84,8 +84,8 @@ tooltip.jiezhimod.dfc_custom.4=把 DFC 遥控器放进面板里的槽位，点�
 tooltip.jiezhimod.dfc_custom.5=（设备要先用遥控器蹲下右键记录）
 tooltip.jiezhimod.dfc_graph.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
 tooltip.jiezhimod.dfc_graph.1=对着天花板下表面放置，就会向下垂挂在头顶
-tooltip.jiezhimod.dfc_graph.2=显示：温度折线图 + 发电量折线图
-tooltip.jiezhimod.dfc_graph.3=纵轴初始 0~100，读数超了就自动放宽到包住峰值
+tooltip.jiezhimod.dfc_graph.2=发电量 = 所有接收器上一 tick 收到的能量总和
+tooltip.jiezhimod.dfc_graph.3=纵轴初始 0~100，读数超了就自动放宽到包住峰值；冷堆照画不断线
 tooltip.jiezhimod.dfc_graph.4=右键：开机 / 关机
 tooltip.jiezhimod.dfc_graph.5=历史窗口约 %s 秒，每块屏各记各的
 

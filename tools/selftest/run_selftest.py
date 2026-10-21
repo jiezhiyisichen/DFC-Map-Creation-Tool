@@ -340,6 +340,7 @@ def main():
         "tile.dfc_screen.name",
         "tile.dfc_monitor.name",
         "tile.dfc_custom.name",
+        "tile.dfc_graph.name",
         "tile.keypad.name",
         "tile.password_console.name",
         "item.connector.name",
@@ -620,6 +621,76 @@ def main():
         return 1
     print("      物品/方块文案：%d 条 tooltip 全走语言文件，中英两份齐全、无硬编码"
           % len(tips))
+
+    # ---- 每个 ItemBlock 都必须绑定物品模型 ---------------------------------
+    # 方块模型走 blockstates（照常显示），**物品模型走 ClientProxy.onModelRegistry**。
+    # 漏一步的后果是：tooltip、名字、放下去的方块全都正常，只有物品栏里那一格
+    # 变成紫黑格（缺模型）。v3.9.6 的 dfc_graph 就是这么漏的 —— 实机截图里
+    # 创造页第一格是紫黑方块，玩家叫它"乱码的物品"。
+    # 编译期没有任何提示，只能靠这张清单钉住。
+    mod_blocks = io.open(os.path.join(java_src, "com", "jiezhimod", "block", "ModBlocks.java"),
+                         encoding="utf-8").read()
+    client_proxy = io.open(os.path.join(java_src, "com", "jiezhimod", "proxy", "ClientProxy.java"),
+                           encoding="utf-8").read()
+    item_blocks = re.findall(
+        r"public\s+static\s+final\s+ItemBlock\s+ITEM_([A-Z0-9_]+)\s*=\s*new\s+ItemBlock\(([A-Z0-9_]+)\)",
+        mod_blocks)
+    if not item_blocks:
+        print("      ModBlocks 里一个 ItemBlock 都没解析到（正则失效？）")
+        return 1
+    unbound = []
+    for _item, block in item_blocks:
+        # 认两种写法：Item.getItemFromBlock(ModBlocks.XXX) 或 bindItemModel(ModBlocks.ITEM_XXX
+        if ("getItemFromBlock(ModBlocks.%s)" % block) in client_proxy:
+            continue
+        if ("ModBlocks.ITEM_%s" % _item) in client_proxy:
+            continue
+        unbound.append("ITEM_%s (block %s)" % (_item, block))
+    if unbound:
+        print("      这些 ItemBlock 没在 ClientProxy.onModelRegistry 里绑定模型"
+              "（物品栏里会是紫黑格）: %s" % unbound)
+        return 1
+    print("      %d 个 ItemBlock 都绑定了物品模型" % len(item_blocks))
+
+    # ---- 密码盘顶面 quad 的绕序 -------------------------------------------
+    # 【已经栽了三次的坑】顶面法线必须朝 +Y；写成 A→B→C→D（p0p0→p1p0→p1p1→p0p1）
+    # 叉积出来是 **-Y**，从上方看就是背面，被 GL_CULL_FACE 整块剔掉 ——
+    # 表现是"底座模型在、面板完全没有"，而且日志里一句错都没有。
+    # 这里把 drawPanel / drawFallbackPanel 里的顶点顺序钉成 A→D→C→B。
+    rk = io.open(os.path.join(java_src, "com", "jiezhimod", "client", "keypad", "RenderKeypad.java"),
+                 encoding="utf-8").read()
+
+    def _winding(method_body):
+        return re.findall(r"buf\.pos\(\s*(p[01])\s*,\s*PANEL_Y\s*,\s*(p[01])\s*\)", method_body)
+
+    def _method(name):
+        m = re.search(r"private\s+void\s+%s\s*\([^)]*\)\s*\{" % re.escape(name), rk)
+        if not m:
+            return ""
+        i = m.end()
+        depth = 1
+        while i < len(rk) and depth:
+            if rk[i] == "{":
+                depth += 1
+            elif rk[i] == "}":
+                depth -= 1
+            i += 1
+        return rk[m.end():i]
+
+    expected = [("p0", "p0"), ("p0", "p1"), ("p1", "p1"), ("p1", "p0")]
+    for name in ("drawPanel", "drawFallbackPanel"):
+        body = _method(name)
+        if not body:
+            print("      RenderKeypad 里找不到 %s" % name)
+            return 1
+        got = _winding(body)
+        if got != expected:
+            print("      %s 的顶面绕序反了（法线朝 -Y 会被剔除 = 面板看不见）：%s" % (name, got))
+            return 1
+    if "disableCull()" not in _method("drawPanel"):
+        print("      drawPanel 没有关掉背面剔除（绕序写错时会毫无兜底）")
+        return 1
+    print("      密码盘顶面：绕序 A->D->C->B（法线 +Y）+ 关闭背面剔除")
 
     print("ALL DONE")
     return 0

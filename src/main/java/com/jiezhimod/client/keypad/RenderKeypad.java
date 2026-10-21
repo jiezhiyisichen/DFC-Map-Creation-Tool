@@ -92,10 +92,11 @@ public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
         float r = 0.10F;
         float g = 0.12F;
         float b = 0.16F;
+        // 顶点顺序必须让法线朝 +Y —— 见 drawPanel 里那段推算，绕反 = 从上面看不见
         buf.pos(p0, PANEL_Y, p0).color(r, g, b, 1.0F).endVertex();
-        buf.pos(p1, PANEL_Y, p0).color(r, g, b, 1.0F).endVertex();
-        buf.pos(p1, PANEL_Y, p1).color(r, g, b, 1.0F).endVertex();
         buf.pos(p0, PANEL_Y, p1).color(r, g, b, 1.0F).endVertex();
+        buf.pos(p1, PANEL_Y, p1).color(r, g, b, 1.0F).endVertex();
+        buf.pos(p1, PANEL_Y, p0).color(r, g, b, 1.0F).endVertex();
         tess.draw();
         GlStateManager.enableTexture2D();
         GlStateManager.enableLighting();
@@ -116,6 +117,11 @@ public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
         GlStateManager.tryBlendFuncSeparate(GL11.GL_SRC_ALPHA, GL11.GL_ONE_MINUS_SRC_ALPHA,
                 GL11.GL_ONE, GL11.GL_ZERO);
         GlStateManager.color(1.0F, 1.0F, 1.0F, 1.0F);
+        // 【为什么必须关掉背面剔除】见下面的绕序说明：顶面法线朝 +Y，
+        // 而玩家一定是**从上面往下看**。只要哪一步绕序写反，这张 quad 就会被
+        // 整块剔掉 —— 表现是"方块在、面板完全没有"，而且**一句日志都不会有**
+        // （v3.9 ~ v3.9.6 一直是这个症状）。关掉剔除是最后一道保险。
+        GlStateManager.disableCull();
         // 必须先回到 0 号纹理单元：别的 mod 可能把活动单元切走，
         // 那时这里会把纹理绑到错误单元，quad 采到的还是旧图集
         GL13.glActiveTexture(GL13.GL_TEXTURE0);
@@ -124,14 +130,28 @@ public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
         // GL_QUADS：与 DFC 屏幕面板同一条路径（这条路径确认能显示）
         buf.begin(GL11.GL_QUADS, DefaultVertexFormats.POSITION_TEX_COLOR);
 
-        // 顶面朝 +Y，顶点顺序照抄 ModelBox 的 +Y 面（从外面看逆时针）
+        // ================================================================
+        // 【绕序：这是"密码盘面板不可见"的真正根因】
+        //
+        // 顶面的法线必须朝 **+Y**。设 A=(p0,p0) B=(p1,p0) C=(p1,p1) D=(p0,p1)，
+        // 按 A→B→C→D 走时：
+        //     AB = (dx, 0, 0)   BC = (0, 0, dz)
+        //     AB × BC = (0*0 - 0*dz, 0*0 - dx*dz, 0) = (0, -dx*dz, 0) -> **-Y**
+        // 也就是这个顺序画出来的面**朝下**，从上方看是背面，被 GL_CULL_FACE 剔掉。
+        // 改成 A→D→C→B（即 p0p0 → p0p1 → p1p1 → p1p0）法线才是 +Y。
+        //
+        // 对照物：{@code RenderDfcScreen} 那块竖屏用的是 (x1,y0)→(x0,y0)→(x0,y1)→(x1,y1)，
+        // 叉积算出来是 -Z，而屏幕正面正是 -Z —— 所以它一直是对的、一直看得见。
+        // 两个 quad 的差别只有绕序，这就是 A/B 证据。
+        // ================================================================
         buf.pos(p0, PANEL_Y, p0).tex(0.0F, 0.0F).color(1.0F, 1.0F, 1.0F, 1.0F).endVertex();
-        buf.pos(p1, PANEL_Y, p0).tex(1.0F, 0.0F).color(1.0F, 1.0F, 1.0F, 1.0F).endVertex();
-        buf.pos(p1, PANEL_Y, p1).tex(1.0F, 1.0F).color(1.0F, 1.0F, 1.0F, 1.0F).endVertex();
         buf.pos(p0, PANEL_Y, p1).tex(0.0F, 1.0F).color(1.0F, 1.0F, 1.0F, 1.0F).endVertex();
+        buf.pos(p1, PANEL_Y, p1).tex(1.0F, 1.0F).color(1.0F, 1.0F, 1.0F, 1.0F).endVertex();
+        buf.pos(p1, PANEL_Y, p0).tex(1.0F, 0.0F).color(1.0F, 1.0F, 1.0F, 1.0F).endVertex();
 
         tess.draw();
 
+        GlStateManager.enableCull();
         GlStateManager.disableBlend();
         GlStateManager.enableLighting();
     }

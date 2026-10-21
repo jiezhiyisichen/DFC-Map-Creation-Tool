@@ -1423,12 +1423,18 @@ public class SelfTest {
         check("中间刻度按等分走",
                 GraphHistory.gridValue(1000.0D, 2) == 500.0D);
 
-        // ---- 发电量口径：优先 expellingSpk，退化到 expellingEnergy ----
-        check("有 expellingSpk 就用它",
-                GraphHistory.powerOf(3400.0D, 1200.0D) == 3400.0D);
-        check("expellingSpk 为 0 时退到 expellingEnergy",
-                GraphHistory.powerOf(0.0D, 1200.0D) == 1200.0D);
-        check("两个都没有就是 0", GraphHistory.powerOf(0.0D, 0.0D) == 0.0D);
+        // ---- 发电量口径：所有接收器总和，没有接收器才退回核心吐出量 ----
+        check("有接收器时用接收器总和（不是核心吐出的那份）",
+                GraphHistory.powerOf(98765.0D, 8, 3400.0D, 1200.0D) == 98765.0D);
+        check("接收器在为 0 时用 0，不许回退到核心（否则空闲时会显示假读数）",
+                GraphHistory.powerOf(0.0D, 3, 3400.0D, 1200.0D) == 0.0D);
+        check("没有接收器时退到 expellingSpk",
+                GraphHistory.powerOf(5000.0D, 0, 3400.0D, 1200.0D) == 3400.0D);
+        check("expellingSpk 也为 0 时再退到 expellingEnergy",
+                GraphHistory.powerOf(0.0D, 0, 0.0D, 1200.0D) == 1200.0D);
+        check("全都为 0 就是 0", GraphHistory.powerOf(0.0D, 0, 0.0D, 0.0D) == 0.0D);
+        check("单位随口径切换（J/t <-> SPK）",
+                "J/t".equals(GraphHistory.powerUnit(4)) && "SPK".equals(GraphHistory.powerUnit(0)));
 
         // ---- 采样节奏：500ms 一个点，120 个点约 60 秒 ----
         check("采样间隔 500ms", GraphHistory.SAMPLE_MS == 500L);

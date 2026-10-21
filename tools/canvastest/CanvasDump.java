@@ -382,16 +382,20 @@ public class CanvasDump {
         d.meltingPoint = 6000;
         d.stabilization = 10.0D;
 
-        // 温度从 120 缓慢爬到 ~950，叠一点正弦抖动；发电量同步爬升
+        // 温度从 120 缓慢爬到 ~950，叠一点正弦抖动；发电量同步爬升。
+        // 发电量的口径是"所有接收器上一 tick 收到的能量之和"（J/t），
+        // 所以这里给 receiverJoules + receiverCount，而不是核心自己的 expelling。
         ScreenCanvas c = new ScreenCanvas();
         long ms = 60000L;                      // 早已过了开机自检，直接画主界面
         int n = com.jiezhimod.dfc.GraphHistory.CAPACITY;
+        d.receiverCount = 8;
         for (int i = 0; i < n; i++) {
             double k = i / (double) (n - 1);
-            d.temperature = 120.0D + 830.0D * k + 55.0D * Math.sin(i * 0.35D);
-            double spk = 0.30e6D + 2.20e6D * k * (0.65D + 0.35D * Math.sin(i * 0.21D));
-            d.expellingSpk = spk / 1000.0D;    // powerOf 收的是原始值（×1000 = SPK）
-            d.expellingEnergy = d.expellingSpk;
+            // 前 8 个点故意压在 100°C 以下：曲线**不许**在这里断掉
+            // （v3.9.6 把"离线"当断点，升降温时会出现一大片空白，实机叫"断层"）
+            d.temperature = (i < 8) ? (20.0D + 8.0D * i)
+                    : (120.0D + 830.0D * k + 55.0D * Math.sin(i * 0.35D));
+            d.receiverJoules = 3.0e4D + 2.2e5D * k * (0.65D + 0.35D * Math.sin(i * 0.21D));
             c.render(ms, true, d, ev, ScreenCanvas.PAGE_GRAPH);
             ms += com.jiezhimod.dfc.GraphHistory.SAMPLE_MS;
         }
@@ -403,8 +407,8 @@ public class CanvasDump {
         ScreenCanvas flat = new ScreenCanvas();
         DfcSnapshot low = DfcSnapshot.copied(d);
         low.temperature = 100.0D;
-        low.expellingSpk = 0.012D;
-        low.expellingEnergy = 0.012D;
+        low.receiverCount = 2;
+        low.receiverJoules = 12.0D;
         long t = 60000L;
         for (int i = 0; i < n; i++) {
             flat.render(t, true, low, ev, ScreenCanvas.PAGE_GRAPH);
