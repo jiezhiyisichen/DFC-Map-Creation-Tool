@@ -48,7 +48,8 @@ public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
         try {
             ScreenCanvas canvas = te.canvas();
             long now = System.currentTimeMillis();
-            canvas.renderKeypad(te.getPassword(), te.getBuffer(), TileKeypad.PASSWORD_LEN,
+            // 便签上画什么由方块实体决定（自定义文字优先，否则是当前生效密码）
+            canvas.renderKeypad(te.noteDisplay(), te.getBuffer(), TileKeypad.PASSWORD_LEN,
                     te.isLocked(), te.isAccepted(), te.isRejecting(), now);
             canvas.uploadIfDirty(now);
 

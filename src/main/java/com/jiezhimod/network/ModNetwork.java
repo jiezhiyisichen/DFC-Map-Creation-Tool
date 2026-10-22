@@ -36,5 +36,8 @@ public class ModNetwork {
         // 调试界面的设置包（目前只有屏幕刷新率），客户端 -> 服务端
         CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageDebugConfig.Handler.class,
                 com.jiezhimod.network.msg.MessageDebugConfig.class, id++, Side.SERVER);
+        // 调试界面的密码盘设置包（密码模式 / 固定密码 / 便签文字），客户端 -> 服务端
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageKeypadConfig.Handler.class,
+                com.jiezhimod.network.msg.MessageKeypadConfig.class, id++, Side.SERVER);
     }
 }

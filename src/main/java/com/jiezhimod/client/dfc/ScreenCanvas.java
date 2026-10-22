@@ -1698,7 +1698,7 @@ public final class ScreenCanvas {
      * @param accepted 是否已通过验证
      * @param rejecting 刚输错（键盘描边闪红）
      */
-    public void renderKeypad(String password, String buffer, int length, boolean locked,
+    public void renderKeypad(String note, String buffer, int length, boolean locked,
                              boolean accepted, boolean rejecting, long nowMs) {
         long step = rejecting ? 120L : 250L;
         long bucket = nowMs / step;
@@ -1713,14 +1713,14 @@ public final class ScreenCanvas {
         g.setColor(new Color(BG, true));
         g.fillRect(0, 0, TEX_W, TEX_H);
 
-        drawKeypadFace(password, buffer, length, locked, accepted, rejecting);
+        drawKeypadFace(note, buffer, length, locked, accepted, rejecting);
 
         drawScanlines();
         image.getRGB(0, 0, TEX_W, TEX_H, pixels, 0, TEX_W);
         pixelDirty = true;
     }
 
-    private void drawKeypadFace(String password, String buffer, int length, boolean locked,
+    private void drawKeypadFace(String note, String buffer, int length, boolean locked,
                                 boolean accepted, boolean rejecting) {
         // ---------- 顶部：标题 + 状态 ----------
         text("密码锁", 9, 18, 0xFFE6ECF2, fCjkBold(12));
@@ -1796,8 +1796,8 @@ public final class ScreenCanvas {
             }
         }
 
-        // ---------- 便签纸：把密码写给玩家看 ----------
-        drawNote(password);
+        // ---------- 便签纸：把密码（或玩家自定义的文字）写给玩家看 ----------
+        drawNote(note);
 
         if (locked) {
             textCenterIn("键盘已锁定", KeypadLayout.KEY_X, KeypadLayout.padRight() - KeypadLayout.KEY_X,
@@ -1809,7 +1809,7 @@ public final class ScreenCanvas {
      * 便签纸。**故意画成微微倾斜的** —— 一块贴在台面上的纸，
      * 正着摆反而像面板的一部分，倾斜一点才一眼看出"这是张便签"。
      */
-    private void drawNote(String password) {
+    private void drawNote(String note) {
         int nx = KeypadLayout.NOTE_X;
         int ny = KeypadLayout.NOTE_Y;
         int nw = KeypadLayout.NOTE_W;
@@ -1829,8 +1829,17 @@ public final class ScreenCanvas {
         rect(nx, ny, nw, 6, 0xFFE8A9A0);
 
         text("开发者代码", nx + 5, ny + 18, 0xFF6A5A48, fCjk(8));
-        text(password == null || password.isEmpty() ? "------" : password,
-                nx + 5, ny + 40, 0xFF2B2622, fMonoBold(13));
+        // 正文可能是 6 位密码，也可能是玩家自己写的 8 个字（可能有汉字）——
+        // 先用 fit 自适应，缩到最小还塞不下才裁切，绝不让它溢出便签。
+        String body = note == null || note.isEmpty() ? "------" : note;
+        int bodyMax = nw - 10;
+        // 中文字族最小到 7 号：便签正文最多 8 个汉字，58 逻辑像素宽，
+        // 8 号（每字约 8px）只能放下 7 个字，7 号才正好排得下 8 个。
+        Font bf = hasCjk(body) ? fitCjk(body, bodyMax, 13, 7) : fitMono(body, bodyMax, 13, 8, true);
+        if (g.getFontMetrics(bf).stringWidth(body) > bodyMax * SS) {
+            body = clip(body, bodyMax, bf);
+        }
+        text(body, nx + 5, ny + 40, 0xFF2B2622, bf);
         hline(nx + 5, ny + 44, nw - 10, 0xFFC9BBA0);
 
         g2.setTransform(old);

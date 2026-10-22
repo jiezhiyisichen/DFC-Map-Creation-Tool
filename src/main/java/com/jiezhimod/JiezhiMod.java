@@ -23,7 +23,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "3.9.8";
+    public static final String VERSION = "3.9.9";
 
     @Instance(MODID)
     public static JiezhiMod instance;
@@ -123,6 +123,8 @@ public class JiezhiMod
     {
         SealA.verify();
         SealB.verify();
+        // 新开一局：密码盘的随机密码靠这个令牌判断"该换一批了"（见 KeypadSession）
+        com.jiezhimod.keypad.KeypadSession.newSession();
         event.registerServerCommand(new com.jiezhimod.command.CommandCameraShake());
         event.registerServerCommand(new com.jiezhimod.command.CommandWhiteScreen());
         event.registerServerCommand(new com.jiezhimod.command.CommandSubtitle());

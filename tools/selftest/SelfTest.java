@@ -6,6 +6,7 @@ import com.jiezhimod.client.KeyCombo;
 import com.jiezhimod.client.anim.AnimMath;
 import com.jiezhimod.client.chat.JiezhiChatGui;
 import com.jiezhimod.block.ModBlocks;
+import com.jiezhimod.block.TileKeypad;
 import com.jiezhimod.client.notice.ClientNoticeManager;
 import com.jiezhimod.client.notice.NoticeEntry;
 import com.jiezhimod.command.CommandCameraShake;
@@ -3036,6 +3037,50 @@ public class SelfTest {
             }
         }
         check("布局：每个键的中心点反查回来还是它自己（渲染与命中共用一套数字）", roundTrip);
+
+        // ---- ★ 键面文字必须和"输入的数字"一致 ----
+        // 【这条是 v3.9.8 实机 bug 的回归测试】渲染读 LABELS、输入读 digit()，
+        // 早先两边各算各的（LABELS 是 1..9,0，digit 却是"下标即数字"），
+        // 结果"点 0 出来 9、点 1 出来 0、点 4 出来 3"，每个键都偏一位。
+        // 现在唯一真源是"键面上写的是什么，输入的就是什么"。
+        boolean labelMatchesDigit = true;
+        String[] seenDigits = new String[10];
+        for (int i = 0; i < 10; i++) {
+            String lab = com.jiezhimod.keypad.KeypadLayout.label(i);
+            int d = com.jiezhimod.keypad.KeypadLayout.digit(i);
+            if (d < 0 || !lab.equals(String.valueOf(d))) {
+                labelMatchesDigit = false;
+            } else {
+                seenDigits[d] = lab;
+            }
+        }
+        check("键位：按下面上写的数字，输入的就是那个数字（0/1/4 不再错位）", labelMatchesDigit);
+
+        boolean allDigitsCovered = true;
+        for (int d = 0; d < 10; d++) {
+            if (seenDigits[d] == null) {
+                allDigitsCovered = false;
+            }
+        }
+        check("键位：0~9 十个数字一个不少", allDigitsCovered);
+        check("键位：第 0 格是 1、第 9 格是 0（电话键盘排法）",
+                "1".equals(com.jiezhimod.keypad.KeypadLayout.label(0))
+                        && "0".equals(com.jiezhimod.keypad.KeypadLayout.label(9))
+                        && com.jiezhimod.keypad.KeypadLayout.digit(0) == 1
+                        && com.jiezhimod.keypad.KeypadLayout.digit(9) == 0);
+        check("键位：功能键不给数字",
+                com.jiezhimod.keypad.KeypadLayout.digit(com.jiezhimod.keypad.KeypadLayout.KEY_CLEAR) == -1
+                        && com.jiezhimod.keypad.KeypadLayout.digit(com.jiezhimod.keypad.KeypadLayout.KEY_ENTER) == -1);
+
+        // ---- 密码盘的可配置项 ----
+        check("便签文字上限是 8 个字符", TileKeypad.NOTE_MAX == 8);
+        check("密码固定 6 位", TileKeypad.PASSWORD_LEN == 6);
+        check("合法密码：6 位纯数字", TileKeypad.isValidPassword("012345"));
+        check("非法密码：太短", !TileKeypad.isValidPassword("01234"));
+        check("非法密码：太长", !TileKeypad.isValidPassword("0123456"));
+        check("非法密码：含字母", !TileKeypad.isValidPassword("01234a"));
+        check("非法密码：空白/null", !TileKeypad.isValidPassword("      ")
+                && !TileKeypad.isValidPassword(null));
 
         // 缝隙不能误触
         int gapU = com.jiezhimod.keypad.KeypadLayout.keyX(0)

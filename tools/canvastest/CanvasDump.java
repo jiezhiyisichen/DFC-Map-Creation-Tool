@@ -282,6 +282,16 @@ public class CanvasDump {
         c = new ScreenCanvas();
         c.renderKeypad("775291", "", 6, false, true, false, 0L);
         writeKeypad(c, "keypad_accepted");
+
+        // 便签自定义文字：8 个汉字（最长的中文情况）
+        c = new ScreenCanvas();
+        c.renderKeypad("机密区域请勿触碰", "", 6, false, false, false, 0L);
+        writeKeypad(c, "keypad_note_cjk");
+
+        // 便签自定义文字：8 个 ASCII 字符（最长情况）
+        c = new ScreenCanvas();
+        c.renderKeypad("CODE9527", "", 6, false, false, false, 0L);
+        writeKeypad(c, "keypad_note_ascii");
     }
 
     private static void writeKeypad(ScreenCanvas c, String tag) throws Exception {

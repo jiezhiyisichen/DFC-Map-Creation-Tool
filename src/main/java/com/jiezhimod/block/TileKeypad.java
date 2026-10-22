@@ -1,6 +1,7 @@
 package com.jiezhimod.block;
 
 import com.jiezhimod.keypad.KeypadLayout;
+import com.jiezhimod.keypad.KeypadSession;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.network.NetworkManager;
 import net.minecraft.network.play.server.SPacketUpdateTileEntity;
@@ -25,6 +26,14 @@ public class TileKeypad extends TileEntity implements ITickable {
     /** 密码位数（截图里是 6 位） */
     public static final int PASSWORD_LEN = 6;
 
+    /** 便签纸上那行字最多几个字符（需求） */
+    public static final int NOTE_MAX = 8;
+
+    /** 密码模式：进游戏时随机刷新 */
+    public static final int MODE_RANDOM = 0;
+    /** 密码模式：玩家在调试界面里自己定的固定密码 */
+    public static final int MODE_FIXED = 1;
+
     /** 两次按键之间的最小间隔（tick）。防止连点/长按把一串数字刷进去 */
     private static final int PRESS_COOLDOWN = 3;
     /** 输错后的红色反馈持续 tick */
@@ -32,6 +41,21 @@ public class TileKeypad extends TileEntity implements ITickable {
 
     private String password = "";
     private String buffer = "";
+    /** 密码模式，取 {@link #MODE_RANDOM} / {@link #MODE_FIXED} */
+    private int passwordMode = MODE_RANDOM;
+    /** 固定密码（{@link #MODE_FIXED} 时才有效；必须是 PASSWORD_LEN 位纯数字） */
+    private String fixedPassword = "";
+    /** 便签纸上的自定义文字（空 = 直接显示当前密码） */
+    private String noteText = "";
+    /**
+     * 上一次"跟着哪个存档会话跑"的令牌。
+     *
+     * 【为什么要它】需求："随机密码进游戏时自动刷新"。
+     * 每次进游戏（新建/读档/开服）{@code KeypadSession} 会换一个新令牌，
+     * 方块实体第一次 tick 时发现对不上就重新随机一个密码；令牌会写进 NBT，
+     * 所以**走远再回来、区块重载**都不会把密码莫名换掉。
+     */
+    private int sessionToken;
     private boolean locked;
     /** 已经通过验证（控制台据此输出红石） */
     private boolean accepted;
@@ -43,6 +67,70 @@ public class TileKeypad extends TileEntity implements ITickable {
 
     public String getPassword() {
         return password;
+    }
+
+    /** 当前**真正生效**的密码：固定模式用固定密码，否则用随机密码 */
+    public String getActivePassword() {
+        if (passwordMode == MODE_FIXED && isValidPassword(fixedPassword)) {
+            return fixedPassword;
+        }
+        return password;
+    }
+
+    public int getPasswordMode() {
+        return passwordMode;
+    }
+
+    public String getFixedPassword() {
+        return fixedPassword;
+    }
+
+    /** 便签纸上要画的东西：有自定义文字就画文字，否则画当前密码 */
+    public String noteDisplay() {
+        return noteText == null || noteText.isEmpty() ? getActivePassword() : noteText;
+    }
+
+    public String getNoteText() {
+        return noteText == null ? "" : noteText;
+    }
+
+    /** 6 位纯数字才算合法密码 */
+    public static boolean isValidPassword(String s) {
+        if (s == null || s.length() != PASSWORD_LEN) {
+            return false;
+        }
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            if (c < '0' || c > '9') {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * 调试界面下发的配置（服务端权威）。
+     *
+     * 【校验规则】非法值一律**降级成安全的那一边**，绝不"存进去但不生效"：
+     *   · mode 只认 {@link #MODE_FIXED} 且密码必须在 {@link #PASSWORD_LEN} 位纯数字，
+     *     否则退回 {@link #MODE_RANDOM}（玩家不会因为填错而把自己锁在外面）；
+     *   · 便签文字裁到 {@link #NOTE_MAX} 个字符，去掉首尾空白。
+     */
+    public void applyConfig(int mode, String fixed, String note) {
+        String f = fixed == null ? "" : fixed.trim();
+        String n = note == null ? "" : note.trim();
+        if (n.length() > NOTE_MAX) {
+            n = n.substring(0, NOTE_MAX);
+        }
+        boolean wantFixed = mode == MODE_FIXED && isValidPassword(f);
+        this.passwordMode = wantFixed ? MODE_FIXED : MODE_RANDOM;
+        this.fixedPassword = wantFixed ? f : "";
+        this.noteText = n;
+        // 换成固定密码时，把已输入的一半清掉，免得下一次「输入」按旧预期走
+        this.buffer = "";
+        this.accepted = false;
+        markDirty();
+        sync();
     }
 
     public String getBuffer() {
@@ -143,7 +231,7 @@ public class TileKeypad extends TileEntity implements ITickable {
             reject();
             return false;
         }
-        if (this.buffer.equals(this.password)) {
+        if (this.buffer.equals(getActivePassword())) {
             this.accepted = true;
             this.buffer = "";
             return true;
@@ -164,6 +252,17 @@ public class TileKeypad extends TileEntity implements ITickable {
         if (this.world == null) {
             return;
         }
+        // 【每次进游戏刷新随机密码】见 sessionToken 的说明。
+        // 只在服务端做 —— 客户端跟着收包就行，否则两边各随机一个必然对不上。
+        if (!this.world.isRemote && this.sessionToken != KeypadSession.token()) {
+            this.sessionToken = KeypadSession.token();
+            if (this.passwordMode == MODE_RANDOM) {
+                this.password = randomPassword(this.world.rand);
+            }
+            markDirty();
+            sync();
+        }
+        // 兜底：固定模式下调进来时密码可能还是空的
         if (this.password.isEmpty()) {
             this.password = randomPassword(this.world.rand);
             markDirty();
@@ -203,6 +302,10 @@ public class TileKeypad extends TileEntity implements ITickable {
     public NBTTagCompound writeToNBT(NBTTagCompound c) {
         super.writeToNBT(c);
         c.setString("Password", this.password);
+        c.setInteger("Mode", this.passwordMode);
+        c.setString("Fixed", this.fixedPassword);
+        c.setString("Note", this.noteText);
+        c.setInteger("Session", this.sessionToken);
         c.setString("Buffer", this.buffer);
         c.setBoolean("Locked", this.locked);
         c.setBoolean("Accepted", this.accepted);
@@ -214,6 +317,10 @@ public class TileKeypad extends TileEntity implements ITickable {
     public void readFromNBT(NBTTagCompound c) {
         super.readFromNBT(c);
         this.password = c.getString("Password");
+        this.passwordMode = c.getInteger("Mode");
+        this.fixedPassword = c.getString("Fixed");
+        this.noteText = c.getString("Note");
+        this.sessionToken = c.getInteger("Session");
         this.buffer = c.getString("Buffer");
         this.locked = c.getBoolean("Locked");
         this.accepted = c.getBoolean("Accepted");

@@ -138,8 +138,15 @@ gui.jiezhimod.debug.recommend.custom=just device readings
 gui.jiezhimod.debug.recommend.graph=one sample every 0.5 s
 gui.jiezhimod.debug.nothing=Nothing to tweak on this block
 gui.jiezhimod.debug.close=Close
+gui.jiezhimod.debug.save=Save
+gui.jiezhimod.debug.keypad.note=Note text (up to %s characters)
+gui.jiezhimod.debug.keypad.pass=Fixed password (%s digits)
+gui.jiezhimod.debug.keypad.mode.random=* Random password
+gui.jiezhimod.debug.keypad.mode.fixed=* Fixed password
+gui.jiezhimod.debug.keypad.randomOn=Current random password %s - rerolls each time you enter the game
+gui.jiezhimod.debug.keypad.fixedOn=Fixed password active: %s
 
 msg.jiezhimod.debug.notmine=The debug stick only works on this mod's blocks
 
 tooltip.jiezhimod.debug_stick.0=Sneak + right-click any of this mod's blocks
-tooltip.jiezhimod.debug_stick.1=Currently tweakable: screen refresh rate
+tooltip.jiezhimod.debug_stick.1=Tweakable: screen refresh rate; keypad note text and fixed password

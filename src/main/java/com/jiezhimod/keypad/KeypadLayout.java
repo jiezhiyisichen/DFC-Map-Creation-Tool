@@ -64,9 +64,24 @@ public final class KeypadLayout {
         return LABELS[key];
     }
 
-    /** 数字键返回 0..9，功能键返回 -1 */
+    /**
+     * 键号 -> 真正输入的数字；功能键返回 -1。
+     *
+     * 【★★ 这里必须和 {@link #LABELS} 严格对应，别再按"下标等于数字"想当然】
+     * 键面是按**电话键盘**排的：1 2 3 / 4 5 6 / 7 8 9 / 0 清除 输入。
+     * 所以 0 在**下标 9**，而下标 0 是数字 1。
+     *
+     * v3.9.6 之前这里写的是 {@code return key}（下标即数字），
+     * 结果实机就是"点 0 出来 9、点 1 出来 0、点 4 出来 3"——
+     * 每一个键都偏移了一位。渲染读 LABELS、输入读 digit，两边各算各的就会这样。
+     * 现在唯一真源是"标签里写的是什么，输入的就是什么"（自测有断言钉住）。
+     */
     public static int digit(int key) {
-        return key >= 0 && key <= 9 ? key : -1;
+        if (key < 0 || key > 9) {
+            return -1;
+        }
+        // LABELS 是 1,2,…,9,0：下标 0..8 -> 数字 1..9，下标 9 -> 数字 0
+        return key == 9 ? 0 : key + 1;
     }
 
     public static int keyX(int key) {

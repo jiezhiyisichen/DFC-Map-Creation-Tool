@@ -138,8 +138,15 @@ gui.jiezhimod.debug.recommend.custom=只是设备读数
 gui.jiezhimod.debug.recommend.graph=曲线 0.5 秒才采一个点
 gui.jiezhimod.debug.nothing=这个方块暂无可调项
 gui.jiezhimod.debug.close=关闭
+gui.jiezhimod.debug.save=保存
+gui.jiezhimod.debug.keypad.note=便签纸文字（最多 %s 个字符）
+gui.jiezhimod.debug.keypad.pass=固定密码（%s 位数字）
+gui.jiezhimod.debug.keypad.mode.random=▶ 随机密码
+gui.jiezhimod.debug.keypad.mode.fixed=▶ 固定密码
+gui.jiezhimod.debug.keypad.randomOn=当前随机密码 %s · 每次进游戏自动刷新
+gui.jiezhimod.debug.keypad.fixedOn=固定密码已生效：%s
 
 msg.jiezhimod.debug.notmine=调试棒只能调试本模组的方块
 
 tooltip.jiezhimod.debug_stick.0=蹲下右键任意本模组方块，打开调试界面
-tooltip.jiezhimod.debug_stick.1=目前可调：显示器的屏幕刷新率
+tooltip.jiezhimod.debug_stick.1=可调：显示器刷新率、密码盘的便签文字与固定密码
