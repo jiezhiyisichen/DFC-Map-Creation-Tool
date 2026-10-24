@@ -13,7 +13,7 @@ apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'eclipse'
 apply plugin: 'maven-publish'
 
-version = '3.9'
+version = '4.0'
 group = 'com.jiezhimod'
 archivesBaseName = 'jiezhi-1.12.2-dfcmaptools'
 ///cshake 20 8

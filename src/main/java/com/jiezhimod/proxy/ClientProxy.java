@@ -63,6 +63,12 @@ public class ClientProxy extends CommonProxy {
                         new com.jiezhimod.block.ContainerPasswordConsole(tile));
             }
         }
+        if (id == GUI_ADVANCED_REPEATER) {
+            BlockPos p = new BlockPos(x, y, z);
+            // 容器用坐标构造（不持有方块实体）：客户端这份 TE 只是镜像
+            return new com.jiezhimod.client.gui.GuiAdvancedRepeater(p,
+                    new com.jiezhimod.block.ContainerAdvancedRepeater(p));
+        }
         if (id == GUI_CUSTOM_SCREEN) {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
             if (te instanceof com.jiezhimod.block.TileCustomScreen) {
@@ -121,6 +127,14 @@ public class ClientProxy extends CommonProxy {
             bindItemModel(consoleItem, "jiezhimod:password_console");
         } else {
             JiezhiMod.warn("Password console ItemBlock is missing; its item model is not bound.");
+        }
+        // 高级红石中继器：**方块模型走 blockstates、物品模型走这里**，
+        // 漏了这一行创造页里就是紫黑格（v3.9.6 的曲线屏踩过一次）
+        Item repeaterItem = Item.getItemFromBlock(ModBlocks.ADVANCED_REPEATER);
+        if (repeaterItem != null) {
+            bindItemModel(repeaterItem, "jiezhimod:advanced_repeater");
+        } else {
+            JiezhiMod.warn("Advanced repeater ItemBlock is missing; its item model is not bound.");
         }
         bindItemModel(ModItems.CONNECTOR, "jiezhimod:connector");
         bindItemModel(ModItems.DEBUG_STICK, "jiezhimod:debug_stick");

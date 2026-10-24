@@ -16,11 +16,12 @@ import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
  */
 public class ModBlocks {
 
-    /** 先建页签：匿名类里只在 getTabIconItem() 方法体内引用 KEYPAD，静态初始化顺序安全 */
+    /** 先建页签：匿名类里只在 getTabIconItem() 方法体内引用方块，静态初始化顺序安全 */
     public static final CreativeTabs TAB_REDSTONE = new CreativeTabs("jiezhimod_redstone") {
         @Override
         public ItemStack getTabIconItem() {
-            return new ItemStack(ModBlocks.KEYPAD);
+            // 3.9 时图标是密码盘；4.0 起密码盘搬去物品页，这一页留给高级红石中继器
+            return new ItemStack(ModBlocks.ADVANCED_REPEATER);
         }
     };
 
@@ -66,6 +67,13 @@ public class ModBlocks {
      */
     public static final Block DFC_SCREEN_PART = new BlockDfcScreenPart();
 
+    /**
+     * 高级红石中继器：外形与红石原理照搬原版中继器，
+     * 延迟从"1~4 红石刻"放开到 1~1200 tick（0.05~60 秒），右键开界面调（tick / 秒两种单位）。
+     */
+    public static final Block ADVANCED_REPEATER = new BlockAdvancedRepeater();
+    public static final ItemBlock ITEM_ADVANCED_REPEATER = new ItemBlock(ADVANCED_REPEATER);
+
     /** 密码盘：占一格、高半格的触摸式数字键盘（右键按面板上的键，不开界面） */
     public static final Block KEYPAD = new BlockKeypad();
     public static final ItemBlock ITEM_KEYPAD = new ItemBlock(KEYPAD);
@@ -83,10 +91,13 @@ public class ModBlocks {
         ITEM_DFC_CUSTOM.setCreativeTab(TAB_SCREEN);
         ITEM_DFC_GRAPH.setRegistryName(DFC_GRAPH.getRegistryName());
         ITEM_DFC_GRAPH.setCreativeTab(TAB_SCREEN);
+        ITEM_ADVANCED_REPEATER.setRegistryName(ADVANCED_REPEATER.getRegistryName());
+        ITEM_ADVANCED_REPEATER.setCreativeTab(TAB_REDSTONE);
         ITEM_KEYPAD.setRegistryName(KEYPAD.getRegistryName());
-        ITEM_KEYPAD.setCreativeTab(TAB_REDSTONE);
+        // 4.0：密码盘 / 密码控制台搬去「jiezhimod 物品」页，红石页腾出来给高级红石中继器
+        ITEM_KEYPAD.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
         ITEM_PASSWORD_CONSOLE.setRegistryName(PASSWORD_CONSOLE.getRegistryName());
-        ITEM_PASSWORD_CONSOLE.setCreativeTab(TAB_REDSTONE);
+        ITEM_PASSWORD_CONSOLE.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
     }
 
     @SubscribeEvent
@@ -96,6 +107,7 @@ public class ModBlocks {
         event.getRegistry().register(DFC_CUSTOM);
         event.getRegistry().register(DFC_GRAPH);
         event.getRegistry().register(DFC_SCREEN_PART);
+        event.getRegistry().register(ADVANCED_REPEATER);
         event.getRegistry().register(KEYPAD);
         event.getRegistry().register(PASSWORD_CONSOLE);
     }
@@ -106,6 +118,7 @@ public class ModBlocks {
         event.getRegistry().register(ITEM_DFC_MONITOR);
         event.getRegistry().register(ITEM_DFC_CUSTOM);
         event.getRegistry().register(ITEM_DFC_GRAPH);
+        event.getRegistry().register(ITEM_ADVANCED_REPEATER);
         event.getRegistry().register(ITEM_KEYPAD);
         event.getRegistry().register(ITEM_PASSWORD_CONSOLE);
     }

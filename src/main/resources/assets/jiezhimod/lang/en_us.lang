@@ -150,3 +150,24 @@ msg.jiezhimod.debug.notmine=The debug stick only works on this mod's blocks
 
 tooltip.jiezhimod.debug_stick.0=Sneak + right-click any of this mod's blocks
 tooltip.jiezhimod.debug_stick.1=Tweakable: screen refresh rate; keypad note text and fixed password
+
+# ===== Advanced Redstone Repeater (v4.0-beta) =====
+tile.advanced_repeater.name=Advanced Redstone Repeater
+
+gui.jiezhimod.repeater.title=Advanced Repeater
+gui.jiezhimod.repeater.current=Current delay: %s ticks (%s s)
+gui.jiezhimod.repeater.unit=Unit
+gui.jiezhimod.repeater.value=Delay value
+gui.jiezhimod.repeater.unit.tick=ticks
+gui.jiezhimod.repeater.unit.second=seconds
+gui.jiezhimod.repeater.hint.range=Settable %s ~ %s ticks; 20 ticks = 1 s
+gui.jiezhimod.repeater.ok=Applied %s ticks (%s s)
+gui.jiezhimod.repeater.bad=Enter a number between %s and %s (current unit: %s)
+gui.jiezhimod.repeater.locked=Locked by a side repeater; output stays as is
+gui.jiezhimod.repeater.apply=Apply
+gui.jiezhimod.repeater.close=Close
+
+tooltip.jiezhimod.advanced_repeater.0=Same shape and redstone behaviour as a vanilla repeater, with an adjustable delay
+tooltip.jiezhimod.advanced_repeater.1=Right-click for the delay screen; works in ticks or seconds (20 ticks = 1 s)
+tooltip.jiezhimod.advanced_repeater.2=Settable %s ~ %s ticks (%s ~ %s s)
+tooltip.jiezhimod.advanced_repeater.3=Current delay: %s ticks (%s s)

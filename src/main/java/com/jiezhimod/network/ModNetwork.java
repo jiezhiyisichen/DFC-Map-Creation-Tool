@@ -39,5 +39,8 @@ public class ModNetwork {
         // 调试界面的密码盘设置包（密码模式 / 固定密码 / 便签文字），客户端 -> 服务端
         CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageKeypadConfig.Handler.class,
                 com.jiezhimod.network.msg.MessageKeypadConfig.class, id++, Side.SERVER);
+        // 高级红石中继器的延迟设置包（单位永远是 tick），客户端 -> 服务端
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageRepeaterDelay.Handler.class,
+                com.jiezhimod.network.msg.MessageRepeaterDelay.class, id++, Side.SERVER);
     }
 }

@@ -150,3 +150,24 @@ msg.jiezhimod.debug.notmine=调试棒只能调试本模组的方块
 
 tooltip.jiezhimod.debug_stick.0=蹲下右键任意本模组方块，打开调试界面
 tooltip.jiezhimod.debug_stick.1=可调：显示器刷新率、密码盘的便签文字与固定密码
+
+# ===== 高级红石中继器（v4.0-beta） =====
+tile.advanced_repeater.name=高级红石中继器
+
+gui.jiezhimod.repeater.title=高级红石中继器
+gui.jiezhimod.repeater.current=当前延迟：%s tick（%s 秒）
+gui.jiezhimod.repeater.unit=单位
+gui.jiezhimod.repeater.value=延迟数值
+gui.jiezhimod.repeater.unit.tick=tick
+gui.jiezhimod.repeater.unit.second=秒
+gui.jiezhimod.repeater.hint.range=可设 %s ~ %s tick；1 秒 = 20 tick
+gui.jiezhimod.repeater.ok=已应用 %s tick（%s 秒）
+gui.jiezhimod.repeater.bad=请输入 %s ~ %s 之间的数字（当前单位：%s）
+gui.jiezhimod.repeater.locked=正被侧面的中继器锁定，输出保持不变
+gui.jiezhimod.repeater.apply=应用
+gui.jiezhimod.repeater.close=关闭
+
+tooltip.jiezhimod.advanced_repeater.0=外形与红石行为和原版中继器完全一致，只是延迟可以随便调
+tooltip.jiezhimod.advanced_repeater.1=右键打开界面，可按 tick 或秒设置延迟（1 秒 = 20 tick）
+tooltip.jiezhimod.advanced_repeater.2=可设 %s ~ %s tick（%s ~ %s 秒）
+tooltip.jiezhimod.advanced_repeater.3=当前延迟：%s tick（%s 秒）

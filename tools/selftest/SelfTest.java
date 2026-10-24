@@ -7,6 +7,8 @@ import com.jiezhimod.client.anim.AnimMath;
 import com.jiezhimod.client.chat.JiezhiChatGui;
 import com.jiezhimod.block.ModBlocks;
 import com.jiezhimod.block.TileKeypad;
+import com.jiezhimod.repeater.RepeaterDelay;
+import com.jiezhimod.repeater.RepeaterTimer;
 import com.jiezhimod.client.notice.ClientNoticeManager;
 import com.jiezhimod.client.notice.NoticeEntry;
 import com.jiezhimod.command.CommandCameraShake;
@@ -136,6 +138,7 @@ public class SelfTest {
         testRefreshRate();
         testOverlayBanner();
         testGraphHistory();
+        testAdvancedRepeater();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -3160,5 +3163,111 @@ public class SelfTest {
         boolean srcUntouched = s.temperature == 3860.5D && "BOOSTER".equals(s.lensType);
         boolean copyMatches = c.ticks == s.ticks && c.stabPower == s.stabPower;
         return srcUntouched && copyMatches;
+    }
+
+    // =====================================================================
+    // 高级红石中继器：延迟换算 + 计时状态机
+    // =====================================================================
+    private static void testAdvancedRepeater() {
+        section("Advanced repeater (delay units)");
+        check("1 秒 = 20 tick", RepeaterDelay.TICKS_PER_SECOND == 20);
+        check("默认 2 tick（= 原版第 1 档）", RepeaterDelay.DEFAULT_TICKS == 2);
+        check("下限 1 tick", RepeaterDelay.MIN_TICKS == 1);
+        check("上限 1200 tick = 60 秒", RepeaterDelay.MAX_TICKS == 1200);
+
+        check("clamp(0) -> 1", RepeaterDelay.clamp(0) == 1);
+        check("clamp(-5) -> 1", RepeaterDelay.clamp(-5) == 1);
+        check("clamp(99999) -> 1200", RepeaterDelay.clamp(99999) == 1200);
+        check("clamp(37) 不变", RepeaterDelay.clamp(37) == 37);
+        check("inRange(0) = false", !RepeaterDelay.inRange(0));
+        check("inRange(1201) = false", !RepeaterDelay.inRange(1201));
+        check("inRange(1200) = true", RepeaterDelay.inRange(1200));
+
+        check("20 tick = 1.00 秒", Math.abs(RepeaterDelay.toSeconds(20) - 1.0D) < 1e-9);
+        check("1 tick = 0.05 秒", Math.abs(RepeaterDelay.toSeconds(1) - 0.05D) < 1e-9);
+        check("fromSeconds(1.0) = 20", RepeaterDelay.fromSeconds(1.0D) == 20);
+        check("fromSeconds(0) 抬到 1", RepeaterDelay.fromSeconds(0.0D) == 1);
+        check("fromSeconds(1e9) 压到 1200", RepeaterDelay.fromSeconds(1e9D) == 1200);
+        check("fromSeconds(NaN) 回默认", RepeaterDelay.fromSeconds(Double.NaN) == 2);
+        check("fromSeconds(0.09) 四舍五入到 2", RepeaterDelay.fromSeconds(0.09D) == 2);
+
+        // 秒 -> tick -> 秒 必须能回到原值（否则界面上切换单位会漂移）
+        boolean roundTrip = true;
+        int[] samples = {1, 2, 3, 20, 37, 100, 599, 1200};
+        for (int t : samples) {
+            if (RepeaterDelay.fromSeconds(RepeaterDelay.toSeconds(t)) != t) {
+                roundTrip = false;
+                System.out.println("  round-trip failed at " + t);
+            }
+        }
+        check("秒/ tick 往返 8 个样本都不漂移", roundTrip);
+
+        check("secondsText(20) = 1.00", "1.00".equals(RepeaterDelay.secondsText(20)));
+        check("secondsText(1) = 0.05", "0.05".equals(RepeaterDelay.secondsText(1)));
+        check("secondsText(1200) = 60.00", "60.00".equals(RepeaterDelay.secondsText(1200)));
+
+        check("parse(\"2\") = 2", Math.abs(RepeaterDelay.parse("2") - 2.0D) < 1e-9);
+        check("parse 去空格", Math.abs(RepeaterDelay.parse("  3.5  ") - 3.5D) < 1e-9);
+        check("parse 逗号当小数点", Math.abs(RepeaterDelay.parse("2,5") - 2.5D) < 1e-9);
+        check("parse 吃掉 tick 后缀", Math.abs(RepeaterDelay.parse("10tick") - 10.0D) < 1e-9);
+        check("parse 吃掉 s 后缀", Math.abs(RepeaterDelay.parse("5s") - 5.0D) < 1e-9);
+        check("parse 吃掉「秒」后缀", Math.abs(RepeaterDelay.parse("2.5秒") - 2.5D) < 1e-9);
+        check("parse(\"\") 是 NaN", Double.isNaN(RepeaterDelay.parse("")));
+        check("parse(\"abc\") 是 NaN", Double.isNaN(RepeaterDelay.parse("abc")));
+        check("parse(null) 是 NaN", Double.isNaN(RepeaterDelay.parse(null)));
+
+        section("Advanced repeater (timer)");
+        // 上升沿：delay=2 要爬满 2 刻才翻转
+        RepeaterTimer t = new RepeaterTimer();
+        check("初始没通电", !t.output());
+        check("第 1 刻不翻转", !t.tick(true, 2));
+        check("第 1 刻还不通电", !t.output());
+        check("第 2 刻翻转", t.tick(true, 2));
+        check("第 2 刻通电了", t.output());
+        check("继续有信号不再翻转", !t.tick(true, 2));
+        check("稳定时计时器清零", t.elapsed() == 0);
+
+        // 下降沿：必须同样等满 2 刻（这里曾经写成"计数器 0~delay"，会少 1 刻）
+        check("掉第 1 刻不翻转", !t.tick(false, 2));
+        check("掉第 1 刻还通着", t.output());
+        check("掉第 2 刻翻转", t.tick(false, 2));
+        check("掉第 2 刻才断", !t.output());
+
+        // 短脉冲被吞掉（原版中继器同款行为）
+        RepeaterTimer p = new RepeaterTimer();
+        p.tick(true, 4);
+        p.tick(false, 4);
+        p.tick(false, 4);
+        check("1 刻脉冲在 delay=4 时完全不出", !p.output() && p.elapsed() == 0);
+
+        // 60 秒延迟：要真的等满 1200 刻
+        RepeaterTimer slow = new RepeaterTimer();
+        for (int i = 0; i < 1199; i++) {
+            slow.tick(true, 1200);
+        }
+        check("1199 刻时 60 秒档还没通", !slow.output());
+        slow.tick(true, 1200);
+        check("第 1200 刻才通", slow.output());
+
+        // 改延迟：计时器被夹住，改小后不用再等原来的长延迟
+        RepeaterTimer shrink = new RepeaterTimer();
+        for (int i = 0; i < 600; i++) {
+            shrink.tick(true, 1200);
+        }
+        shrink.clampDelay(5);
+        check("clampDelay 把已等待刻数夹到 5", shrink.elapsed() == 5);
+        check("夹完之后再走 1 刻就翻转", shrink.tick(true, 5) && shrink.output());
+
+        // 对齐外部状态：读档后不该误判成"输入变了"
+        RepeaterTimer sync = new RepeaterTimer();
+        sync.syncOutput(true);
+        check("syncOutput 采纳外部通电状态", sync.output());
+        check("syncOutput 把计时器清零", sync.elapsed() == 0);
+        check("刚对齐时输入=输出 → 不翻转", !sync.tick(true, 5));
+
+        // 脏输入不该炸
+        RepeaterTimer weird = new RepeaterTimer();
+        check("delay=0 也当 1 刻处理", weird.tick(true, 0));
+        check("delay 负数也当 1 刻处理", new RepeaterTimer().tick(true, -9));
     }
 }

@@ -299,16 +299,33 @@ def main():
         name = ref.split(":")[-1]
         return os.path.join(res_root, "models", name.replace("/", os.sep) + ".json")
 
+    # 本模组模型里**引用了原版贴图**（高级红石中继器直接复用 repeater_off / repeater_on /
+    # redstone_torch_off / redstone_torch_on / stone_slab_top）。这些 png 在原版 jar 里，
+    # 不在本模组的 assets 下，所以只对本模组自己的贴图查文件存在性，
+    # 对 minecraft: 前缀的改用白名单（写错名字照样拦得住）。
+    VANILLA_TEX_OK = {
+        "blocks/repeater_off", "blocks/repeater_on",
+        "blocks/redstone_torch_off", "blocks/redstone_torch_on",
+        "blocks/stone_slab_top",
+    }
+
     def _resolve_tex(ref):
         name = ref.split(":")[-1]
         return os.path.join(res_root, "textures", name.replace("/", os.sep) + ".png")
+
+    def _tex_ok(ref):
+        name = ref.split(":")[-1]
+        if ref.startswith("minecraft:"):
+            return name in VANILLA_TEX_OK
+        return os.path.isfile(_resolve_tex(ref))
 
     # blockstates -> model（每个方块状态文件都查；漏一个就是"透明/紫黑块"）
     for bs_rel in ("blockstates/dfc_screen.json",
                    "blockstates/dfc_screen_part.json",
                    "blockstates/dfc_monitor.json",
                    "blockstates/dfc_custom.json",
-                   "blockstates/dfc_graph.json"):
+                   "blockstates/dfc_graph.json",
+                   "blockstates/advanced_repeater.json"):
         with open(os.path.join(res_root, bs_rel.replace("/", os.sep)), encoding="utf-8") as fh:
             bs = json.load(fh)
         bs_models = [v["model"] for v in bs.get("variants", {}).values()]
@@ -328,7 +345,7 @@ def main():
         for tex in (data.get("textures") or {}).values():
             if tex.startswith("#"):
                 continue  # 变量引用，父模型里解析
-            assert os.path.isfile(_resolve_tex(tex)), rel + " missing texture: " + tex
+            assert _tex_ok(tex), rel + " missing texture: " + tex
 
     # 语言键缺失时游戏里会直接把 key 名显示出来（如 key.jiezhimod.notice），必须断言
     lang_keys = [
@@ -358,6 +375,13 @@ def main():
         "item.dfc_remote.name",
         "itemGroup.jiezhimod",
         "itemGroup.jiezhimod_redstone",
+        "tile.advanced_repeater.name",
+        "gui.jiezhimod.repeater.title",
+        "gui.jiezhimod.repeater.unit.tick",
+        "gui.jiezhimod.repeater.unit.second",
+        "gui.jiezhimod.repeater.apply",
+        "tooltip.jiezhimod.advanced_repeater.0",
+        "tooltip.jiezhimod.advanced_repeater.3",
     ]
     for lang in ("en_us", "zh_cn"):
         path = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod", "lang", lang + ".lang")
@@ -713,6 +737,15 @@ def main():
         ("com/jiezhimod/client/gui/GuiCustomScreen.class",
          ["func_73866_w_", "func_146976_a"]),
         ("com/jiezhimod/client/chat/JiezhiChatGui.class", ["func_146230_a"]),
+        # 高级红石中继器的设置界面（v4.0）：initGui / drawGuiContainerBackgroundLayer /
+        # actionPerformed 一旦被改名，右键就是"什么都没发生"
+        ("com/jiezhimod/client/gui/GuiAdvancedRepeater.class",
+         ["func_73866_w_", "func_146976_a", "func_146284_a"]),
+        # 方块实体：update(ITickable) / readFromNBT / writeToNBT 是红石计时的全部入口。
+        # 这三个被改名的话，中继器会永久停在放下时的那一刻 —— 不报错、不闪、就是不动。
+        ("com/jiezhimod/block/TileAdvancedRepeater.class",
+         ["func_73660_a", "func_145839_a", "func_189515_b",
+          "func_189517_E_", "func_189518_D_"]),
     ]
     with zipfile.ZipFile(FINAL_JAR) as z:
         jar_names = set(z.namelist())
@@ -729,7 +762,7 @@ def main():
     if broken:
         print("      ProGuard 把覆写方法改名了，运行时会静默失效: %s" % broken[:4])
         return 1
-    print("      %d 个客户端类的覆写方法没被混淆改名" % len(kept_overrides))
+    print("      %d 个类（客户端 GUI/TESR + 中继器方块实体）的覆写方法没被混淆改名" % len(kept_overrides))
 
     print("ALL DONE")
     return 0

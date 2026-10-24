@@ -23,7 +23,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "3.9";
+    public static final String VERSION = "4.0";
 
     @Instance(MODID)
     public static JiezhiMod instance;
@@ -94,6 +94,10 @@ public class JiezhiMod
                 new ResourceLocation(MODID, "keypad"));
         GameRegistry.registerTileEntity(com.jiezhimod.block.TilePasswordConsole.class,
                 new ResourceLocation(MODID, "password_console"));
+        // 高级红石中继器的方块实体：延迟存在这里（方块状态装不下 1200 档）。
+        // 老规矩**按具体类**注册，漏了就"missing a mapping!"，存档一读就炸。
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileAdvancedRepeater.class,
+                new ResourceLocation(MODID, "advanced_repeater"));
         NetworkRegistry.INSTANCE.registerGuiHandler(instance, proxy);
         // 服务端倒计时管理（ServerTick/PlayerLoggedIn 仅在服务端与集成服务器触发）
         MinecraftForge.EVENT_BUS.register(new ServerCountdownManager());

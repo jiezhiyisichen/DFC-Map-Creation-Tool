@@ -22,6 +22,8 @@ public class CommonProxy implements IGuiHandler {
     public static final int GUI_PASSWORD_CONSOLE = 2;
     /** 调试界面（调试棒蹲下右键本模组方块） */
     public static final int GUI_DEBUG = 3;
+    /** 高级红石中继器的延迟设置界面（右键方块打开） */
+    public static final int GUI_ADVANCED_REPEATER = 4;
 
     public void preInit() {
         // 服务端/通用侧无需注册客户端渲染事件
@@ -47,6 +49,10 @@ public class CommonProxy implements IGuiHandler {
                         (com.jiezhimod.block.TilePasswordConsole) te);
             }
             return null;
+        }
+        if (id == GUI_ADVANCED_REPEATER) {
+            // 纯配置界面，没有物品槽；但服务端必须给出容器，否则客户端开不出界面
+            return new com.jiezhimod.block.ContainerAdvancedRepeater(new BlockPos(x, y, z));
         }
         if (id == GUI_CUSTOM_SCREEN) {
             // 容器现在要拿着方块实体（遥控器槽 / 导入 / 距离判定都要用）。
