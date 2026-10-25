@@ -4,6 +4,7 @@ import com.jiezhimod.dfc.DfcFormat;
 import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.DfcWatch;
 import com.jiezhimod.dfc.GraphHistory;
+import com.jiezhimod.dfc.LabelLayout;
 import com.jiezhimod.dfc.OverlayBanner;
 import com.jiezhimod.dfc.ScreenLayout;
 import com.jiezhimod.keypad.KeypadLayout;
@@ -24,6 +25,8 @@ import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
+import java.awt.image.DataBuffer;
+import java.awt.image.DataBufferInt;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.ArrayList;
@@ -144,6 +147,8 @@ public final class ScreenCanvas {
     public static final int PAGE_CUSTOM = ScreenLayout.PAGE_CUSTOM;
     /** 页面 3：折线图（温度 + 发电量，纵轴自动量程） */
     public static final int PAGE_GRAPH = ScreenLayout.PAGE_GRAPH;
+    /** 页面 4：标注式示意图（中央设备图 + 七条引线标注，每格可换指标） */
+    public static final int PAGE_LABEL = ScreenLayout.PAGE_LABEL;
 
     // ==================== 布局（逻辑坐标，256x192） ====================
     /** 顶栏高度 */
@@ -162,7 +167,20 @@ public final class ScreenCanvas {
     private static final int COL_R_W = 88;
 
     private final BufferedImage image;
+    /**
+     * 画布像素的**直通视图**。
+     *
+     * 【为什么不再用 {@code image.getRGB()} 抓一遍】TYPE_INT_ARGB 的
+     * BufferedImage 背后本来就是一块 {@code int[]}，把手里的引用交给 GL 上传即可。
+     * 老写法每次重绘都要把 768x576 = 442368 个 int（1.7MB）整块 memcpy 一遍，
+     * 四块屏 20Hz 时纯属白烧 CPU —— 这是"多屏就卡"里最容易砍掉的一刀。
+     *
+     * 【为什么还要留 fallback】万一某个 JDK/图形环境给的不是 DataBufferInt
+     * （或是带偏移的 Raster），就退回老路子（{@link #directPixels} = false）。
+     */
     private final int[] pixels;
+    /** pixels 是否就是画布自己的存储（false 时每次重绘要靠 getRGB 抄一份） */
+    private final boolean directPixels;
     private final Graphics2D g;
 
     private DynamicTexture texture;
@@ -198,7 +216,16 @@ public final class ScreenCanvas {
 
     public ScreenCanvas() {
         this.image = new BufferedImage(TEX_W, TEX_H, BufferedImage.TYPE_INT_ARGB);
-        this.pixels = new int[TEX_W * TEX_H];
+        int[] direct = null;
+        DataBuffer db = this.image.getRaster().getDataBuffer();
+        if (db instanceof DataBufferInt) {
+            int[] arr = ((DataBufferInt) db).getData();
+            if (arr != null && arr.length >= TEX_W * TEX_H) {
+                direct = arr;
+            }
+        }
+        this.directPixels = direct != null;
+        this.pixels = direct != null ? direct : new int[TEX_W * TEX_H];
         this.g = image.createGraphics();
         this.g.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING,
                 RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
@@ -208,8 +235,11 @@ public final class ScreenCanvas {
                 RenderingHints.VALUE_STROKE_PURE);
         this.g.setRenderingHint(RenderingHints.KEY_FRACTIONALMETRICS,
                 RenderingHints.VALUE_FRACTIONALMETRICS_OFF);
+        // 【QUALITY -> SPEED】整屏 768x576、每帧上百个矩形与文字，质量优先的
+        // 渲染管线会为几个像素的色差多花一倍时间；屏幕上本来就是像素风界面。
+        // 文字抗锯齿（上一行）保持 ON —— 那个才是可读性的来源。
         this.g.setRenderingHint(RenderingHints.KEY_RENDERING,
-                RenderingHints.VALUE_RENDER_QUALITY);
+                RenderingHints.VALUE_RENDER_SPEED);
     }
 
     // ==================== 字体（逻辑字号 -> 物理字号） ====================
@@ -265,7 +295,9 @@ public final class ScreenCanvas {
                         data.explosionIn)
                 : OverlayBanner.KIND_NONE;
 
-        long step = 50L;
+        // 【关机态降到 10Hz】待机画面只有一个缓慢呼吸的圆环，
+        // 20Hz 重画整块 768x576 完全是白烧 —— 而"关机但连着电"的屏在基地里往往是多数。
+        long step = powered ? 50L : 100L;
         if (powered && faultElapsedMs < 0L
                 && ScreenLayout.phaseAt(sinceOnMs) == ScreenLayout.PHASE_MAIN) {
             // 主界面按这台屏自己的刷新率重绘。开机自检/控制台/报错页仍用 50ms ——
@@ -275,6 +307,9 @@ public final class ScreenCanvas {
         if (wantOverlay != OverlayBanner.KIND_NONE || this.overlayKind != OverlayBanner.KIND_NONE) {
             step = Math.min(step, 40L);
         }
+        // 远处的屏看不清细节，按距离再降一档。只在**远离时**放大周期，
+        // 近距离保持原样 —— 玩家凑近读数时一秒都不能糊。
+        step *= Math.max(1, this.distanceFactor);
         // "大弹窗"= 熔毁预警 / 引爆，会整块盖住屏幕；熔毁进行中的小条不算
         boolean bigBanner = wantOverlay == OverlayBanner.KIND_MELTDOWN
                 || wantOverlay == OverlayBanner.KIND_DETONATE;
@@ -294,6 +329,16 @@ public final class ScreenCanvas {
         if (bucket == lastBucket && !pixelDirty) {
             return;
         }
+        // 【逐帧预算】重绘是纯 CPU 的 AWT 活，而且发生在**渲染线程**上 ——
+        // 几块屏正好落在同一帧重绘时，那一帧就要多花十几毫秒，看起来就是"卡一下"。
+        // 这里给每帧限个次数，超了就留到下一帧；同一台屏被挡太久（饥饿）时放行。
+        long nowWall = System.currentTimeMillis();
+        boolean starved = this.lastPaintMs == Long.MIN_VALUE
+                || nowWall - this.lastPaintMs > step * 8L;
+        if (!starved && !acquirePaintSlot()) {
+            return;
+        }
+        this.lastPaintMs = nowWall;
         lastBucket = bucket;
 
         // 主题色每帧复位：只有主界面（且在崩溃）才会把它改成告警红
@@ -327,6 +372,8 @@ public final class ScreenCanvas {
                         drawCustom(data);
                     } else if (page == PAGE_GRAPH) {
                         drawGraph(data, sinceOnMs);
+                    } else if (page == PAGE_LABEL) {
+                        drawLabel(data);
                     } else {
                         drawMain(data, events);
                     }
@@ -339,13 +386,82 @@ public final class ScreenCanvas {
         if (powered) {
             drawOverlay(wantOverlay, data, System.currentTimeMillis());
         }
-        // 画完就把像素抓出来；GL 上传留给渲染线程
-        image.getRGB(0, 0, TEX_W, TEX_H, pixels, 0, TEX_W);
+        // 画完就把像素备好；GL 上传留给渲染线程
+        snapshotPixels();
         pixelDirty = true;
+    }
+
+    /**
+     * 把画布像素准备到 {@link #pixels} 里。
+     *
+     * 正常情况下 pixels 就是画布自己的存储，这里什么都不用做（零拷贝）；
+     * 只有极少数图形环境拿不到 DataBufferInt 时才退回整块 getRGB。
+     */
+    private void snapshotPixels() {
+        if (!this.directPixels) {
+            image.getRGB(0, 0, TEX_W, TEX_H, pixels, 0, TEX_W);
+        }
     }
 
     /** 默认主界面重绘周期（毫秒），取自 ScreenLayout，与服务端 REFRESH_TICKS 共用同一常量 */
     public static final long REFRESH_MS = ScreenLayout.REFRESH_MS;
+
+    // ==================== 重绘预算（渲染线程） ====================
+    //
+    // 一次重绘 = 画一遍 AWT（含抗锯齿文字）+ 上传 1.7MB 纹理，全部在渲染线程上同步完成。
+    // 十来块屏各自按 20Hz 重绘时，光这一项就能把帧时间顶到 50ms 以上。
+    // 预算的作用是**把它们摊开**：每帧最多画 PAINT_BUDGET 块，多出来的下一帧再说。
+    // 200ms 的刷新周期对应 12 帧，摊到 2 块/帧绰绰有余，肉眼看不出差别。
+
+    /** 每帧最多重画几块屏 */
+    private static final int PAINT_BUDGET = 2;
+    /** 本帧已经画了几块 */
+    private static int paintsThisFrame;
+    /** 本帧开始的纳秒时刻（由 ScreenFrameHook 每帧重置） */
+    private static long frameStartNs;
+
+    /**
+     * 帧边界。由 {@code ScreenFrameHook}（RenderWorldLastEvent）每帧调一次。
+     *
+     * 【为什么要外部钩子】TESR 一帧里会被十几台屏各调一次，但没人告诉它
+     * "这是新的一帧"。RenderWorldLastEvent 正好在整帧世界渲染结束、下一帧开始之前触发。
+     */
+    public static void beginFrame() {
+        paintsThisFrame = 0;
+        frameStartNs = System.nanoTime();
+    }
+
+    /**
+     * 领一个本帧的重绘名额。
+     *
+     * 【时间兜底】玩家开着界面（聊天 / 背包）时世界不再逐帧渲染，钩子可能长时间不触发；
+     * 超过 100ms 就当作新的一帧，免得画面彻底停住。
+     */
+    private static boolean acquirePaintSlot() {
+        long now = System.nanoTime();
+        if (frameStartNs == 0L || now - frameStartNs > 100_000_000L) {
+            frameStartNs = now;
+            paintsThisFrame = 0;
+        }
+        if (paintsThisFrame >= PAINT_BUDGET) {
+            return false;
+        }
+        paintsThisFrame++;
+        return true;
+    }
+
+    /** 上一次真正重绘的墙钟时刻（饥饿保护用） */
+    private long lastPaintMs = Long.MIN_VALUE;
+
+    /**
+     * 距离系数（1 / 2 / 4）：由 TESR 按"离摄像机多远"设置。
+     * 远到只剩几十像素的屏没必要 20Hz 重画。
+     */
+    private int distanceFactor = 1;
+
+    public void setDistanceFactor(int factor) {
+        this.distanceFactor = Math.max(1, Math.min(4, factor));
+    }
 
     /**
      * 这台屏主界面的实际重绘周期（毫秒）。由 TESR 按方块实体里的刷新率设置。
@@ -1716,7 +1832,7 @@ public final class ScreenCanvas {
         drawKeypadFace(note, buffer, length, locked, accepted, rejecting);
 
         drawScanlines();
-        image.getRGB(0, 0, TEX_W, TEX_H, pixels, 0, TEX_W);
+        snapshotPixels();
         pixelDirty = true;
     }
 
@@ -2011,6 +2127,159 @@ public final class ScreenCanvas {
     }
 
     // ==================== 绘制原语（逻辑坐标 -> 物理坐标） ====================
+
+    // ==================== 画面：标注示意（第五页） ====================
+    //
+    // 需求（参考图）："中央一台设备示意图，四周用引线拉出「小标题 + 大数值」的标注块，
+    // 每个格子显示什么可以自定义"。
+    //
+    // 和前三页的取舍：核心页/部件页都是"分栏仪表"，读数位置是死的，玩家得记住
+    // 哪一栏是什么。这一页把名字贴在数字旁边，一眼就能读 —— 代价是能放的指标少，
+    // 所以做成七格可配置：需要哪七项就装哪七项。
+
+    /** 状态等级 -> 颜色，下标与 LabelLayout.L_* 对齐 */
+    private static final int[] LEVEL_COLOR = {OK, WARN, CRIT, CYAN, TXT_DIM};
+
+    private void drawLabel(DfcSnapshot d) {
+        // 告警规则与核心页一致：坍缩度离开 0 就整屏转红（含顶栏闪 !!）
+        this.alert = ScreenLayout.alertActive(d);
+        this.themeLine = this.alert ? ALERT_LINE : LINE;
+        this.themeTitle = this.alert ? ALERT_TXT : TXT_DIM;
+
+        drawHeader(d, null, "标注监视", null, 0);
+
+        // 冷堆（已绑定但温度没到 100°C）沿用核心页那张"离线"页 ——
+        // 这一页的读数全是 0 的话，七条引线会一起写成 0.00%，比不显示更误导。
+        if (ScreenLayout.offline(d)) {
+            drawOffline(d);
+            return;
+        }
+        boolean linked = d != null && d.linked;
+        drawFigure(d, linked);
+
+        if (!linked) {
+            // 垫一条暗底：红字直接压在设备图上会糊，
+            // 与折线页"空数据"提示同款处理
+            rect(24, 84, LW - 48, 42, 0xE6050A0F);
+            textCenter("未连接数据源", 102, CRIT, fCjkBold(18));
+            textCenter("用 DFC 遥控器蹲下右键本屏绑定核心", 120, TXT_DIM, fCjk(9));
+            return;
+        }
+        for (int i = 0; i < LabelLayout.SLOTS; i++) {
+            drawCallout(i, d);
+        }
+    }
+
+    /**
+     * 中央设备示意图（一台包着外壳的暗核聚变堆：穹顶 + 柱体 + 底座 + 两侧管道）。
+     *
+     * 【为什么是"示意图"而不是真实贴图】256x192 的逻辑画布上，这台设备只有
+     * 四十来像素宽；画贴图会糊成一团。用几块纯色矩形 + 一个椭圆拼出"机器感"，
+     * 边界清楚，引线扎上去也看得清扎在哪。
+     */
+    private void drawFigure(DfcSnapshot d, boolean linked) {
+        int cx = (LabelLayout.FIG_L + LabelLayout.FIG_R) / 2;   // 128
+
+        int metal = 0xFF2B3946;
+        int edge = 0xFF46606F;
+        int dark = 0xFF19222C;
+
+        // 背光：几圈极淡的同心椭圆，让设备"浮"在深底上
+        for (int i = 5; i >= 1; i--) {
+            int pad = i * 6;
+            ovalFill(cx - 26 - pad, 96 - 20 - pad, 52 + pad * 2, 40 + pad * 2, 0x0548D6FF);
+        }
+
+        // 底座
+        rect(101, 150, 54, 5, dark);
+        rect(105, 145, 46, 5, metal);
+        hline(101, 155, 54, edge);
+
+        // 穹顶（先画整椭圆，再用柱体盖掉下半部分，剩下就是穹顶）
+        ovalFill(109, 36, 38, 50, metal);
+        // 柱体
+        rect(112, 62, 32, 84, metal);
+        // 柱体横向加强筋
+        for (int y = 74; y < 142; y += 18) {
+            hline(112, y, 32, dark);
+        }
+        // 两侧管道（引线常落在这附近）
+        rect(97, 88, 15, 8, metal);
+        rect(144, 88, 15, 8, metal);
+        hline(97, 88, 15, edge);
+        hline(144, 96, 15, edge);
+
+        // 中央观察窗 + 堆芯辉光：颜色跟状态走（正常青色、告警转红）
+        rect(120, 84, 16, 38, dark);
+        int core = !linked ? 0xFF26323C
+                : this.alert ? 0xFFFF5A4A
+                : ScreenLayout.online(d) ? 0xFF63E2FF : 0xFF2F6C80;
+        ovalFill(122, 90, 12, 26, core);
+        ovalFill(124, 96, 8, 14, 0x60FFFFFF);
+
+        // 外轮廓（只描关键边，画满一圈会显得脏）
+        hline(112, 62, 1, edge);
+        hline(143, 62, 1, edge);
+        hline(112, 145, 32, edge);
+        hline(109, 60, 38, edge);
+    }
+
+    /**
+     * 一条标注：引线 + 小标题 + 大数值。
+     *
+     * @param i 第几格（0~6），位置与左右栏由 {@link LabelLayout} 给定
+     */
+    private void drawCallout(int i, DfcSnapshot d) {
+        int metric = LabelLayout.clampMetric(d.labelMetrics[i]);
+        if (metric == LabelLayout.M_NONE) {
+            return;   // 空槽什么都不画，版面自然留白
+        }
+        boolean right = LabelLayout.SLOT_RIGHT[i];
+        int y = LabelLayout.SLOT_Y[i];
+        int ax = LabelLayout.ANCHOR_X[i];
+        int ay = LabelLayout.ANCHOR_Y[i];
+
+        String value = LabelLayout.valueText(d, metric);
+        if (LabelLayout.coldOffline(d, metric)) {
+            value = "离线";
+        }
+        int level = LabelLayout.level(d, metric);
+        int color = LEVEL_COLOR[level];
+
+        // ---------- 引线 ----------
+        // 先一小段水平（贴着文字右/左侧），再斜着扎到设备上：
+        // 一条直斜线看起来像射线，加了折角才像"标注"。
+        if (right) {
+            int x0 = LabelLayout.RIGHT_TEXT_LEFT - 1;
+            int ex = LabelLayout.ELBOW_RIGHT;
+            line(x0, y - 3, ex, y - 3, this.themeLine);
+            line(ex, y - 3, ax, ay, 0xFF2A4150);
+        } else {
+            int x0 = LabelLayout.LEFT_TEXT_RIGHT + 1;
+            int ex = LabelLayout.ELBOW_LEFT;
+            line(x0, y - 3, ex, y - 3, this.themeLine);
+            line(ex, y - 3, ax, ay, 0xFF2A4150);
+        }
+        // 落点小圆：颜色跟着数值走，一眼能对上"这条线指的是哪个数"
+        ovalFill(ax - 2, ay - 2, 4, 4, color);
+
+        // ---------- 文字 ----------
+        Font lf = fCjk(LabelLayout.LABEL_SIZE);
+        Font vf = hasCjk(value)
+                ? fitCjk(value, LabelLayout.TEXT_W, LabelLayout.VALUE_MAX_SIZE,
+                        LabelLayout.VALUE_MIN_SIZE)
+                : fitMono(value, LabelLayout.TEXT_W, LabelLayout.VALUE_MAX_SIZE,
+                        LabelLayout.VALUE_MIN_SIZE, true);
+        String name = clip(LabelLayout.metricName(metric), LabelLayout.TEXT_W, lf);
+        if (right) {
+            text(name, LabelLayout.RIGHT_TEXT_LEFT, y, TXT_DIM, lf);
+            text(clip(value, LabelLayout.TEXT_W, vf), LabelLayout.RIGHT_TEXT_LEFT, y + 15, color, vf);
+        } else {
+            textRight(name, LabelLayout.LEFT_TEXT_RIGHT, y, TXT_DIM, lf);
+            textRight(clip(value, LabelLayout.TEXT_W, vf), LabelLayout.LEFT_TEXT_RIGHT, y + 15,
+                    color, vf);
+        }
+    }
 
     private void rect(int x, int y, int w, int h, int argb) {
         g.setColor(new Color(argb, true));

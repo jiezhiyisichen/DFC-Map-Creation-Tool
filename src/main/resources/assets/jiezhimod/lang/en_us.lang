@@ -171,3 +171,16 @@ tooltip.jiezhimod.advanced_repeater.0=Same shape and redstone behaviour as a van
 tooltip.jiezhimod.advanced_repeater.1=Right-click for the delay screen; works in ticks or seconds (20 ticks = 1 s)
 tooltip.jiezhimod.advanced_repeater.2=Settable %s ~ %s ticks (%s ~ %s s)
 tooltip.jiezhimod.advanced_repeater.3=Current delay: %s ticks (%s s)
+
+# ===== Label display (v4.0-beta 2) =====
+tile.dfc_label.name=DFC Label Display
+
+tooltip.jiezhimod.dfc_label.0=Takes 4 x 3 = %s blocks, hung below the ceiling
+tooltip.jiezhimod.dfc_label.1=A device diagram in the middle with seven callouts around it
+tooltip.jiezhimod.dfc_label.2=Each of the seven slots binds one metric (%s in total) - swap them freely
+tooltip.jiezhimod.dfc_label.3=Place against a ceiling; right-click toggles power, sneak + debug stick edits the slots
+tooltip.jiezhimod.dfc_label.4=Colour = state: green ok / yellow warn / red critical / grey no data
+
+gui.jiezhimod.debug.label.hint=Use the arrows to change each slot; the current reading is on the right
+gui.jiezhimod.debug.label.reset=Defaults
+gui.jiezhimod.debug.label.refresh=Rate %s ms

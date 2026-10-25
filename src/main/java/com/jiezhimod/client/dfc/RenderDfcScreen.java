@@ -81,12 +81,18 @@ public class RenderDfcScreen extends TileEntitySpecialRenderer<TileDfcScreen> {
         int page = ScreenLayout.pageFor(
                 ctrl instanceof com.jiezhimod.block.BlockCustomScreen,
                 ctrl instanceof BlockDfcMonitor,
-                ctrl instanceof com.jiezhimod.block.BlockDfcGraph);
+                ctrl instanceof com.jiezhimod.block.BlockDfcGraph,
+                ctrl instanceof com.jiezhimod.block.BlockDfcLabel);
         // 【熔毁报错页】核心开始炸（坍缩度离开 0）时整屏改画 301，4 秒后自动重启。
         // 优先级最高：报错页连开机自检都盖掉 —— 屏幕"已经坏了"，还在画进度条就不像了。
         // 只有开着的屏才推进这段状态机（关着的屏本来就什么都不显示）。
         // 把"这台屏自己的刷新率"交给画布：调试棒里调过之后立刻生效
         canvas.setMainStepMs(te.getRefreshMs());
+        // 【按距离降频】远处的屏在画面上只剩几十像素，20Hz 重画纯属浪费 ——
+        // x/y/z 是"相对摄像机"的坐标，直接算距离，不必再查 RenderManager。
+        // 20 格外降一半、48 格外降到 1/4；距离近时系数恒为 1，凑近读数不受影响。
+        double distSq = x * x + y * y + z * z;
+        canvas.setDistanceFactor(distSq > 2304.0D ? 4 : distSq > 400.0D ? 2 : 1);
         canvas.render(powered ? te.clientBootElapsedMs() : -1L, powered,
                 te.getData(), te.getEvents(), page,
                 powered ? te.clientFaultElapsedMs() : -1L);

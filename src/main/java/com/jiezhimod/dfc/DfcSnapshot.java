@@ -163,6 +163,16 @@ public final class DfcSnapshot {
      */
     public final List<DfcWatch> watches = new ArrayList<DfcWatch>();
 
+    /**
+     * 标注显示器（第五页）七个格子的指标编号，见 {@link LabelLayout}。
+     *
+     * 【为什么直接放进快照，而不是另开一个包】和上面 watches 一样的理由：
+     * 同一台硬件、同一条同步通道，配置跟着刷新节拍走最省事。
+     * 固定 {@link LabelLayout#SLOTS} 个 byte，七个格子的开销只有 7 字节；
+     * 其它几块屏的值恒为出厂配置，玩家看不到也无所谓。
+     */
+    public final int[] labelMetrics = LabelLayout.defaults();
+
     // ==================== 稳定器自身 ====================
     /** 数据源里有没有稳定器信息（绑定的是稳定器时为 true） */
     public boolean stabPresent;
@@ -249,6 +259,9 @@ public final class DfcSnapshot {
         for (int i = 0; i < o.watches.size(); i++) {
             this.watches.add(o.watches.get(i).copy());
         }
+        for (int i = 0; i < this.labelMetrics.length; i++) {
+            this.labelMetrics[i] = i < o.labelMetrics.length ? o.labelMetrics[i] : LabelLayout.M_NONE;
+        }
     }
 
     // ==================== 网络序列化 ====================
@@ -311,6 +324,10 @@ public final class DfcSnapshot {
         buf.writeByte(watches.size());
         for (int i = 0; i < watches.size(); i++) {
             watches.get(i).writeTo(buf);
+        }
+        // ---- 标注显示屏的七格指标（固定长度，顺序必须与 readFrom 一致） ----
+        for (int i = 0; i < labelMetrics.length; i++) {
+            buf.writeByte(LabelLayout.clampMetric(labelMetrics[i]));
         }
     }
 
@@ -392,6 +409,10 @@ public final class DfcSnapshot {
             DfcWatch w = new DfcWatch();
             w.readFrom(buf);
             this.watches.add(w);
+        }
+        // ---- 标注显示屏的七格指标，顺序必须与 writeTo 严格一致 ----
+        for (int i = 0; i < this.labelMetrics.length; i++) {
+            this.labelMetrics[i] = LabelLayout.clampMetric(buf.readByte() & 255);
         }
     }
 }

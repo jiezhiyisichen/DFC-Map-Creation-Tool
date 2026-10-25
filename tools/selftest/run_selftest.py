@@ -230,6 +230,10 @@ def main():
         "assets/jiezhimod/blockstates/dfc_graph.json",
         "assets/jiezhimod/models/item/dfc_graph.json",
         "assets/jiezhimod/textures/items/dfc_graph.png",
+        # 第五块显示器（标注显示器）：配件同样缺一不可
+        "assets/jiezhimod/blockstates/dfc_label.json",
+        "assets/jiezhimod/models/item/dfc_label.json",
+        "assets/jiezhimod/textures/items/dfc_label.png",
         # GUI 纯色填充用的白纹理。缺了它 GuiDraw 绑不上纹理，
         # 所有自绘面板/格子/进度条都会变成紫黑（或直接看不见）
         "assets/jiezhimod/textures/gui/white.png",
@@ -277,6 +281,8 @@ def main():
         "blockstates/dfc_monitor.json",
         "blockstates/dfc_custom.json",
         "blockstates/dfc_graph.json",
+        "models/item/dfc_label.json",
+        "blockstates/dfc_label.json",
         "models/block/dfc_screen_empty.json",
         "models/item/jetpack.json",
         "models/item/jet_switch.json",
@@ -382,6 +388,12 @@ def main():
         "gui.jiezhimod.repeater.apply",
         "tooltip.jiezhimod.advanced_repeater.0",
         "tooltip.jiezhimod.advanced_repeater.3",
+        "tile.dfc_label.name",
+        "tooltip.jiezhimod.dfc_label.0",
+        "tooltip.jiezhimod.dfc_label.4",
+        "gui.jiezhimod.debug.label.hint",
+        "gui.jiezhimod.debug.label.reset",
+        "gui.jiezhimod.debug.label.refresh",
     ]
     for lang in ("en_us", "zh_cn"):
         path = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod", "lang", lang + ".lang")
@@ -475,6 +487,27 @@ def main():
         print("      ScreenCanvas never creates a DynamicTexture -> display would stay black")
         return 1
     print("      ScreenCanvas creates its own DynamicTexture")
+
+    # ---- 多屏性能哨兵（v4.1） ---------------------------------------------
+    # 用户反馈"屏幕一多就卡"。当时的三处硬开销已经改掉了，这里盯住别被改回去：
+    #   1. 每帧 getRGB 抄一份 768x576（1.7MB）→ 改成直通 DataBufferInt，零拷贝；
+    #   2. 几块屏在同一帧一起重绘 → 每帧限两块，多的推到下一帧；
+    #   3. 帧边界靠 RenderWorldLastEvent 重置 → 删了这个钩子预算永不重置，
+    #      表现是"屏幕好几秒才动一下"（比卡更难受，且完全没有报错）。
+    for token, why in (
+            ("DataBufferInt", "像素零拷贝退化成每帧 getRGB（每帧白抄 1.7MB）"),
+            ("PAINT_BUDGET", "逐帧重绘预算被删（多块屏会在同一帧一起重绘）"),
+            ("beginFrame", "帧边界入口被删（预算永不重置）"),
+    ):
+        if token not in canvas_src:
+            print("      ScreenCanvas lost '%s' -> %s" % (token, why))
+            return 1
+    client_proxy = io.open(os.path.join(java_src, "com", "jiezhimod", "proxy",
+                                        "ClientProxy.java"), encoding="utf-8").read()
+    if "ScreenFrameHook" not in client_proxy:
+        print("      ClientProxy does not register ScreenFrameHook -> paint budget never resets")
+        return 1
+    print("      ScreenCanvas: zero-copy pixels + per-frame paint budget + frame hook")
 
     # ---- 中栏表盘"一块盘只归一个量"哨兵 -------------------------------------
     # 需求原话："把潜在增益和崩溃程度分开，不要放一起"。
@@ -746,6 +779,15 @@ def main():
         ("com/jiezhimod/block/TileAdvancedRepeater.class",
          ["func_73660_a", "func_145839_a", "func_189515_b",
           "func_189517_E_", "func_189518_D_"]),
+        # 调试界面（v4.0 起有三种模式：刷新率 / 标注七格 / 密码盘）。
+        # initGui 与 actionPerformed 一旦被改名，蹲下右键就是"开了个空面板"，
+        # 按钮全都不响应 —— 这个坑在 3.9.2~3.9.6 已经吃过一次（控制台界面空白）。
+        ("com/jiezhimod/client/gui/GuiDebug.class",
+         ["func_73866_w_", "func_146976_a", "func_146284_a"]),
+        # 标注显示屏的方块实体：readFromNBT / writeToNBT 被改名 = 七格配置存不住，
+        # 每次进存档都变回出厂值，且不报任何错。
+        ("com/jiezhimod/block/TileLabelScreen.class",
+         ["func_145839_a", "func_189515_b"]),
     ]
     with zipfile.ZipFile(FINAL_JAR) as z:
         jar_names = set(z.namelist())

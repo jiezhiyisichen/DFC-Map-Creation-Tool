@@ -7,6 +7,7 @@ import com.jiezhimod.client.anim.AnimMath;
 import com.jiezhimod.client.chat.JiezhiChatGui;
 import com.jiezhimod.block.ModBlocks;
 import com.jiezhimod.block.TileKeypad;
+import com.jiezhimod.dfc.LabelLayout;
 import com.jiezhimod.repeater.RepeaterDelay;
 import com.jiezhimod.repeater.RepeaterTimer;
 import com.jiezhimod.client.notice.ClientNoticeManager;
@@ -139,6 +140,7 @@ public class SelfTest {
         testOverlayBanner();
         testGraphHistory();
         testAdvancedRepeater();
+        testLabelLayout();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -3269,5 +3271,178 @@ public class SelfTest {
         RepeaterTimer weird = new RepeaterTimer();
         check("delay=0 也当 1 刻处理", weird.tick(true, 0));
         check("delay 负数也当 1 刻处理", new RepeaterTimer().tick(true, -9));
+    }
+
+    // =====================================================================
+    // 标注显示器：七格布局 + 指标目录
+    //
+    // 这块屏最容易出的两类错：
+    //   1. 版面重叠（七格手排坐标，改一格就可能压到隔壁）；
+    //   2. 指标编号或文案对不上（切到"空槽"却画了个数字、单位换算写反）。
+    // 两者都能离线断言，不必等进游戏看。
+    // =====================================================================
+    private static void testLabelLayout() {
+        section("Label display (layout)");
+        check("七格", LabelLayout.SLOTS == 7);
+        check("指标目录长度与常量自洽", LabelLayout.METRIC_COUNT == LabelLayout.M_GAIN + 1);
+        check("几何数组都是七格", LabelLayout.SLOT_Y.length == LabelLayout.SLOTS
+                && LabelLayout.SLOT_RIGHT.length == LabelLayout.SLOTS
+                && LabelLayout.ANCHOR_X.length == LabelLayout.SLOTS
+                && LabelLayout.ANCHOR_Y.length == LabelLayout.SLOTS);
+
+        // 同一栏内不许重叠：一格占"标题 + 数值"约 26 逻辑像素
+        for (int i = 0; i < LabelLayout.SLOTS; i++) {
+            for (int j = i + 1; j < LabelLayout.SLOTS; j++) {
+                if (LabelLayout.SLOT_RIGHT[i] != LabelLayout.SLOT_RIGHT[j]) {
+                    continue;
+                }
+                int gap = Math.abs(LabelLayout.SLOT_Y[i] - LabelLayout.SLOT_Y[j]);
+                check("第 " + (i + 1) + " / " + (j + 1) + " 格同栏不重叠",
+                        gap >= 26);
+            }
+        }
+        // 引线落点必须在示意图包围盒内，否则线会扎到空气里
+        boolean anchorsInside = true;
+        for (int i = 0; i < LabelLayout.SLOTS; i++) {
+            if (LabelLayout.ANCHOR_X[i] < LabelLayout.FIG_L || LabelLayout.ANCHOR_X[i] > LabelLayout.FIG_R
+                    || LabelLayout.ANCHOR_Y[i] < LabelLayout.FIG_T
+                    || LabelLayout.ANCHOR_Y[i] > LabelLayout.FIG_B) {
+                anchorsInside = false;
+                System.out.println("  anchor " + i + " out of figure box");
+            }
+        }
+        check("七条引线都落在示意图上", anchorsInside);
+        // 左三右四，和参考图一致
+        int right = 0;
+        for (boolean b : LabelLayout.SLOT_RIGHT) {
+            if (b) {
+                right++;
+            }
+        }
+        check("左三右四", right == 4);
+
+        section("Label display (metrics)");
+        check("下一个：14 -> 0", LabelLayout.nextMetric(LabelLayout.M_GAIN) == LabelLayout.M_NONE);
+        check("下一个：0 -> 1", LabelLayout.nextMetric(LabelLayout.M_NONE) == LabelLayout.M_TEMP);
+        check("上一个：0 -> 14", LabelLayout.prevMetric(LabelLayout.M_NONE) == LabelLayout.M_GAIN);
+        check("上一个：1 -> 0", LabelLayout.prevMetric(LabelLayout.M_TEMP) == LabelLayout.M_NONE);
+        check("越界夹成空槽", LabelLayout.clampMetric(99) == LabelLayout.M_NONE
+                && LabelLayout.clampMetric(-3) == LabelLayout.M_NONE);
+        check("合法值原样返回", LabelLayout.clampMetric(LabelLayout.M_TEMP) == LabelLayout.M_TEMP);
+
+        int[] san = LabelLayout.sanitize(new int[]{1, 2, 3, 99, -1});
+        check("sanitize 补齐到七格", san.length == LabelLayout.SLOTS);
+        check("sanitize 清掉非法值", san[3] == LabelLayout.M_NONE && san[4] == LabelLayout.M_NONE
+                && san[6] == LabelLayout.M_NONE);
+        check("sanitize(null) 全空", LabelLayout.sanitize(null)[0] == LabelLayout.M_NONE);
+
+        // 出厂配置：七格全用上、没有重复（否则开箱就有一格是摆设）
+        int[] def = LabelLayout.defaults();
+        boolean noDup = true;
+        for (int i = 0; i < def.length; i++) {
+            if (def[i] == LabelLayout.M_NONE) {
+                noDup = false;
+            }
+            for (int j = i + 1; j < def.length; j++) {
+                if (def[i] == def[j]) {
+                    noDup = false;
+                }
+            }
+        }
+        check("出厂七格互不重复且都有内容", noDup);
+
+        // 每个指标都得有名字，且不能长到塞不进半栏（86 逻辑像素 / 8 号字 ≈ 10 个汉字）
+        boolean namesOk = true;
+        for (int m = 0; m < LabelLayout.METRIC_COUNT; m++) {
+            String n = LabelLayout.metricName(m);
+            if (n == null || n.isEmpty() || n.length() > 6) {
+                namesOk = false;
+                System.out.println("  bad metric name at " + m + ": " + n);
+            }
+        }
+        check("15 个指标的名字都短于 7 个字", namesOk);
+
+        section("Label display (values)");
+        // 未连接时任何指标都只能给 "--"，绝不能显示 0（会被当成真实读数）
+        boolean allDash = true;
+        for (int m = 0; m < LabelLayout.METRIC_COUNT; m++) {
+            if (!"--".equals(LabelLayout.valueText(null, m))) {
+                allDash = false;
+            }
+        }
+        check("null 快照一律 --", allDash);
+        DfcSnapshot unlinked = new DfcSnapshot();
+        check("未连接快照一律 --", "--".equals(LabelLayout.valueText(unlinked, LabelLayout.M_TEMP)));
+        check("空槽永远是 --", "--".equals(
+                LabelLayout.valueText(sampleSnapshot(), LabelLayout.M_NONE)));
+        check("未连接的状态是灰", LabelLayout.level(unlinked, LabelLayout.M_TEMP) == LabelLayout.L_MUTE);
+        check("空槽的状态是灰", LabelLayout.level(null, LabelLayout.M_TEMP) == LabelLayout.L_MUTE);
+
+        DfcSnapshot d = sampleSnapshot();
+        check("温度 3269°C", LabelLayout.valueText(d, LabelLayout.M_TEMP).startsWith("3269"));
+        check("能量带 SPK 单位", LabelLayout.valueText(d, LabelLayout.M_ENERGY).contains("SPK"));
+        check("发电量走接收器合计（kJ/t）",
+                LabelLayout.valueText(d, LabelLayout.M_POWER).endsWith("kJ/t"));
+        check("坍缩度 25%", "25.00%".equals(LabelLayout.valueText(d, LabelLayout.M_COLLAPSE)));
+        // 倒计时：secondsToExplosion 是秒，必须乘 20 再交给 countdown（写反会变成 3 小时）
+        check("10 秒倒计时 = 00:10", "00:10".equals(
+                LabelLayout.valueText(d, LabelLayout.M_COUNTDOWN)));
+        check("运行时长 [0:04:29]", "[0:04:29]".equals(
+                LabelLayout.valueText(d, LabelLayout.M_RUNTIME)));
+        check("结构 100%", "100.00%".equals(LabelLayout.valueText(d, LabelLayout.M_STRUCT)));
+        check("发射器 4 台", "4 台".equals(LabelLayout.valueText(d, LabelLayout.M_EMITTER)));
+        check("增益 3.50", "3.50".equals(LabelLayout.valueText(d, LabelLayout.M_GAIN)));
+
+        check("温度未超熔点 = 正常", LabelLayout.level(d, LabelLayout.M_TEMP) == LabelLayout.L_OK);
+        check("稳定度满 = 正常", LabelLayout.level(d, LabelLayout.M_STAB) == LabelLayout.L_OK);
+        check("倒计时 10 秒 = 危急", LabelLayout.level(d, LabelLayout.M_COUNTDOWN) == LabelLayout.L_CRIT);
+        check("结构完整 = 正常", LabelLayout.level(d, LabelLayout.M_STRUCT) == LabelLayout.L_OK);
+        // 坍缩度的阈值与核心页同一把尺子：<50% 中性、>=50% 警告、>=85% 危急
+        check("坍缩 25% = 中性", LabelLayout.level(d, LabelLayout.M_COLLAPSE) == LabelLayout.L_INFO);
+        DfcSnapshot halfGone = sampleSnapshot();
+        halfGone.collapsing = 0.60D;
+        check("坍缩 60% = 警告",
+                LabelLayout.level(halfGone, LabelLayout.M_COLLAPSE) == LabelLayout.L_WARN);
+        halfGone.collapsing = 0.90D;
+        check("坍缩 90% = 危急",
+                LabelLayout.level(halfGone, LabelLayout.M_COLLAPSE) == LabelLayout.L_CRIT);
+
+        // 冷堆：读数照画，但状态一律灰（不能满屏绿色"正常"）
+        DfcSnapshot cold = sampleSnapshot();
+        cold.temperature = 20.0D;
+        check("冷堆温度仍是实际值", LabelLayout.valueText(cold, LabelLayout.M_TEMP).startsWith("20"));
+        check("冷堆除温度外显示离线", LabelLayout.coldOffline(cold, LabelLayout.M_ENERGY));
+        check("冷堆温度本身不显示离线", !LabelLayout.coldOffline(cold, LabelLayout.M_TEMP));
+        check("冷堆能量状态是灰", LabelLayout.level(cold, LabelLayout.M_ENERGY) == LabelLayout.L_MUTE);
+
+        // 快照里的七格随对象走（服务端改了要能传到客户端）
+        DfcSnapshot copy = DfcSnapshot.copied(d);
+        copy.labelMetrics[0] = LabelLayout.M_GAIN;
+        check("copyFrom 复制七格", d.labelMetrics[0] == LabelLayout.M_TEMP);
+        check("空快照自带出厂七格",
+                DfcSnapshot.empty().labelMetrics.length == LabelLayout.SLOTS);
+    }
+
+    /** 一份"堆正常运行"的样本读数，给标注页的格式化断言用 */
+    private static DfcSnapshot sampleSnapshot() {
+        DfcSnapshot d = new DfcSnapshot();
+        d.linked = true;
+        d.temperature = 3269.0D;
+        d.meltingPoint = 4000;
+        d.stabilization = 10.0D;
+        d.containedEnergy = 123456.0D;
+        d.receiverCount = 3;
+        d.receiverJoules = 4200.0D;
+        d.collapsing = 0.25D;
+        d.fuelRatioA = 0.85D;
+        d.fuelRatioB = 0.40D;
+        d.secondsToExplosion = 10.0F;
+        d.ticks = 20 * 269;
+        d.componentCount = 12;
+        d.emitterCount = 4;
+        d.injectorCount = 2;
+        d.stabilizers = 2;
+        d.potentialGain = 3.5D;
+        return d;
     }
 }

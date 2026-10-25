@@ -296,6 +296,13 @@ public final class ScreenLayout {
     public static final int PAGE_CUSTOM = 2;
     /** 页面 3：折线图（温度 + 发电量两条历史曲线，自动量程） */
     public static final int PAGE_GRAPH = 3;
+    /**
+     * 页面 4：标注式示意图（中央设备图 + 七条引线标注，每格可换指标）。
+     *
+     * 与其它四页的区别是"排版可配置"：七个格子各自绑定
+     * {@link LabelLayout} 里的一个指标，用调试棒逐格切换。
+     */
+    public static final int PAGE_LABEL = 4;
 
     /**
      * 由"控制器方块是哪一种显示器"决定画哪一页。
@@ -304,18 +311,33 @@ public final class ScreenLayout {
      * 11 个占位块四块显示器共用，从它身上分辨不出是哪一种屏。
      */
     public static int pageFor(boolean customScreen, boolean componentMonitor, boolean graphScreen) {
+        return pageFor(customScreen, componentMonitor, graphScreen, false);
+    }
+
+    /**
+     * 完整版：多一个"标注屏"参数。
+     *
+     * 【为什么新增重载而不是改签名】三参 / 两参版本已经被渲染器和离线自测调用，
+     * 改签名要同时动好几处，还会让"哪种方块 -> 哪一页"的断言失去对照。
+     * 旧重载一律当"不是标注屏"处理，行为与 4.0 之前完全一致。
+     */
+    public static int pageFor(boolean customScreen, boolean componentMonitor, boolean graphScreen,
+                              boolean labelScreen) {
         if (customScreen) {
             return PAGE_CUSTOM;
         }
         if (graphScreen) {
             return PAGE_GRAPH;
         }
+        if (labelScreen) {
+            return PAGE_LABEL;
+        }
         return componentMonitor ? PAGE_COMPONENTS : PAGE_CORE;
     }
 
     /** 兼容旧调用：没有曲线屏时等价于三参版本传 false */
     public static int pageFor(boolean customScreen, boolean componentMonitor) {
-        return pageFor(customScreen, componentMonitor, false);
+        return pageFor(customScreen, componentMonitor, false, false);
     }
 
     /**

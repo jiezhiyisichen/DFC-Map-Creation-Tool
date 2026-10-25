@@ -23,7 +23,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "4.0";
+    public static final String VERSION = "4.1";
 
     @Instance(MODID)
     public static JiezhiMod instance;
@@ -87,6 +87,10 @@ public class JiezhiMod
         // 玩家辛苦接好的 8 条数据全没了。
         GameRegistry.registerTileEntity(com.jiezhimod.block.TileCustomScreen.class,
                 new ResourceLocation(MODID, "dfc_custom"));
+        // 标注显示屏的方块实体：七个格子的指标绑定存在这里。
+        // 与自定义屏同理 —— **按具体类**查表，漏了就 "missing a mapping!"，存档一读就炸。
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileLabelScreen.class,
+                new ResourceLocation(MODID, "dfc_label"));
         // 密码盘 / 密码控制台的方块实体。同样是**按具体类**查表，
         // 漏注册的症状：区块保存时抛 "missing a mapping!"，
         // 而随机密码存在方块实体里 —— 那台密码盘的密码会整个丢掉，便签上显示 ------。

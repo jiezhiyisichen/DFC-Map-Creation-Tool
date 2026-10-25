@@ -171,3 +171,16 @@ tooltip.jiezhimod.advanced_repeater.0=外形与红石行为和原版中继器完
 tooltip.jiezhimod.advanced_repeater.1=右键打开界面，可按 tick 或秒设置延迟（1 秒 = 20 tick）
 tooltip.jiezhimod.advanced_repeater.2=可设 %s ~ %s tick（%s ~ %s 秒）
 tooltip.jiezhimod.advanced_repeater.3=当前延迟：%s tick（%s 秒）
+
+# ===== 标注显示器（v4.0-beta 2） =====
+tile.dfc_label.name=DFC 标注显示器
+
+tooltip.jiezhimod.dfc_label.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
+tooltip.jiezhimod.dfc_label.1=屏幕中央是一台设备示意图，四周七条引线拉出「名称 + 数值」
+tooltip.jiezhimod.dfc_label.2=七个格子各自绑一个指标（共 %s 种可选），每格都能换成你要看的那一项
+tooltip.jiezhimod.dfc_label.3=对着天花板下表面放置；右键开关机，调试棒蹲下右键改七格指标
+tooltip.jiezhimod.dfc_label.4=数字颜色 = 状态：绿正常 / 黄注意 / 红危急 / 灰无数据
+
+gui.jiezhimod.debug.label.hint=左右箭头切换每一格的指标，右侧是当前读数
+gui.jiezhimod.debug.label.reset=恢复默认
+gui.jiezhimod.debug.label.refresh=刷新 %s ms

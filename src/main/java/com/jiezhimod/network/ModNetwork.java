@@ -42,5 +42,8 @@ public class ModNetwork {
         // 高级红石中继器的延迟设置包（单位永远是 tick），客户端 -> 服务端
         CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageRepeaterDelay.Handler.class,
                 com.jiezhimod.network.msg.MessageRepeaterDelay.class, id++, Side.SERVER);
+        // 标注显示器的单格指标切换（客户端 -> 服务端）
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageLabelConfig.Handler.class,
+                com.jiezhimod.network.msg.MessageLabelConfig.class, id++, Side.SERVER);
     }
 }

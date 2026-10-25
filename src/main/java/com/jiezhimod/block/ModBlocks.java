@@ -61,6 +61,13 @@ public class ModBlocks {
     public static final Block DFC_GRAPH = new BlockDfcGraph();
     public static final ItemBlock ITEM_DFC_GRAPH = new ItemBlock(DFC_GRAPH);
     /**
+     * DFC 标注显示器（第五块显示器，v4.0）。
+     * 中央一台设备示意图，四周七条引线拉出「小标题 + 大数值」的标注块；
+     * 每一格绑定哪个指标由玩家用调试棒逐格切换（见 {@link BlockDfcLabel}）。
+     */
+    public static final Block DFC_LABEL = new BlockDfcLabel();
+    public static final ItemBlock ITEM_DFC_LABEL = new ItemBlock(DFC_LABEL);
+    /**
      * 显示器的占位块（结构里除控制器之外的 11 格）。
      * 故意**不注册 ItemBlock**：玩家拿不到它，只能由放置显示器生成；
      * 破坏时统一掉显示器本体，避免"拆一格掉一堆零件"。
@@ -91,6 +98,8 @@ public class ModBlocks {
         ITEM_DFC_CUSTOM.setCreativeTab(TAB_SCREEN);
         ITEM_DFC_GRAPH.setRegistryName(DFC_GRAPH.getRegistryName());
         ITEM_DFC_GRAPH.setCreativeTab(TAB_SCREEN);
+        ITEM_DFC_LABEL.setRegistryName(DFC_LABEL.getRegistryName());
+        ITEM_DFC_LABEL.setCreativeTab(TAB_SCREEN);
         ITEM_ADVANCED_REPEATER.setRegistryName(ADVANCED_REPEATER.getRegistryName());
         ITEM_ADVANCED_REPEATER.setCreativeTab(TAB_REDSTONE);
         ITEM_KEYPAD.setRegistryName(KEYPAD.getRegistryName());
@@ -106,6 +115,7 @@ public class ModBlocks {
         event.getRegistry().register(DFC_MONITOR);
         event.getRegistry().register(DFC_CUSTOM);
         event.getRegistry().register(DFC_GRAPH);
+        event.getRegistry().register(DFC_LABEL);
         event.getRegistry().register(DFC_SCREEN_PART);
         event.getRegistry().register(ADVANCED_REPEATER);
         event.getRegistry().register(KEYPAD);
@@ -118,6 +128,7 @@ public class ModBlocks {
         event.getRegistry().register(ITEM_DFC_MONITOR);
         event.getRegistry().register(ITEM_DFC_CUSTOM);
         event.getRegistry().register(ITEM_DFC_GRAPH);
+        event.getRegistry().register(ITEM_DFC_LABEL);
         event.getRegistry().register(ITEM_ADVANCED_REPEATER);
         event.getRegistry().register(ITEM_KEYPAD);
         event.getRegistry().register(ITEM_PASSWORD_CONSOLE);

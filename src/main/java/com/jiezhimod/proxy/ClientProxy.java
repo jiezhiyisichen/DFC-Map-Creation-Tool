@@ -28,6 +28,8 @@ public class ClientProxy extends CommonProxy {
     public void init() {
         // 自定义聊天栏 / 右下角通知叠加 / 通知历史快捷键
         MinecraftForge.EVENT_BUS.register(new ClientUiCore());
+        // 显示器画布的"每帧报到"：重绘预算靠它分帧，漏了就会变成几秒才动一下
+        MinecraftForge.EVENT_BUS.register(new com.jiezhimod.client.dfc.ScreenFrameHook());
         ClientRegistry.registerKeyBinding(ClientUiCore.KEY_NOTICE);
         // 喷气尾焰粒子的工厂注册由 ClientEventHandler 在客户端 tick 里懒注册
         // （effectRenderer 在 init 阶段还没建好，那时注册会拿到 null）。
@@ -154,6 +156,13 @@ public class ClientProxy extends CommonProxy {
             bindItemModel(graphItem, "jiezhimod:dfc_graph");
         } else {
             JiezhiMod.warn("DFC graph screen ItemBlock is missing; its item model is not bound.");
+        }
+        // DFC 标注显示器（第五块显示器）：同样别漏，漏了创造页里就是紫黑格
+        Item labelItem = Item.getItemFromBlock(ModBlocks.DFC_LABEL);
+        if (labelItem != null) {
+            bindItemModel(labelItem, "jiezhimod:dfc_label");
+        } else {
+            JiezhiMod.warn("DFC label screen ItemBlock is missing; its item model is not bound.");
         }
     }
 

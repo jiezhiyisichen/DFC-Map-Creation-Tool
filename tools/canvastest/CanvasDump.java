@@ -40,6 +40,33 @@ public class CanvasDump {
         // 第二块显示器（部件监视页）
         dump("components", 999999L, true, snap, ev, ScreenCanvas.PAGE_COMPONENTS);
 
+        // 第五块显示器（标注示意页）：出厂七格
+        dump("label", 999999L, true, snap, ev, ScreenCanvas.PAGE_LABEL);
+        // 换一套指标（发电量 / 稳定度 / 能量 / 温度 / 坍缩 / 时长 / 增益）
+        DfcSnapshot relabel = DfcSnapshot.copied(snap);
+        int[] alt = {com.jiezhimod.dfc.LabelLayout.M_POWER,
+                com.jiezhimod.dfc.LabelLayout.M_STAB,
+                com.jiezhimod.dfc.LabelLayout.M_ENERGY,
+                com.jiezhimod.dfc.LabelLayout.M_TEMP,
+                com.jiezhimod.dfc.LabelLayout.M_COLLAPSE,
+                com.jiezhimod.dfc.LabelLayout.M_RUNTIME,
+                com.jiezhimod.dfc.LabelLayout.M_GAIN};
+        System.arraycopy(alt, 0, relabel.labelMetrics, 0, alt.length);
+        dump("label_alt", 999999L, true, relabel, ev, ScreenCanvas.PAGE_LABEL);
+        // 只留三格（空槽必须留白，不能画出残留文字）
+        DfcSnapshot sparse = DfcSnapshot.copied(snap);
+        sparse.labelMetrics[1] = com.jiezhimod.dfc.LabelLayout.M_NONE;
+        sparse.labelMetrics[4] = com.jiezhimod.dfc.LabelLayout.M_NONE;
+        sparse.labelMetrics[6] = com.jiezhimod.dfc.LabelLayout.M_NONE;
+        dump("label_sparse", 999999L, true, sparse, ev, ScreenCanvas.PAGE_LABEL);
+        // 告警态：整屏转红 + 顶栏闪 !!
+        DfcSnapshot labelAlert = DfcSnapshot.copied(snap);
+        labelAlert.collapsing = 0.34D;
+        labelAlert.explosionIn = 79.0D;
+        dump("label_alert", 999999L, true, labelAlert, ev, ScreenCanvas.PAGE_LABEL);
+        // 未绑定 / 冷堆
+        dump("label_nolink", 999999L, true, DfcSnapshot.empty(), ev, ScreenCanvas.PAGE_LABEL);
+
         // 崩溃告警：collapsing 只要 > 0 就该整屏转暗红 + 盘心立刻变黄 + 顶部闪烁 !!
         DfcSnapshot onset = DfcSnapshot.copied(snap);
         onset.collapsing = 0.05D;
@@ -207,6 +234,9 @@ public class CanvasDump {
                              DfcSnapshot snap, List<String> ev, int page, long faultElapsedMs)
             throws Exception {
         ScreenCanvas c = new ScreenCanvas();
+        // 【必须显式报帧】画布有"每帧最多重绘两块"的预算（多屏防卡），
+        // 离线导出时没有人帮它推进帧边界，不报帧就会跳过绘制、导出上一张空图。
+        ScreenCanvas.beginFrame();
         c.render(ms, powered, snap, ev, page, faultElapsedMs);
 
         Field fi = ScreenCanvas.class.getDeclaredField("image");
@@ -406,6 +436,8 @@ public class CanvasDump {
             d.temperature = (i < 8) ? (20.0D + 8.0D * i)
                     : (120.0D + 830.0D * k + 55.0D * Math.sin(i * 0.35D));
             d.receiverJoules = 3.0e4D + 2.2e5D * k * (0.65D + 0.35D * Math.sin(i * 0.21D));
+            // 每点算一帧：画布的"每帧最多重绘两块"预算会挡住连续绘制
+            ScreenCanvas.beginFrame();
             c.render(ms, true, d, ev, ScreenCanvas.PAGE_GRAPH);
             ms += com.jiezhimod.dfc.GraphHistory.SAMPLE_MS;
         }
@@ -421,6 +453,7 @@ public class CanvasDump {
         low.receiverJoules = 12.0D;
         long t = 60000L;
         for (int i = 0; i < n; i++) {
+            ScreenCanvas.beginFrame();
             flat.render(t, true, low, ev, ScreenCanvas.PAGE_GRAPH);
             t += com.jiezhimod.dfc.GraphHistory.SAMPLE_MS;
         }

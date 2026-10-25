@@ -7,6 +7,10 @@ import com.jiezhimod.block.BlockDfcScreen;
 import com.jiezhimod.block.ContainerDebug;
 import com.jiezhimod.block.TileDfcScreen;
 import com.jiezhimod.block.TileKeypad;
+import com.jiezhimod.block.TileLabelScreen;
+import com.jiezhimod.dfc.DfcSnapshot;
+import com.jiezhimod.dfc.LabelLayout;
+import com.jiezhimod.network.msg.MessageLabelConfig;
 import com.jiezhimod.client.util.GuiDraw;
 import com.jiezhimod.network.ModNetwork;
 import com.jiezhimod.network.msg.MessageDebugConfig;
@@ -31,7 +35,10 @@ import java.io.IOException;
  *   再整张上传纹理 —— 四块一起开时开销很可观（玩家实测 9 FPS）。
  *   推荐值按设备给：核心屏 50 / 部件页 100 / 自定义屏 200 / 曲线屏 200。
  *
- * 二、**密码盘**：便签纸文字（最多 8 个字符）、密码模式（随机 / 固定）。
+ * 二、**标注显示器**：七个标注格各自显示哪个指标（温度 / 发电量 / 坍缩度 …）。
+ *   每格一对箭头循环切换，右边同时预览"这一格现在会显示什么读数"。
+ *
+ * 三、**密码盘**：便签纸文字（最多 8 个字符）、密码模式（随机 / 固定）。
  *   · 便签文字留空 = 便签上直接显示当前密码（默认行为）；
  *   · 固定密码必须是 6 位纯数字，否则服务端会把它降级回随机并提示。
  *
@@ -51,10 +58,25 @@ public class GuiDebug extends GuiContainer {
     private static final int ID_CLOSE = 100;
     private static final int ID_MODE = 101;
     private static final int ID_SAVE = 102;
+    private static final int ID_LABEL_RESET = 103;
+    private static final int ID_LABEL_REFRESH = 104;
+    /** 标注屏那半页的面板尺寸（七行 + 页脚） */
+    private static final int W_LABEL = 250;
+    private static final int H_LABEL = 206;
+    /**
+     * 标注格按钮的 ID 基址：第 i 格用 {@code BASE + i*2}（左箭头）与
+     * {@code BASE + i*2 + 1}（右箭头）。与刷新率那批（0~4）拉开足够距离。
+     */
+    private static final int ID_LABEL_ARROW = 200;
+    /** 七行箭头的起始 y（相对面板）与行距 */
+    private static final int LABEL_ROW_TOP = 44;
+    private static final int LABEL_ROW_H = 20;
 
     private final BlockPos pos;
     private final TileDfcScreen screen;   // 可能为 null（不是显示器）
     private final TileKeypad keypad;      // 可能为 null（不是密码盘）
+    /** 标注显示器专用：七格指标配置（是 screen 的子类，两者会同时非空） */
+    private final TileLabelScreen label;
 
     /** 便签文字输入框（只有密码盘才建） */
     private GuiTextField noteField;
@@ -73,8 +95,14 @@ public class GuiDebug extends GuiContainer {
         if (net.minecraft.client.Minecraft.getMinecraft().world != null) {
             te = net.minecraft.client.Minecraft.getMinecraft().world.getTileEntity(pos);
         }
+        this.label = te instanceof TileLabelScreen ? (TileLabelScreen) te : null;
         this.screen = te instanceof TileDfcScreen ? (TileDfcScreen) te : null;
         this.keypad = te instanceof TileKeypad ? (TileKeypad) te : null;
+        // 标注屏要放七行箭头，比刷新率那半页高不少 —— 面板尺寸按模式走
+        if (this.label != null) {
+            this.xSize = W_LABEL;
+            this.ySize = H_LABEL;
+        }
         this.editMode = this.keypad == null ? TileKeypad.MODE_RANDOM : this.keypad.getPasswordMode();
     }
 
@@ -88,6 +116,27 @@ public class GuiDebug extends GuiContainer {
         super.initGui();
         int px = this.guiLeft;
         int py = this.guiTop;
+
+        if (this.label != null) {
+            // 七行：每行一对箭头，中间是"指标名 …… 当前读数"（名字由背景层画）
+            for (int i = 0; i < LabelLayout.SLOTS; i++) {
+                int y = py + LABEL_ROW_TOP + i * LABEL_ROW_H;
+                this.buttonList.add(new GuiButton(ID_LABEL_ARROW + i * 2,
+                        px + 8, y, 14, 16, "<"));
+                this.buttonList.add(new GuiButton(ID_LABEL_ARROW + i * 2 + 1,
+                        px + W_LABEL - 22, y, 14, 16, ">"));
+            }
+            this.buttonList.add(new GuiButton(ID_LABEL_REFRESH,
+                    px + 8, py + H_LABEL - 24, 76, 16, ""));
+            this.buttonList.add(new GuiButton(ID_LABEL_RESET,
+                    px + 88, py + H_LABEL - 24, 76, 16,
+                    I18n.format("gui.jiezhimod.debug.label.reset")));
+            this.buttonList.add(new GuiButton(ID_CLOSE,
+                    px + 168, py + H_LABEL - 24, 74, 16,
+                    I18n.format("gui.jiezhimod.debug.close")));
+            refreshButtons();
+            return;
+        }
 
         if (this.keypad != null) {
             this.noteField = new GuiTextField(1, this.fontRenderer, px + 14, py + 50, 220, 16);
@@ -124,6 +173,16 @@ public class GuiDebug extends GuiContainer {
     }
 
     private void refreshButtons() {
+        if (this.label != null) {
+            GuiButton rb = findButton(ID_LABEL_REFRESH);
+            if (rb != null) {
+                // 刷新率也放在这一页：标注屏同样每帧重画 768x576，
+                // 屏多的时候调慢它比什么都管用
+                rb.displayString = this.screen == null ? ""
+                        : I18n.format("gui.jiezhimod.debug.label.refresh", this.screen.getRefreshMs());
+            }
+            return;
+        }
         if (this.keypad != null) {
             GuiButton mode = findButton(ID_MODE);
             if (mode != null) {
@@ -193,6 +252,42 @@ public class GuiDebug extends GuiContainer {
             refreshButtons();
             return;
         }
+        if (this.label != null) {
+            if (button.id == ID_LABEL_RESET) {
+                // 一键恢复出厂：逐格发（服务端逐格应用，最后一块屏也是这个顺序）
+                int[] def = LabelLayout.defaults();
+                for (int i = 0; i < LabelLayout.SLOTS; i++) {
+                    ModNetwork.CHANNEL.sendToServer(new MessageLabelConfig(this.pos, i, def[i]));
+                }
+                return;
+            }
+            if (button.id == ID_LABEL_REFRESH && this.screen != null) {
+                int[] choices = TileDfcScreen.REFRESH_CHOICES_MS;
+                int cur = this.screen.getRefreshMs();
+                int idx = 0;
+                for (int i = 0; i < choices.length; i++) {
+                    if (choices[i] == cur) {
+                        idx = i;
+                        break;
+                    }
+                }
+                ModNetwork.CHANNEL.sendToServer(
+                        new MessageDebugConfig(this.pos, choices[(idx + 1) % choices.length]));
+                return;
+            }
+            int id = button.id - ID_LABEL_ARROW;
+            if (id >= 0 && id < LabelLayout.SLOTS * 2) {
+                int slot = id / 2;
+                int cur = this.label.metricAt(slot);
+                // 偶数号 = 左箭头（上一个），奇数号 = 右箭头（下一个）
+                int nm = (id % 2) == 1
+                        ? LabelLayout.nextMetric(cur) : LabelLayout.prevMetric(cur);
+                // 不本地改：等服务端回包。这样"服务端拒绝"时界面不会显示假状态
+                ModNetwork.CHANNEL.sendToServer(new MessageLabelConfig(this.pos, slot, nm));
+                return;
+            }
+        }
+
         if (this.screen != null) {
             int[] choices = TileDfcScreen.REFRESH_CHOICES_MS;
             int idx = button.id - ID_CHOICE_BASE;
@@ -241,6 +336,11 @@ public class GuiDebug extends GuiContainer {
         this.fontRenderer.drawString(clip(I18n.format("gui.jiezhimod.debug.block", name), W - 28),
                 px + 14, py + 22, 0xFF9AA7B4);
 
+        if (this.label != null) {
+            drawLabelSection(px, py);
+            return;
+        }
+
         if (this.keypad != null) {
             drawKeypadSection(px, py);
             return;
@@ -263,6 +363,37 @@ public class GuiDebug extends GuiContainer {
             String text = I18n.format("gui.jiezhimod.debug.recommend", rec[0],
                     I18n.format(RECOMMEND_KEY[rec[1]]));
             this.fontRenderer.drawString(clip(text, W - 28), px + 14, py + 94, 0xFFD8B25A);
+        }
+    }
+
+    /**
+     * 标注显示器那半页：七行「&lt; ① 指标名 …… 当前读数 &gt;」。
+     *
+     * 【为什么把当前读数也画出来】配置界面上只看"温度等级"四个字，
+     * 玩家分不清它和"温度"有什么区别；把真实读数摆在右边，
+     * 切换指标时立刻能看到"哦，这一格会变成 0.00%"。
+     * 读数来自客户端镜像（服务端广播回来的那份快照），不是本地算的。
+     */
+    private void drawLabelSection(int px, int py) {
+        this.fontRenderer.drawString(I18n.format("gui.jiezhimod.debug.label.hint"),
+                px + 10, py + 33, 0xFF8FA0B0);
+
+        DfcSnapshot d = this.screen == null ? null : this.screen.getData();
+        for (int i = 0; i < LabelLayout.SLOTS; i++) {
+            int y = py + LABEL_ROW_TOP + i * LABEL_ROW_H;
+            if ((i & 1) == 0) {
+                GuiDraw.drawRect(px + 24, y, px + W_LABEL - 24, y + 16, 0x14FFFFFF);
+            }
+            this.fontRenderer.drawString(String.valueOf(i + 1), px + 25, y + 4, 0xFF57697A);
+
+            int metric = this.label.metricAt(i);
+            String name = LabelLayout.metricName(metric);
+            int nameColor = metric == LabelLayout.M_NONE ? 0xFF57697A : 0xFFDCE8F0;
+            this.fontRenderer.drawString(clip(name, 96), px + 35, y + 4, nameColor);
+
+            String v = LabelLayout.valueText(d, metric);
+            this.fontRenderer.drawString(v,
+                    px + W_LABEL - 26 - this.fontRenderer.getStringWidth(v), y + 4, 0xFF7FE3A0);
         }
     }
 
