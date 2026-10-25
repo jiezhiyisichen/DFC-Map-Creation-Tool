@@ -384,6 +384,233 @@ public final class DfcBridge {
         }
     }
 
+    // ==================== 激光状态显示器（v4.2，第五页） ====================
+    //
+    // 需求："支持发射器 PL、稳定器 SL、燃料喷射器和接收器 … 深度刨析 HBMCE 与诅咒版的
+    // 剩余 DFC 激光器，有冷却功能的名字蓝、加热的红、其余白，把能提取的数据都列上去"。
+    //
+    // 【为什么每种类型单独一段】四类设备的字段名完全不同（稳定器看 lens，发射器/接收器看
+    // tank，喷射器看 tanks[]），字段来源已经用 javap 逐一核对过：
+    //   TileEntityCoreStabilizer : isOn / watts / power / maxPower / lens(枚举) / inventory[0]
+    //   TileEntityCoreEmitter    : isOn / watts / power / maxPower / tank / beam
+    //   TileEntityCoreReceiver   : power / tank / leafia$getLevel() / leafia$syncJoules()
+    //   TileEntityCoreInjector   : tanks[0..1] / beam
+    // 放在一个 switch 里反而会互相污染变量，所以按类型分小方法，最后拼成统一的
+    // LaserInfo.metrics（画布只管照着画，不认识任何 HBM 类）。
+
+    /** 判类型（只按类名，不加载 HBM 的类 —— 没装 addon 时也不能崩） */
+    public static int laserKind(TileEntity te) {
+        if (te == null) {
+            return LaserInfo.KIND_NONE;
+        }
+        String cn = te.getClass().getName();
+        if (cn.endsWith("TileEntityCoreStabilizer")) {
+            return LaserInfo.KIND_SL;
+        }
+        if (cn.endsWith("TileEntityCoreEmitter") || cn.endsWith("CoreCEmitterTE")) {
+            return LaserInfo.KIND_PL;
+        }
+        if (cn.endsWith("TileEntityCoreReceiver")) {
+            return LaserInfo.KIND_OL;
+        }
+        if (cn.endsWith("TileEntityCoreInjector")) {
+            return LaserInfo.KIND_INJ;
+        }
+        // 其余一律走"通用激光部件"：只要它像一台机器就列出来，
+        // 真正的过滤交给玩家（遥控器绑了什么就显示什么）
+        return isDevice(te) ? LaserInfo.KIND_GEN : LaserInfo.KIND_NONE;
+    }
+
+    /**
+     * 读一台激光设备的全部可显示数据，写进 out。
+     *
+     * @param lab 传入时会把 label 保留（由调用方按添加顺序编号）；本方法只改 kind/读数
+     * @return 是否读成功（设备不在或不是可读设备时返回 false，out 保持空槽状态）
+     */
+    public static boolean readLaser(TileEntity raw, LaserInfo lab) {
+        TileEntity te = resolveProxy(raw);
+        int kind = laserKind(te);
+        if (te == null || kind == LaserInfo.KIND_NONE) {
+            lab.alive = false;
+            return false;
+        }
+        lab.kind = kind;
+        lab.alive = true;
+        lab.device = deviceName(te);
+        lab.metrics.clear();
+        lab.warn = LaserInfo.WARN_NONE;
+        lab.warnText = "";
+
+        switch (kind) {
+            case LaserInfo.KIND_SL:
+                readLaserStabilizer(te, lab);
+                break;
+            case LaserInfo.KIND_PL:
+                readLaserEmitter(te, lab);
+                break;
+            case LaserInfo.KIND_OL:
+                readLaserReceiver(te, lab);
+                break;
+            case LaserInfo.KIND_INJ:
+                readLaserInjector(te, lab);
+                break;
+            default:
+                readLaserGeneric(te, lab);
+                break;
+        }
+        return true;
+    }
+
+    /** 稳定器：透镜类型 / 剩余电量 / 等级 / 开启 / 透镜耐久（耐久低 → 弹窗换透镜） */
+    private static void readLaserStabilizer(TileEntity te, LaserInfo lab) {
+        lab.on = getBoolField(te, "isOn", false);
+
+        Object lens = getFieldValue(te, "lens");
+        String lensName = lens == null ? "无透镜" : String.valueOf(lens);
+        float health = readLensHealth(te, lens);
+        long power = getLongField(te, "power", 0L);
+        long maxPower = getLongField(te, "maxPower", 0L);
+        int watts = getIntField(te, "watts", 0);
+
+        lab.metric("透镜类型", lensName, -1.0D);
+        lab.metric("剩余电量", DfcFormat.si(power, "HE"), maxPower > 0 ? clamp01(power / (double) maxPower) : -1.0D);
+        lab.metric("等级", watts + " 级", -1.0D);
+        lab.metric("开启状态", lab.on ? "运行中" : "停止", -1.0D);
+
+        int warn = LaserLayout.lensWarn(health);
+        lab.metric("透镜耐久", health < 0.0F ? "--" : DfcFormat.percentRaw(health),
+                health < 0.0F ? -1.0D : clamp01(health / 100.0D), warn);
+        lab.warn = warn;
+        if (warn >= LaserInfo.WARN_YELLOW) {
+            lab.warnText = (warn >= LaserInfo.WARN_RED ? "更换透镜 " : "透镜耐久不足 ")
+                    + lab.label + " · 剩余耐久 " + DfcFormat.percentRaw(health);
+        }
+    }
+
+    /** 发射器（PL，加热用）：开启 / 等级 / 剩余电量 / 冷凝胶（不足 → 图上打三角） */
+    private static void readLaserEmitter(TileEntity te, LaserInfo lab) {
+        lab.on = getBoolField(te, "isOn", false) || callBool(te, "leafia$isActive", false);
+
+        long power = getLongField(te, "power", 0L);
+        long maxPower = getLongField(te, "maxPower", 0L);
+        int watts = getIntField(te, "watts", 0);
+
+        lab.metric("开启状态", lab.on ? "发射中" : "停止", -1.0D);
+        lab.metric("等级", watts + " 级", -1.0D);
+        lab.metric("剩余电量", DfcFormat.si(power, "HE"), maxPower > 0 ? clamp01(power / (double) maxPower) : -1.0D);
+
+        Object tank = getFieldValue(te, "tank");
+        double cold = tankRatio(tank);
+        String coldName = tankTypeName(tank);
+        int warn = LaserLayout.coldWarn(cold);
+        // 冷凝胶这一行的名字 / 数字 / 数据条一起按剩余程度变色（需求原话）
+        lab.metric("冷凝胶", DfcFormat.percent(cold), cold, warn);
+
+        lab.warn = warn;
+        if (warn >= LaserInfo.WARN_YELLOW) {
+            lab.warnText = "冷凝胶不足 " + lab.label + " · 剩余 " + DfcFormat.percent(cold);
+        }
+    }
+
+    /** 接收器（OL）：开启 / 等级 / 发电量 / 冷凝胶（不足 → 图上打三角 + 弹窗） */
+    private static void readLaserReceiver(TileEntity te, LaserInfo lab) {
+        // 接收器没有 isOn 字段：它"在开"的判据就是这一 tick 有没有吃到激光
+        long joules = callLong(te, "leafia$syncJoules", 0L);
+        lab.on = joules > 0L;
+
+        double level = callDouble(te, "leafia$getLevel", 0.0D);
+        long power = getLongField(te, "power", 0L);
+        long maxPower = getLongField(te, "maxPower", 0L);
+
+        lab.metric("开启状态", lab.on ? "接收中" : "无激光", -1.0D);
+        lab.metric("等级", level > 0.0D ? String.format(java.util.Locale.ROOT, "%.2f", level) : "--", -1.0D);
+        lab.metric("发电量", DfcFormat.spk(joules), -1.0D);
+        lab.metric("储能", DfcFormat.si(power, "HE"), maxPower > 0 ? clamp01(power / (double) maxPower) : -1.0D);
+
+        Object tank = getFieldValue(te, "tank");
+        double cold = tankRatio(tank);
+        String coldName = tankTypeName(tank);
+        int warn = LaserLayout.coldWarn(cold);
+        lab.metric("冷凝胶", DfcFormat.percent(cold), cold, warn);
+
+        lab.warn = warn;
+        if (warn >= LaserInfo.WARN_YELLOW) {
+            // 接收器这里的弹窗是需求点名的：必须把"还剩多少冷凝胶"写出来
+            lab.warnText = "冷凝胶不足 " + lab.label + " · 剩余 " + DfcFormat.percent(cold);
+        }
+    }
+
+    /** 燃料喷射器：两个燃料罐的类型与剩余量 */
+    private static void readLaserInjector(TileEntity te, LaserInfo lab) {
+        lab.on = getIntField(te, "beam", 0) > 0;
+        Object v = getFieldValue(te, "tanks");
+        if (!(v instanceof Object[])) {
+            lab.metric("燃料", "--", -1.0D);
+            return;
+        }
+        Object[] tanks = (Object[]) v;
+        for (int i = 0; i < 2 && i < tanks.length; i++) {
+            String name = tankTypeName(tanks[i]);
+            double ratio = tankRatio(tanks[i]);
+            // 类型与液位分两行：半栏只有 30 逻辑像素，"燃料1 DHC" 一行放不下
+            lab.metric("燃料" + (i + 1), name, -1.0D);
+            lab.metric("液位" + (i + 1), DfcFormat.percent(ratio), ratio,
+                    LaserLayout.coldWarn(ratio));
+        }
+        if (tanks.length == 0) {
+            lab.metric("燃料", "--", -1.0D);
+        }
+    }
+
+    /**
+     * 其余 DFC 激光部件：把"能读到的都列出来"。
+     *
+     * 顺序刻意从"最能说明状态"往下排：开关 → 等级 → 电量 → 罐（最多两个）。
+     * 拿不到的项目直接不写（写一堆"--"反而看不出这台设备到底有没有数据）。
+     */
+    private static void readLaserGeneric(TileEntity te, LaserInfo lab) {
+        boolean hasOn = false;
+        if (findField(te.getClass(), "isOn") != null) {
+            lab.on = getBoolField(te, "isOn", false);
+            hasOn = true;
+        } else if (findMethod(te.getClass(), "leafia$isActive") != null) {
+            lab.on = callBool(te, "leafia$isActive", false);
+            hasOn = true;
+        } else if (findField(te.getClass(), "beam") != null) {
+            lab.on = getIntField(te, "beam", 0) > 0;
+            hasOn = true;
+        }
+        if (hasOn) {
+            lab.metric("开启状态", lab.on ? "运行中" : "停止", -1.0D);
+        }
+
+        if (findField(te.getClass(), "watts") != null) {
+            lab.metric("等级", getIntField(te, "watts", 0) + " 级", -1.0D);
+        }
+        if (findField(te.getClass(), "power") != null) {
+            long power = getLongField(te, "power", 0L);
+            long maxPower = getLongField(te, "maxPower", 0L);
+            lab.metric("储能", DfcFormat.si(power, "HE"),
+                    maxPower > 0 ? clamp01(power / (double) maxPower) : -1.0D);
+        }
+
+        List<Object> tanks = findTanks(te);
+        for (int i = 0; i < tanks.size() && i < 2; i++) {
+            Object tank = tanks.get(i);
+            double ratio = tankRatio(tank);
+            int warn = LaserLayout.coldWarn(ratio);
+            lab.metric("罐" + (i + 1) + " " + tankTypeName(tank), DfcFormat.percent(ratio), ratio, warn);
+            if (warn > lab.warn) {
+                lab.warn = warn;
+                lab.warnText = "罐" + (i + 1) + " 液量偏低 " + lab.label + " · 剩余 " + DfcFormat.percent(ratio);
+            }
+        }
+        if (lab.metrics.isEmpty()) {
+            // 一个可读字段都没有：至少让玩家知道"这台设备没有能显示的东西"
+            lab.metric("可读数据", "无", -1.0D);
+        }
+    }
+
     // ==================== 结构扫描 ====================
 
     /**

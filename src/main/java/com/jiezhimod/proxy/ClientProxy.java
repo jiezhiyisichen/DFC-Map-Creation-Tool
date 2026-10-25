@@ -164,6 +164,13 @@ public class ClientProxy extends CommonProxy {
         } else {
             JiezhiMod.warn("DFC label screen ItemBlock is missing; its item model is not bound.");
         }
+        // DFC 激光状态显示器（第六块显示器）
+        Item laserItem = Item.getItemFromBlock(ModBlocks.DFC_LASER);
+        if (laserItem != null) {
+            bindItemModel(laserItem, "jiezhimod:dfc_laser");
+        } else {
+            JiezhiMod.warn("DFC laser screen ItemBlock is missing; its item model is not bound.");
+        }
     }
 
     private void bindItemModel(Item item, String modelPath) {

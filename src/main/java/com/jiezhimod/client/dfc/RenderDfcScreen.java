@@ -82,7 +82,8 @@ public class RenderDfcScreen extends TileEntitySpecialRenderer<TileDfcScreen> {
                 ctrl instanceof com.jiezhimod.block.BlockCustomScreen,
                 ctrl instanceof BlockDfcMonitor,
                 ctrl instanceof com.jiezhimod.block.BlockDfcGraph,
-                ctrl instanceof com.jiezhimod.block.BlockDfcLabel);
+                ctrl instanceof com.jiezhimod.block.BlockDfcLabel,
+                ctrl instanceof com.jiezhimod.block.BlockDfcLaser);
         // 【熔毁报错页】核心开始炸（坍缩度离开 0）时整屏改画 301，4 秒后自动重启。
         // 优先级最高：报错页连开机自检都盖掉 —— 屏幕"已经坏了"，还在画进度条就不像了。
         // 只有开着的屏才推进这段状态机（关着的屏本来就什么都不显示）。

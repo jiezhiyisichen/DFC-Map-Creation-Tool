@@ -303,6 +303,11 @@ public final class ScreenLayout {
      * {@link LabelLayout} 里的一个指标，用调试棒逐格切换。
      */
     public static final int PAGE_LABEL = 4;
+    /**
+     * 页面 5：激光状态（四台激光 2×2，每台一张小图 + 五行读数 + 底部告警带）。
+     * 配置与自定义屏同一套（遥控器 + GUI 槽位），所以它自己也继承自定义屏。
+     */
+    public static final int PAGE_LASER = 5;
 
     /**
      * 由"控制器方块是哪一种显示器"决定画哪一页。
@@ -311,7 +316,7 @@ public final class ScreenLayout {
      * 11 个占位块四块显示器共用，从它身上分辨不出是哪一种屏。
      */
     public static int pageFor(boolean customScreen, boolean componentMonitor, boolean graphScreen) {
-        return pageFor(customScreen, componentMonitor, graphScreen, false);
+        return pageFor(customScreen, componentMonitor, graphScreen, false, false);
     }
 
     /**
@@ -323,6 +328,20 @@ public final class ScreenLayout {
      */
     public static int pageFor(boolean customScreen, boolean componentMonitor, boolean graphScreen,
                               boolean labelScreen) {
+        return pageFor(customScreen, componentMonitor, graphScreen, labelScreen, false);
+    }
+
+    /**
+     * 完整版：再加一个"激光状态屏"参数。
+     *
+     * 【判定顺序很重要】激光屏的方块是自定义屏的**子类**，所以调用方传进来的
+     * customScreen 也是 true；这里必须**先判激光**再判自定义，否则它永远只画自定义页。
+     */
+    public static int pageFor(boolean customScreen, boolean componentMonitor, boolean graphScreen,
+                              boolean labelScreen, boolean laserScreen) {
+        if (laserScreen) {
+            return PAGE_LASER;
+        }
         if (customScreen) {
             return PAGE_CUSTOM;
         }
@@ -337,7 +356,7 @@ public final class ScreenLayout {
 
     /** 兼容旧调用：没有曲线屏时等价于三参版本传 false */
     public static int pageFor(boolean customScreen, boolean componentMonitor) {
-        return pageFor(customScreen, componentMonitor, false, false);
+        return pageFor(customScreen, componentMonitor, false, false, false);
     }
 
     /**

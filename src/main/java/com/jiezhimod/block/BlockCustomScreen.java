@@ -41,6 +41,16 @@ public class BlockCustomScreen extends BlockDfcScreen {
         super("dfc_custom", "dfc_custom");
     }
 
+    /**
+     * 供子类使用（{@link BlockDfcLaser}：同一套 GUI 与槽位，换一个注册名与一页画面）。
+     *
+     * 【为什么必须走构造参数】setRegistryName 第二次调用会抛异常，
+     * 父类构造器里已经设过 "dfc_custom" 了 —— 子类再设就是加载即崩。
+     */
+    protected BlockCustomScreen(String registryName, String unlocalizedName) {
+        super(registryName, unlocalizedName);
+    }
+
     /** 拆掉 / 放不下时返还的是"自定义显示屏"本身 */
     @Override
     protected Item displayItem() {

@@ -5,6 +5,8 @@ import com.jiezhimod.dfc.DfcSnapshot;
 import com.jiezhimod.dfc.DfcWatch;
 import com.jiezhimod.dfc.GraphHistory;
 import com.jiezhimod.dfc.LabelLayout;
+import com.jiezhimod.dfc.LaserInfo;
+import com.jiezhimod.dfc.LaserLayout;
 import com.jiezhimod.dfc.OverlayBanner;
 import com.jiezhimod.dfc.ScreenLayout;
 import com.jiezhimod.keypad.KeypadLayout;
@@ -149,6 +151,8 @@ public final class ScreenCanvas {
     public static final int PAGE_GRAPH = ScreenLayout.PAGE_GRAPH;
     /** 页面 4：标注式示意图（中央设备图 + 七条引线标注，每格可换指标） */
     public static final int PAGE_LABEL = ScreenLayout.PAGE_LABEL;
+    /** 页面 5：激光状态（四台激光 2×2） */
+    public static final int PAGE_LASER = ScreenLayout.PAGE_LASER;
 
     // ==================== 布局（逻辑坐标，256x192） ====================
     /** 顶栏高度 */
@@ -374,6 +378,8 @@ public final class ScreenCanvas {
                         drawGraph(data, sinceOnMs);
                     } else if (page == PAGE_LABEL) {
                         drawLabel(data);
+                    } else if (page == PAGE_LASER) {
+                        drawLaser(data);
                     } else {
                         drawMain(data, events);
                     }
@@ -2128,6 +2134,222 @@ public final class ScreenCanvas {
 
     // ==================== 绘制原语（逻辑坐标 -> 物理坐标） ====================
 
+    // ==================== 画面：激光状态（第六页） ====================
+    //
+    // 需求："添加激光状态显示器……一块屏幕最多 4 个激光状态……画一个简单的激光表示不同的类型，
+    // 开启会射出激光……所有数据变量使用数据+数据条（像自定义屏那样）"。
+    //
+    // 版面：2×2 四个格子。每格里左边一张小激光图（机身 + 管子 + 头部 + 电源箱），
+    // 右边一行类型短名（SL1 / PL2 …）加五行「名称 ……… 数值」，每行下面一条数据条。
+    // 底部一条告警带：只有"该换透镜 / 冷凝胶不够"时才亮，多条按槽位顺序轮播。
+
+    private void drawLaser(DfcSnapshot d) {
+        // 激光页不参与堆芯坍缩告警：它看的是各自设备的体检结果
+        this.alert = false;
+        this.themeLine = LINE;
+        this.themeTitle = TXT_DIM;
+
+        int n = d == null ? 0 : d.lasers.size();
+        drawHeader(d, null, "激光状态", n + " / " + LaserLayout.SLOTS, n > 0 ? OK : WARN);
+
+        if (n == 0) {
+            textCenter("尚未添加激光", 86, TXT_DIM, fCjk(15));
+            textCenter("右键本屏打开面板", 110, TXT_DIM, fCjk(9));
+            textCenter("把 DFC 遥控器放入槽位后点「添加」", 124, TXT_DIM, fCjk(9));
+            return;
+        }
+        for (int i = 0; i < LaserLayout.SLOTS; i++) {
+            drawLaserCell(i, d);
+        }
+        drawLaserBanner(d);
+    }
+
+    /** 一个格子：小图 + 类型短名 + 五行读数 */
+    private void drawLaserCell(int i, DfcSnapshot d) {
+        int x = LaserLayout.cellX(i);
+        int y = LaserLayout.cellY(i);
+        panel(x, y, LaserLayout.CELL_W, LaserLayout.CELL_H);
+
+        if (i >= d.lasers.size()) {
+            // 空槽：只写两个字，别画一堆假读数
+            textCenterIn("空槽", x, LaserLayout.CELL_W, y + 42, 0xFF2E4456, fCjk(10));
+            return;
+        }
+        LaserInfo lab = d.lasers.get(i);
+
+        // 通用部件按"有罐 = 冷却、类名带 Emitter = 加热"上色；前四类走各自固定的颜色
+        boolean cooling = false;
+        boolean heating = false;
+        for (int k = 0; k < lab.metrics.size(); k++) {
+            if (lab.metrics.get(k).ratio >= 0.0D) {
+                cooling = true;
+            }
+        }
+        if (lab.kind == LaserInfo.KIND_PL) {
+            heating = true;
+        }
+        int nameColor = LaserLayout.nameColor(lab.kind, cooling, heating);
+        if (!lab.alive) {
+            nameColor = 0xFF6B7783;
+        }
+
+        drawLaserIcon(x + LaserLayout.ICON_X, y + LaserLayout.ICON_Y,
+                LaserLayout.ICON_W, LaserLayout.ICON_H, lab, nameColor);
+        if (lab.warn >= LaserInfo.WARN_YELLOW) {
+            // 图上打三角感叹号：冷凝胶/耐久不行了，先看得到再去看数字
+            drawWarnTriangle(x + LaserLayout.ICON_X + LaserLayout.ICON_W - 9,
+                    y + LaserLayout.ICON_Y + 12, 9, 8, lab.warn);
+        }
+
+        // 类型短名（颜色按类型）+ 设备名（小字，灰）
+        Font lf = fCjkBold(10);
+        String label = lab.label == null || lab.label.isEmpty() ? "--" : lab.label;
+        text(label, x + LaserLayout.NAME_X, y + LaserLayout.NAME_Y, nameColor, lf);
+        int lw = textWidthLog(label, lf);
+        String dev = clip(lab.device == null ? "" : lab.device,
+                LaserLayout.METRIC_RIGHT - LaserLayout.NAME_X - lw - 4, fCjk(8));
+        text(dev, x + LaserLayout.NAME_X + lw + 4, y + LaserLayout.NAME_Y, 0xFF7E97A8, fCjk(8));
+
+        // 五行读数：名字 / 数值 / 数据条，颜色统一由"这一行自己的 warn"决定
+        Font nf = fCjk(7);
+        int lx = x + LaserLayout.METRIC_X;
+        int rx = x + LaserLayout.METRIC_RIGHT;
+        int nameW = 30;
+        int valueW = Math.max(18, rx - lx - nameW - 3);
+        for (int k = 0; k < lab.metrics.size() && k < LaserInfo.MAX_METRICS; k++) {
+            LaserInfo.LaserMetric m = lab.metrics.get(k);
+            int ly = y + LaserLayout.METRIC_TOP + k * LaserLayout.METRIC_STEP;
+            int wc = m.warn > 0 ? LaserLayout.warnColor(m.warn) : 0;
+
+            text(clip(m.name == null ? "" : m.name, nameW, nf), lx, ly,
+                    wc != 0 ? wc : TXT_DIM, nf);
+
+            String v = m.value == null ? "--" : m.value;
+            Font vf = hasCjk(v)
+                    ? fitCjk(v, valueW, 9, 7)
+                    : fitMono(v, valueW, 9, 7, false);
+            String vs = clip(v, valueW, vf);
+            textRight(vs, rx, ly, wc != 0 ? wc : (lab.alive ? CYAN : 0xFF6B7783), vf);
+
+            if (m.ratio >= 0.0D) {
+                bar(lx, ly + 2, rx - lx, 2, (float) m.ratio,
+                        wc != 0 ? LaserLayout.warnColor(m.warn) : barColor(m.ratio));
+            }
+        }
+    }
+
+    /**
+     * 小激光图：电源箱 + 管子 + 头部，开启时从头部射出光束。
+     *
+     * 形状照参考图（一根卧着的激光器），但只用矩形和线拼 —— 36×24 逻辑像素里
+     * 画细节会糊成一团，能看出"这是台朝右发射的机器"就够了。
+     */
+    private void drawLaserIcon(int bx, int by, int w, int h, LaserInfo lab, int tint) {
+        rect(bx, by, w, h, 0xFF0B141A);
+        rect(bx, by, w, 1, 0xFF1B2A34);
+
+        int body = lab.alive ? 0xFF35434F : 0xFF232B32;
+        int edge = lab.alive ? 0xFF546A79 : 0xFF2E383F;
+
+        // 电源箱（左，带一格电量窗）
+        rect(bx + 2, by + 6, 9, 12, body);
+        rect(bx + 2, by + 6, 9, 1, edge);
+        rect(bx + 4, by + 9, 5, 5, 0xFF17222B);
+        ovalFill(bx + 5, by + 10, 3, 3, lab.on && lab.alive ? OK : 0xFF3A4A56);
+        // 管子（中）
+        rect(bx + 10, by + 9, 9, 6, body);
+        rect(bx + 10, by + 9, 9, 1, edge);
+        rect(bx + 10, by + 14, 9, 1, 0xFF1D2830);
+        // 头部（右）
+        rect(bx + 19, by + 8, 4, 8, edge);
+        rect(bx + 23, by + 10, 1, 4, tint);
+
+        if (!lab.alive) {
+            // 离线：一道红色斜杠，比写"离线"两个字更快看懂
+            line(bx + 5, by + 18, bx + 31, by + 5, 0xFF8E3A3A);
+            return;
+        }
+        if (lab.on) {
+            // 光束：三条线（上下暗、中间亮）做出"发激光"的厚度感
+            int ex = bx + w - 1;
+            line(bx + 24, by + 12, ex, by + 12, tint);
+            line(bx + 24, by + 11, ex, by + 11, 0x90FFFFFF);
+            line(bx + 24, by + 13, ex, by + 13, 0x90000000 | (tint & 0x00FFFFFF));
+        }
+    }
+
+    /**
+     * 警示三角（中间一个"!"）。
+     *
+     * 用三角形而不是图标贴图：这里只有十几像素，画一个实心三角 + 一个竖条
+     * 就足够在远处看出"这台出问题了"，而且颜色可以跟着等级走。
+     */
+    private void drawWarnTriangle(int x, int y, int w, int h, int warn) {
+        int color = LaserLayout.warnColor(warn);
+        int dark = 0xFF14090A;
+        g.setColor(new Color(color, true));
+        java.awt.Polygon tri = new java.awt.Polygon();
+        tri.addPoint((x + w / 2) * SS, y * SS);
+        tri.addPoint(x * SS, (y + h) * SS);
+        tri.addPoint((x + w) * SS, (y + h) * SS);
+        g.fillPolygon(tri);
+        g.setColor(new Color(dark, true));
+        Font f = fMonoBold(7);
+        g.setFont(f);
+        FontMetrics fm = g.getFontMetrics(f);
+        int tw = fm.stringWidth("!");
+        g.drawString("!", (x + w / 2) * SS - tw / 2, (y + h) * SS - 2 * SS);
+    }
+
+    /**
+     * 底部告警带。
+     *
+     * 【为什么要"轮播"】四台激光的同时报警是常态（比如整排都没冷凝胶了），
+     * 一条带子写不下四条；按 2.5 秒轮换，玩家抬头扫一眼就能看出是哪几台。
+     * 用本帧相位算，不读挂钟 —— 离线导出才能复现同一张图。
+     */
+    private void drawLaserBanner(DfcSnapshot d) {
+        int count = 0;
+        for (int i = 0; i < d.lasers.size(); i++) {
+            if (d.lasers.get(i).hasWarning()) {
+                count++;
+            }
+        }
+        if (count == 0) {
+            hline(LaserLayout.BANNER_X, LaserLayout.BANNER_Y - 2, LaserLayout.BANNER_W, themeLine);
+            text("激光状态正常", LaserLayout.BANNER_X + 4, LaserLayout.BANNER_Y + 11,
+                    0xFF3E586B, fCjk(8));
+            return;
+        }
+        int pick = (int) ((this.framePhaseMs / 2500L) % count);
+        LaserInfo hit = null;
+        for (int i = 0, k = 0; i < d.lasers.size(); i++) {
+            LaserInfo l = d.lasers.get(i);
+            if (l.hasWarning() && k++ == pick) {
+                hit = l;
+                break;
+            }
+        }
+        if (hit == null) {
+            return;
+        }
+        int color = LaserLayout.warnColor(hit.warn);
+        rect(LaserLayout.BANNER_X, LaserLayout.BANNER_Y, LaserLayout.BANNER_W,
+                LaserLayout.BANNER_H, hit.warn >= LaserInfo.WARN_RED ? 0xFF2A0B0B : 0xFF2A1C08);
+        rect(LaserLayout.BANNER_X, LaserLayout.BANNER_Y, 3, LaserLayout.BANNER_H,
+                LaserLayout.warnColor(hit.warn));
+        drawWarnTriangle(LaserLayout.BANNER_X + 7, LaserLayout.BANNER_Y + 4, 9, 8, hit.warn);
+
+        Font f = fCjk(9);
+        String msg = hit.warnText == null ? "" : hit.warnText;
+        text(clip(msg, LaserLayout.BANNER_W - 26, f), LaserLayout.BANNER_X + 21,
+                LaserLayout.BANNER_Y + 11, color, f);
+        if (count > 1) {
+            textRight(count + " 项", LaserLayout.BANNER_X + LaserLayout.BANNER_W - 3,
+                    LaserLayout.BANNER_Y + 11, 0xFF8A6A3A, fCjk(8));
+        }
+    }
+
     // ==================== 画面：标注示意（第五页） ====================
     //
     // 需求（参考图）："中央一台设备示意图，四周用引线拉出「小标题 + 大数值」的标注块，
@@ -2178,50 +2400,37 @@ public final class ScreenCanvas {
      * 边界清楚，引线扎上去也看得清扎在哪。
      */
     private void drawFigure(DfcSnapshot d, boolean linked) {
-        int cx = (LabelLayout.FIG_L + LabelLayout.FIG_R) / 2;   // 128
+        int cx = 128;
+        int cy = 96;
 
-        int metal = 0xFF2B3946;
-        int edge = 0xFF46606F;
-        int dark = 0xFF19222C;
-
-        // 背光：几圈极淡的同心椭圆，让设备"浮"在深底上
-        for (int i = 5; i >= 1; i--) {
-            int pad = i * 6;
-            ovalFill(cx - 26 - pad, 96 - 20 - pad, 52 + pad * 2, 40 + pad * 2, 0x0548D6FF);
+        // 光晕：几圈极淡的椭圆，让核心看起来在发光
+        for (int i = 4; i >= 1; i--) {
+            int pad = i * 5;
+            ovalFill(cx - 26 - pad, cy - 18 - pad, 52 + pad * 2, 36 + pad * 2, 0x0A48D6FF);
         }
-
-        // 底座
-        rect(101, 150, 54, 5, dark);
-        rect(105, 145, 46, 5, metal);
-        hline(101, 155, 54, edge);
-
-        // 穹顶（先画整椭圆，再用柱体盖掉下半部分，剩下就是穹顶）
-        ovalFill(109, 36, 38, 50, metal);
-        // 柱体
-        rect(112, 62, 32, 84, metal);
-        // 柱体横向加强筋
-        for (int y = 74; y < 142; y += 18) {
-            hline(112, y, 32, dark);
-        }
-        // 两侧管道（引线常落在这附近）
-        rect(97, 88, 15, 8, metal);
-        rect(144, 88, 15, 8, metal);
-        hline(97, 88, 15, edge);
-        hline(144, 96, 15, edge);
-
-        // 中央观察窗 + 堆芯辉光：颜色跟状态走（正常青色、告警转红）
-        rect(120, 84, 16, 38, dark);
         int core = !linked ? 0xFF26323C
                 : this.alert ? 0xFFFF5A4A
                 : ScreenLayout.online(d) ? 0xFF63E2FF : 0xFF2F6C80;
-        ovalFill(122, 90, 12, 26, core);
-        ovalFill(124, 96, 8, 14, 0x60FFFFFF);
+        ovalFill(cx - 26, cy - 18, 52, 36, core);
+        ovalFill(cx - 20, cy - 12, 40, 24, 0x55FFFFFF);
 
-        // 外轮廓（只描关键边，画满一圈会显得脏）
-        hline(112, 62, 1, edge);
-        hline(143, 62, 1, edge);
-        hline(112, 145, 32, edge);
-        hline(109, 60, 38, edge);
+        // 四角括号（照参考图：一个椭圆 + 四个直角框，比画整台机器干净得多）
+        int bx = LabelLayout.FIG_L;
+        int by = LabelLayout.FIG_T;
+        int bw = LabelLayout.FIG_R - LabelLayout.FIG_L;
+        int bh = LabelLayout.FIG_B - LabelLayout.FIG_T;
+        int arm = 12;
+        int bcol = 0xFF5C8AA3;
+        rect(bx, by, arm, 1, bcol);
+        rect(bx, by, 1, arm, bcol);
+        rect(bx + bw - arm, by, arm, 1, bcol);
+        rect(bx + bw - 1, by, 1, arm, bcol);
+        rect(bx, by + bh - 1, arm, 1, bcol);
+        rect(bx, by + bh - arm, 1, arm, bcol);
+        rect(bx + bw - arm, by + bh - 1, arm, 1, bcol);
+        rect(bx + bw - 1, by + bh - arm, 1, arm, bcol);
+
+        textCenter("DFC 核心", 136, TXT_DIM, fCjk(8));
     }
 
     /**

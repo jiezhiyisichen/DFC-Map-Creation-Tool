@@ -234,6 +234,10 @@ def main():
         "assets/jiezhimod/blockstates/dfc_label.json",
         "assets/jiezhimod/models/item/dfc_label.json",
         "assets/jiezhimod/textures/items/dfc_label.png",
+        # 第六块显示器（激光状态屏）
+        "assets/jiezhimod/blockstates/dfc_laser.json",
+        "assets/jiezhimod/models/item/dfc_laser.json",
+        "assets/jiezhimod/textures/items/dfc_laser.png",
         # GUI 纯色填充用的白纹理。缺了它 GuiDraw 绑不上纹理，
         # 所有自绘面板/格子/进度条都会变成紫黑（或直接看不见）
         "assets/jiezhimod/textures/gui/white.png",
@@ -283,6 +287,8 @@ def main():
         "blockstates/dfc_graph.json",
         "models/item/dfc_label.json",
         "blockstates/dfc_label.json",
+        "models/item/dfc_laser.json",
+        "blockstates/dfc_laser.json",
         "models/block/dfc_screen_empty.json",
         "models/item/jetpack.json",
         "models/item/jet_switch.json",
@@ -394,6 +400,9 @@ def main():
         "gui.jiezhimod.debug.label.hint",
         "gui.jiezhimod.debug.label.reset",
         "gui.jiezhimod.debug.label.refresh",
+        "tile.dfc_laser.name",
+        "tooltip.jiezhimod.dfc_laser.0",
+        "tooltip.jiezhimod.dfc_laser.4",
     ]
     for lang in ("en_us", "zh_cn"):
         path = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod", "lang", lang + ".lang")

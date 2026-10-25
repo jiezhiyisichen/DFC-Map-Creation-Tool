@@ -173,6 +173,15 @@ public final class DfcSnapshot {
      */
     public final int[] labelMetrics = LabelLayout.defaults();
 
+    /**
+     * 激光状态显示器（第五页）的四台激光，顺序 = 玩家添加顺序。
+     *
+     * 【为什么和 watches 一起走】同一台硬件、同一条同步通道；激光槽本身就是
+     * "用遥控器记录设备 → 放进 GUI 槽位添加"那一套，所以配置与读数天然跟着刷新节拍走。
+     * 其它几块屏这里恒为空（编码时先写条目数，0 就一个字节都不多花）。
+     */
+    public final List<LaserInfo> lasers = new ArrayList<LaserInfo>();
+
     // ==================== 稳定器自身 ====================
     /** 数据源里有没有稳定器信息（绑定的是稳定器时为 true） */
     public boolean stabPresent;
@@ -262,6 +271,10 @@ public final class DfcSnapshot {
         for (int i = 0; i < this.labelMetrics.length; i++) {
             this.labelMetrics[i] = i < o.labelMetrics.length ? o.labelMetrics[i] : LabelLayout.M_NONE;
         }
+        this.lasers.clear();
+        for (int i = 0; i < o.lasers.size(); i++) {
+            this.lasers.add(o.lasers.get(i).copy());
+        }
     }
 
     // ==================== 网络序列化 ====================
@@ -328,6 +341,11 @@ public final class DfcSnapshot {
         // ---- 标注显示屏的七格指标（固定长度，顺序必须与 readFrom 一致） ----
         for (int i = 0; i < labelMetrics.length; i++) {
             buf.writeByte(LabelLayout.clampMetric(labelMetrics[i]));
+        }
+        // ---- 激光状态显示屏的四台激光 ----
+        buf.writeByte(lasers.size());
+        for (int i = 0; i < lasers.size(); i++) {
+            lasers.get(i).writeTo(buf);
         }
     }
 
@@ -413,6 +431,14 @@ public final class DfcSnapshot {
         // ---- 标注显示屏的七格指标，顺序必须与 writeTo 严格一致 ----
         for (int i = 0; i < this.labelMetrics.length; i++) {
             this.labelMetrics[i] = LabelLayout.clampMetric(buf.readByte() & 255);
+        }
+        // ---- 激光状态显示屏的四台激光，顺序必须与 writeTo 严格一致 ----
+        this.lasers.clear();
+        int laserCount = buf.readByte() & 255;
+        for (int i = 0; i < laserCount; i++) {
+            LaserInfo lab = new LaserInfo();
+            lab.readFrom(buf);
+            this.lasers.add(lab);
         }
     }
 }

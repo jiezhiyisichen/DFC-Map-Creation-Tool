@@ -1,0 +1,150 @@
+package com.jiezhimod.block;
+
+import com.jiezhimod.dfc.DfcBridge;
+import com.jiezhimod.dfc.DfcSnapshot;
+import com.jiezhimod.dfc.DfcWatch;
+import com.jiezhimod.dfc.LaserInfo;
+import com.jiezhimod.dfc.LaserLayout;
+import net.minecraft.tileentity.TileEntity;
+
+import java.util.List;
+
+/**
+ * 激光状态显示器的方块实体：**最多四台激光**，一台一行（格）。
+ *
+ * 【与自定义屏的关系】它就是 {@link TileCustomScreen} 的子类 —— 遥控器记录设备、
+ * 放进 GUI 槽位点「添加」、每行一个「删除」按钮，这一整套交互原样继承。
+ * 差别只有三处：
+ *   1. {@link #maxSlots()} = 4（自定义屏是 8 条，激光每台要占五行读数，塞不下）；
+ *   2. **一台设备只占一个槽**（自定义屏会把一台多罐机器的每个罐拆成一条）；
+ *   3. 刷新时除了设备本身，还要把"这台激光该显示哪五行"算好塞进快照。
+ *
+ * 【为什么读数在服务端拼】客户端拿不到 HBM 的类，也读不到透镜耐久这种
+ * 在物品栏里的东西；服务端算好 {@link LaserInfo#metrics} 之后，客户端只是照着画。
+ */
+public class TileLaserScreen extends TileCustomScreen {
+
+    /** 一台设备一个槽 */
+    @Override
+    public int maxSlots() {
+        return LaserLayout.SLOTS;
+    }
+
+    /**
+     * 默认刷新周期 200ms。
+     *
+     * 这一页的读数（透镜耐久、冷凝胶余量、储能）都是**分钟级**才动的东西，
+     * 20Hz 刷新纯属白烧 CPU；而它一屏有四台设备、每台五行字，重绘反而比核心页更贵。
+     */
+    @Override
+    protected int defaultRefreshMs() {
+        return 200;
+    }
+
+    /**
+     * 接入一台设备（服务端）。
+     *
+     * 【为什么整段覆盖而不是复用父类】父类会把"每项可读数据"都加成一条
+     * （储液罐的每个罐各一条），那是自定义屏的语义；这里一个槽就是一台激光，
+     * 一台燃料喷射器有俩罐也只占一个槽，否则"最多四台"立刻变成"最多两台"。
+     *
+     * @return 实际新增条数（0 = 满了 / 已经加过 / 不是可读设备）
+     */
+    @Override
+    public int addDevice(TileEntity te) {
+        if (te == null) {
+            return 0;
+        }
+        TileEntity dev = DfcBridge.resolveProxy(te);
+        if (DfcBridge.laserKind(dev) == LaserInfo.KIND_NONE) {
+            return 0;   // 不是设备，别往列表里塞一条永远"离线"的空行
+        }
+        int dim = this.world == null ? Integer.MIN_VALUE : this.world.provider.getDimension();
+        net.minecraft.util.math.BlockPos p = dev.getPos();
+        List<DfcWatch> slots = getSlots();
+        for (int i = 0; i < slots.size(); i++) {
+            DfcWatch w = slots.get(i);
+            if (w.x == p.getX() && w.y == p.getY() && w.z == p.getZ() && w.dim == dim) {
+                return 0;   // 同一台设备不重复加
+            }
+        }
+        if (slots.size() >= maxSlots()) {
+            return 0;
+        }
+        slots.add(new DfcWatch(p.getX(), p.getY(), p.getZ(), dim, DfcWatch.KIND_NONE, 0));
+        this.markDirty();
+        return 1;
+    }
+
+    /**
+     * 每个刷新周期把四台激光重读一遍。
+     *
+     * 【两趟走】第一趟只判类型，好把 SL1 / SL2 / PL1 … 按添加顺序编出来；
+     * 第二趟才真正读数据 —— 因为"换透镜 SL2"这类弹窗文案里要带编号，
+     * 编号必须在读之前就定下来。
+     */
+    @Override
+    protected void fillExtra(DfcSnapshot d) {
+        d.watches.clear();
+        d.lasers.clear();
+        if (this.world == null) {
+            return;
+        }
+        List<DfcWatch> slots = getSlots();
+        int[] nth = new int[8];   // 每种类型已经编到几号（下标 = kind）
+        for (int i = 0; i < slots.size() && i < LaserLayout.SLOTS; i++) {
+            DfcWatch slot = slots.get(i);
+            TileEntity dev = this.world.getTileEntity(new net.minecraft.util.math.BlockPos(
+                    slot.x, slot.y, slot.z));
+
+            LaserInfo lab = new LaserInfo();
+            int kind = DfcBridge.laserKind(dev);
+            if (kind == LaserInfo.KIND_NONE) {
+                // 设备被拆了：槽位保留（玩家自己删），画面显示"离线"
+                lab.kind = LaserInfo.KIND_NONE;
+                lab.alive = false;
+                lab.label = "—";
+                lab.device = "离线";
+                d.lasers.add(lab);
+                d.watches.add(summaryOf(slot, lab));
+                continue;
+            }
+            if (kind < nth.length) {
+                nth[kind]++;
+                lab.label = LaserLayout.labelFor(kind, nth[kind]);
+            }
+            DfcBridge.readLaser(dev, lab);
+            d.lasers.add(lab);
+            d.watches.add(summaryOf(slot, lab));
+        }
+    }
+
+    /**
+     * 给 GUI 列表用的一行摘要（GUI 是通用组件，只认 DfcWatch）。
+     *
+     * 名字写"SL1 稳定器"，数据名与读数取这台激光的第一行 —— 点「删除」时
+     * 玩家能一眼看出删的是哪一台。
+     */
+    private static DfcWatch summaryOf(DfcWatch slot, LaserInfo lab) {
+        DfcWatch w = new DfcWatch(slot.x, slot.y, slot.z, slot.dim, DfcWatch.KIND_NONE, 0);
+        w.device = lab.label + " " + LaserLayout.kindName(lab.kind);
+        w.alive = lab.alive;
+        if (lab.metrics.isEmpty()) {
+            w.name = "";
+            w.value = lab.alive ? "--" : "离线";
+            w.ratio = -1.0D;
+        } else {
+            LaserInfo.LaserMetric m = lab.metrics.get(0);
+            w.name = m.name;
+            w.value = m.value;
+            w.ratio = m.ratio;
+        }
+        return w;
+    }
+
+    /** 界面上该显示的那份槽位（客户端读同步镜像，与自定义屏同款约定） */
+    @Override
+    public List<DfcWatch> displaySlots() {
+        return super.displaySlots();
+    }
+}

@@ -1,5 +1,6 @@
 import com.jiezhimod.client.dfc.ScreenCanvas;
 import com.jiezhimod.dfc.DfcSnapshot;
+import com.jiezhimod.dfc.LaserInfo;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -66,6 +67,8 @@ public class CanvasDump {
         dump("label_alert", 999999L, true, labelAlert, ev, ScreenCanvas.PAGE_LABEL);
         // 未绑定 / 冷堆
         dump("label_nolink", 999999L, true, DfcSnapshot.empty(), ev, ScreenCanvas.PAGE_LABEL);
+        // 第六块屏：激光状态（四类各一台，带黄/橙/红三档告警）
+        dumpLaser();
 
         // 崩溃告警：collapsing 只要 > 0 就该整屏转暗红 + 盘心立刻变黄 + 顶部闪烁 !!
         DfcSnapshot onset = DfcSnapshot.copied(snap);
@@ -283,6 +286,71 @@ public class CanvasDump {
             File cf = new File(out, "dfc_dial_" + tag + ".png");
             ImageIO.write(crop(px, 86, 19, 164, 108, 2), "png", cf);
         }
+    }
+
+    /**
+     * 导出激光状态页：四类激光各一台，故意让冷凝胶 / 透镜耐久分别落在黄 / 橙 / 红三档，
+     * 这样一张图就能同时检查：类型配色、数据条、警示三角、底部告警带。
+     */
+    private static void dumpLaser() throws Exception {
+        DfcSnapshot d = realistic();
+        d.lasers.clear();
+
+        LaserInfo sl = new LaserInfo(LaserInfo.KIND_SL, "SL1", "稳定器");
+        sl.alive = true;
+        sl.on = true;
+        sl.metric("透镜类型", "BOOSTER", -1.0D);
+        sl.metric("剩余电量", "820.00 kHE", 0.82D);
+        sl.metric("等级", "40 级", -1.0D);
+        sl.metric("开启状态", "运行中", -1.0D);
+        sl.metric("透镜耐久", "12.40%", 0.124D, LaserInfo.WARN_YELLOW);
+        sl.warn = LaserInfo.WARN_YELLOW;
+        sl.warnText = "透镜耐久不足 SL1 · 剩余耐久 12.40%";
+        d.lasers.add(sl);
+
+        LaserInfo pl = new LaserInfo(LaserInfo.KIND_PL, "PL1", "发射器");
+        pl.alive = true;
+        pl.on = true;
+        pl.metric("开启状态", "发射中", -1.0D);
+        pl.metric("等级", "100 级", -1.0D);
+        pl.metric("剩余电量", "620.00 kHE", 0.62D);
+        pl.metric("冷凝胶", "21.00%", 0.21D, LaserInfo.WARN_ORANGE);
+        pl.warn = LaserInfo.WARN_ORANGE;
+        pl.warnText = "冷凝胶不足 PL1 · 剩余 21.00%";
+        d.lasers.add(pl);
+
+        LaserInfo ol = new LaserInfo(LaserInfo.KIND_OL, "OL1", "接收器");
+        ol.alive = true;
+        ol.on = true;
+        ol.metric("开启状态", "接收中", -1.0D);
+        ol.metric("等级", "3.20", -1.0D);
+        ol.metric("发电量", "1.20 MSPK", -1.0D);
+        ol.metric("储能", "480.00 kHE", 0.48D);
+        ol.metric("冷凝胶", "8.00%", 0.08D, LaserInfo.WARN_RED);
+        ol.warn = LaserInfo.WARN_RED;
+        ol.warnText = "冷凝胶不足 OL1 · 剩余 8.00%";
+        d.lasers.add(ol);
+
+        LaserInfo inj = new LaserInfo(LaserInfo.KIND_INJ, "INJ1", "燃料喷射器");
+        inj.alive = true;
+        inj.on = true;
+        inj.metric("燃料1", "DHC", -1.0D);
+        inj.metric("液位1", "64.00%", 0.64D);
+        inj.metric("燃料2", "DEUT", -1.0D);
+        inj.metric("液位2", "38.00%", 0.38D, LaserInfo.WARN_YELLOW);
+        d.lasers.add(inj);
+
+        dump("laser", 999999L, true, d, new ArrayList<String>(), ScreenCanvas.PAGE_LASER);
+
+        // 空屏（还没加激光）与离线槽
+        dump("laser_empty", 999999L, true, DfcSnapshot.empty(),
+                new ArrayList<String>(), ScreenCanvas.PAGE_LASER);
+        DfcSnapshot dead = DfcSnapshot.copied(d);
+        dead.lasers.get(1).alive = false;
+        dead.lasers.get(1).on = false;
+        dead.lasers.get(1).warn = LaserInfo.WARN_NONE;
+        dead.lasers.get(1).warnText = "";
+        dump("laser_offline", 999999L, true, dead, new ArrayList<String>(), ScreenCanvas.PAGE_LASER);
     }
 
     /**

@@ -96,6 +96,16 @@ public class TileDfcScreen extends TileEntity implements ITickable {
         this.intervalTicks = Math.max(1, ms / 50);
     }
 
+    /**
+     * 新屏的默认刷新周期（毫秒）。读档时**没有 RefreshMs 键**就用它。
+     *
+     * 激光状态屏这类"读数变化慢、一行里有五行字"的页面默认 200ms 就够，
+     * 让它在建出来的那一刻就比核心屏省 4 倍 —— 而不是等玩家自己去调试棒里调。
+     */
+    protected int defaultRefreshMs() {
+        return (int) ScreenLayout.REFRESH_MS;
+    }
+
     /** 毫秒形式的刷新周期（客户端画布按它算重绘节拍） */
     public int getRefreshMs() {
         return this.intervalTicks * 50;
@@ -461,7 +471,7 @@ public class TileDfcScreen extends TileEntity implements ITickable {
         // 刷新率要落盘：区块重载后不能自己跳回 50ms，否则玩家调慢的屏一走动就白调了
         this.intervalTicks = c.hasKey("RefreshMs")
                 ? Math.max(1, c.getInteger("RefreshMs") / 50)
-                : ScreenLayout.REFRESH_TICKS;
+                : Math.max(1, defaultRefreshMs() / 50);
         this.forceSync = true;
     }
 

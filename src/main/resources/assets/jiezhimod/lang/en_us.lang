@@ -31,7 +31,7 @@ gui.jiezhimod.custom.clear=Clear
 gui.jiezhimod.custom.close=Close
 gui.jiezhimod.custom.empty=(empty)
 gui.jiezhimod.custom.offline=offline
-gui.jiezhimod.custom.hint=Put the DFC remote in the slot and click Add (max 8 readings).
+gui.jiezhimod.custom.hint=Drop a DFC remote in and press Add to import every device it recorded (up to %s)
 gui.jiezhimod.custom.add=Add
 gui.jiezhimod.custom.add.hint=Put a remote in the slot
 gui.jiezhimod.custom.remote=Remote
@@ -184,3 +184,13 @@ tooltip.jiezhimod.dfc_label.4=Colour = state: green ok / yellow warn / red criti
 gui.jiezhimod.debug.label.hint=Use the arrows to change each slot; the current reading is on the right
 gui.jiezhimod.debug.label.reset=Defaults
 gui.jiezhimod.debug.label.refresh=Rate %s ms
+
+# ===== Laser status display (v4.2) =====
+tile.dfc_laser.name=DFC Laser Status Display
+
+tooltip.jiezhimod.dfc_laser.0=Takes 4 x 3 = %s blocks, hung below the ceiling
+tooltip.jiezhimod.dfc_laser.1=Up to %s lasers per screen, one cell each (icon + five readouts + bars)
+tooltip.jiezhimod.dfc_laser.2=Works with stabilizers (SL), emitters (PL), receivers (OL), injectors, and other DFC laser parts
+tooltip.jiezhimod.dfc_laser.3=Right-click for the panel: drop a DFC remote into the slot and press Add; an active laser draws its beam
+tooltip.jiezhimod.dfc_laser.4=Low cryogel or a nearly burnt lens shows a warning triangle and a banner at the bottom
+gui.jiezhimod.laser.title=DFC Laser Status Display

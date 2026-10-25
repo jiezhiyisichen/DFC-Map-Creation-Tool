@@ -258,7 +258,9 @@ public class GuiCustomScreen extends GuiContainer {
     }
 
     private void drawTitle(int px, int py) {
-        String title = I18n.format("gui.jiezhimod.custom.title");
+        // 激光状态屏共用这个面板，只是标题与上限不同
+        String title = I18n.format(this.tile instanceof com.jiezhimod.block.TileLaserScreen
+                ? "gui.jiezhimod.laser.title" : "gui.jiezhimod.custom.title");
         this.fontRenderer.drawString(title, px + (W - this.fontRenderer.getStringWidth(title)) / 2,
                 py + ContainerCustomScreen.TITLE_Y, 0xFFFFFFFF);
     }
@@ -367,7 +369,7 @@ public class GuiCustomScreen extends GuiContainer {
      */
     private void drawHint(int px, int py) {
         List<String> hint = this.fontRenderer.listFormattedStringToWidth(
-                I18n.format("gui.jiezhimod.custom.hint"), W - MARGIN * 2);
+                I18n.format("gui.jiezhimod.custom.hint", this.tile.maxSlots()), W - MARGIN * 2);
         for (int i = 0; i < hint.size() && i < 2; i++) {
             this.fontRenderer.drawString(hint.get(i), px + MARGIN,
                     py + ContainerCustomScreen.HINT_Y + i * 9, 0xFF777777);

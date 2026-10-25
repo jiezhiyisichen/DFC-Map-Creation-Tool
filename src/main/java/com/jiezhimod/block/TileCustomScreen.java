@@ -41,6 +41,16 @@ public class TileCustomScreen extends TileDfcScreen {
     }
 
     /**
+     * 最多几条槽。
+     *
+     * 自定义屏是 8 条；激光状态屏（子类）只要 4 台设备 —— 它的每一条槽就是
+     * "一台激光 + 五行读数"，八条根本排不下，所以由子类覆盖这个数。
+     */
+    public int maxSlots() {
+        return DfcWatch.MAX;
+    }
+
+    /**
      * 接入一台设备：把它**每一项可读数据**都加成一条槽。
      *
      * 一台机器可能不止一项（多罐机器每个罐一项），所以这里循环加；
@@ -53,7 +63,7 @@ public class TileCustomScreen extends TileDfcScreen {
         List<DfcWatch> found = DfcBridge.probeDevice(te);
         int added = 0;
         for (int i = 0; i < found.size(); i++) {
-            if (this.slots.size() >= DfcWatch.MAX) {
+            if (this.slots.size() >= maxSlots()) {
                 break;
             }
             DfcWatch w = found.get(i);

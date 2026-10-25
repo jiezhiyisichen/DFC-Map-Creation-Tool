@@ -31,7 +31,7 @@ gui.jiezhimod.custom.clear=清空
 gui.jiezhimod.custom.close=关闭
 gui.jiezhimod.custom.empty=（空）
 gui.jiezhimod.custom.offline=离线
-gui.jiezhimod.custom.hint=放入 DFC 遥控器，点「添加」接入它记录的全部设备（最多 8 条）
+gui.jiezhimod.custom.hint=放入 DFC 遥控器，点「添加」接入它记录的全部设备（最多 %s 条）
 gui.jiezhimod.custom.add=添加
 gui.jiezhimod.custom.add.hint=把遥控器放进槽位
 gui.jiezhimod.custom.remote=遥控器
@@ -184,3 +184,13 @@ tooltip.jiezhimod.dfc_label.4=数字颜色 = 状态：绿正常 / 黄注意 / �
 gui.jiezhimod.debug.label.hint=左右箭头切换每一格的指标，右侧是当前读数
 gui.jiezhimod.debug.label.reset=恢复默认
 gui.jiezhimod.debug.label.refresh=刷新 %s ms
+
+# ===== 激光状态显示器（v4.2） =====
+tile.dfc_laser.name=DFC 激光状态显示器
+
+tooltip.jiezhimod.dfc_laser.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
+tooltip.jiezhimod.dfc_laser.1=一块屏最多 %s 台激光，每台一个格子（小图 + 五行读数 + 数据条）
+tooltip.jiezhimod.dfc_laser.2=支持稳定器 SL / 发射器 PL / 接收器 OL / 燃料喷射器，其余 DFC 激光部件也能接
+tooltip.jiezhimod.dfc_laser.3=右键打开面板：把 DFC 遥控器放进槽位 → 点「添加」；开启时小图上会射出光束
+tooltip.jiezhimod.dfc_laser.4=冷凝胶不足或透镜快烧了会在图上打三角，并在底部弹出告警
+gui.jiezhimod.laser.title=DFC 激光状态显示器

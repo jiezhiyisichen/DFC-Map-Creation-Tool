@@ -8,6 +8,8 @@ import com.jiezhimod.client.chat.JiezhiChatGui;
 import com.jiezhimod.block.ModBlocks;
 import com.jiezhimod.block.TileKeypad;
 import com.jiezhimod.dfc.LabelLayout;
+import com.jiezhimod.dfc.LaserInfo;
+import com.jiezhimod.dfc.LaserLayout;
 import com.jiezhimod.repeater.RepeaterDelay;
 import com.jiezhimod.repeater.RepeaterTimer;
 import com.jiezhimod.client.notice.ClientNoticeManager;
@@ -141,6 +143,7 @@ public class SelfTest {
         testGraphHistory();
         testAdvancedRepeater();
         testLabelLayout();
+        testLaserDisplay();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -3444,5 +3447,153 @@ public class SelfTest {
         d.stabilizers = 2;
         d.potentialGain = 3.5D;
         return d;
+    }
+
+    // =====================================================================
+    // 激光状态显示器：阈值 / 编号 / 版面 / 协议
+    //
+    // 这块屏最容易错的三处：
+    //   1. 冷凝胶"黄橙红"分档的边界（差 1% 就在另一个颜色上）；
+    //   2. 短名编号（SL1/SL2 各自从 1 数，混着数就变成"3 号是哪台"）；
+    //   3. 网络序列化顺序（少一个字段就是全屏数值错位，且不报错）。
+    // 三样都能离线钉住。
+    // =====================================================================
+    private static void testLaserDisplay() {
+        section("Laser display (layout)");
+        check("最多四台", LaserLayout.SLOTS == 4);
+        check("四个格子", LaserLayout.CELL_X.length == LaserLayout.SLOTS
+                && LaserLayout.CELL_Y.length == LaserLayout.SLOTS);
+        check("格子都在面板内", allCellsInsidePanel());
+        check("格子互不重叠", cellsDoNotOverlap());
+        check("读数五行塞得进格子",
+                LaserLayout.METRIC_TOP + LaserInfo.MAX_METRICS * LaserLayout.METRIC_STEP
+                        <= LaserLayout.CELL_H);
+        check("读数区让开了小图", LaserLayout.METRIC_X >= LaserLayout.ICON_X + LaserLayout.ICON_W);
+        check("告警带在内容之下",
+                LaserLayout.BANNER_Y >= LaserLayout.CELL_Y[2] + LaserLayout.CELL_H);
+
+        section("Laser display (labels)");
+        check("SL 前缀", "SL".equals(LaserLayout.labelPrefix(LaserInfo.KIND_SL)));
+        check("PL 前缀", "PL".equals(LaserLayout.labelPrefix(LaserInfo.KIND_PL)));
+        check("OL 前缀", "OL".equals(LaserLayout.labelPrefix(LaserInfo.KIND_OL)));
+        check("同类型各自从 1 数", "SL1".equals(LaserLayout.labelFor(LaserInfo.KIND_SL, 1))
+                && "SL2".equals(LaserLayout.labelFor(LaserInfo.KIND_SL, 2))
+                && "PL1".equals(LaserLayout.labelFor(LaserInfo.KIND_PL, 1)));
+        check("编号至少是 1", "SL1".equals(LaserLayout.labelFor(LaserInfo.KIND_SL, 0)));
+
+        section("Laser display (thresholds)");
+        check("冷凝胶 80% 不报", LaserLayout.coldWarn(0.80D) == LaserInfo.WARN_NONE);
+        check("冷凝胶 50% 正好转黄", LaserLayout.coldWarn(0.50D) == LaserInfo.WARN_NONE
+                && LaserLayout.coldWarn(0.49D) == LaserInfo.WARN_YELLOW);
+        check("冷凝胶 25% 转橙", LaserLayout.coldWarn(0.24D) == LaserInfo.WARN_ORANGE);
+        check("冷凝胶 10% 转红", LaserLayout.coldWarn(0.09D) == LaserInfo.WARN_RED);
+        check("冷凝胶 0 是红", LaserLayout.coldWarn(0.0D) == LaserInfo.WARN_RED);
+        check("透镜 50% 不报", LaserLayout.lensWarn(50.0D) == LaserInfo.WARN_NONE);
+        check("透镜 20% 转黄", LaserLayout.lensWarn(19.9D) == LaserInfo.WARN_YELLOW);
+        // 需求原话："低于 4 为红色"
+        check("透镜 4% 还是黄", LaserLayout.lensWarn(4.0D) == LaserInfo.WARN_YELLOW);
+        check("透镜 3.9% 转红", LaserLayout.lensWarn(3.9D) == LaserInfo.WARN_RED);
+        check("拿不到耐久不报警", LaserLayout.lensWarn(-1.0D) == LaserInfo.WARN_NONE);
+        check("三级各有颜色", LaserLayout.warnColor(LaserInfo.WARN_YELLOW) != 0
+                && LaserLayout.warnColor(LaserInfo.WARN_ORANGE) != 0
+                && LaserLayout.warnColor(LaserInfo.WARN_RED) != 0);
+
+        section("Laser display (data)");
+        LaserInfo lab = new LaserInfo(LaserInfo.KIND_SL, "SL1", "稳定器");
+        for (int i = 0; i < 9; i++) {
+            lab.metric("行" + i, "v" + i, 0.5D);
+        }
+        check("读数最多五行（多了直接丢）", lab.metrics.size() == LaserInfo.MAX_METRICS);
+        check("预警色存在行上", lab.metrics.get(0).warn == LaserInfo.WARN_NONE);
+        lab.metric("透镜耐久", "3.00%", 0.03D, LaserInfo.WARN_RED);
+        check("塞满后不再追加", lab.metrics.size() == LaserInfo.MAX_METRICS);
+
+        LaserInfo warn = new LaserInfo(LaserInfo.KIND_OL, "OL1", "接收器");
+        warn.warn = LaserInfo.WARN_ORANGE;
+        warn.warnText = "冷凝胶不足 OL1 · 剩余 21.00%";
+        check("有文案才算要弹窗", warn.hasWarning());
+        warn.warnText = "";
+        check("没文案不弹窗", !warn.hasWarning());
+
+        LaserInfo deep = lab.copy();
+        deep.metrics.get(0).value = "改过";
+        check("copy 是深拷贝", !"改过".equals(lab.metrics.get(0).value)
+                && "SL1".equals(deep.label));
+
+        section("Laser display (page routing)");
+        // 激光屏的方块是自定义屏的子类，两个 bool 会同时为 true —— 必须先判激光
+        check("激光屏优先于自定义屏",
+                ScreenLayout.pageFor(true, false, false, false, true) == ScreenLayout.PAGE_LASER);
+        check("普通自定义屏不受影响",
+                ScreenLayout.pageFor(true, false, false, false, false) == ScreenLayout.PAGE_CUSTOM);
+        check("标注屏不受影响",
+                ScreenLayout.pageFor(false, false, false, true, false) == ScreenLayout.PAGE_LABEL);
+        check("旧的三参调用仍然画核心页",
+                ScreenLayout.pageFor(false, false, false) == ScreenLayout.PAGE_CORE);
+
+        section("Laser display (wire format)");
+        // 协议镜像：写一份、读一份，逐项比。字段顺序写反在这里就会露出来。
+        DfcSnapshot a = new DfcSnapshot();
+        a.linked = true;
+        a.temperature = 1234.5D;
+        a.labelMetrics[0] = LabelLayout.M_GAIN;
+        a.labelMetrics[3] = LabelLayout.M_TEMP;
+        LaserInfo one = new LaserInfo(LaserInfo.KIND_PL, "PL2", "发射器");
+        one.alive = true;
+        one.on = true;
+        one.warn = LaserInfo.WARN_ORANGE;
+        one.warnText = "冷凝胶不足 PL2 · 剩余 21.00%";
+        one.metric("冷凝胶", "21.00%", 0.21D, LaserInfo.WARN_ORANGE);
+        one.metric("等级", "100 级", -1.0D);
+        a.lasers.add(one);
+
+        io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.buffer();
+        a.writeTo(buf);
+        DfcSnapshot b = new DfcSnapshot();
+        b.readFrom(buf);
+        check("温度往返", Math.abs(b.temperature - 1234.5D) < 1e-9);
+        check("七格指标往返", b.labelMetrics[0] == LabelLayout.M_GAIN
+                && b.labelMetrics[3] == LabelLayout.M_TEMP);
+        check("激光台数往返", b.lasers.size() == 1);
+        LaserInfo back = b.lasers.get(0);
+        check("激光类型往返", back.kind == LaserInfo.KIND_PL);
+        check("短名往返", "PL2".equals(back.label));
+        check("开启状态往返", back.on && back.alive);
+        check("预警等级往返", back.warn == LaserInfo.WARN_ORANGE);
+        check("弹窗文案往返", "冷凝胶不足 PL2 · 剩余 21.00%".equals(back.warnText));
+        check("读数行往返", back.metrics.size() == 2
+                && "冷凝胶".equals(back.metrics.get(0).name)
+                && Math.abs(back.metrics.get(0).ratio - 0.21D) < 1e-6
+                && back.metrics.get(0).warn == LaserInfo.WARN_ORANGE);
+    }
+
+    /** 四个格子必须都在 256x192 里面（含告警带以下的余量） */
+    private static boolean allCellsInsidePanel() {
+        for (int i = 0; i < LaserLayout.SLOTS; i++) {
+            if (LaserLayout.cellX(i) < 0 || LaserLayout.cellY(i) < 22) {
+                return false;
+            }
+            if (LaserLayout.cellX(i) + LaserLayout.CELL_W > ScreenLayout.W
+                    || LaserLayout.cellY(i) + LaserLayout.CELL_H > ScreenLayout.H) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /** 2×2 的四个格子不许压在一起 */
+    private static boolean cellsDoNotOverlap() {
+        for (int i = 0; i < LaserLayout.SLOTS; i++) {
+            for (int j = i + 1; j < LaserLayout.SLOTS; j++) {
+                boolean apartX = LaserLayout.cellX(i) + LaserLayout.CELL_W <= LaserLayout.cellX(j)
+                        || LaserLayout.cellX(j) + LaserLayout.CELL_W <= LaserLayout.cellX(i);
+                boolean apartY = LaserLayout.cellY(i) + LaserLayout.CELL_H <= LaserLayout.cellY(j)
+                        || LaserLayout.cellY(j) + LaserLayout.CELL_H <= LaserLayout.cellY(i);
+                if (!apartX && !apartY) {
+                    return false;
+                }
+            }
+        }
+        return true;
     }
 }

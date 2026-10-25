@@ -90,8 +90,8 @@ public final class LabelLayout {
      * 挨得最近，若一条扎腰部、一条扎底座，两条斜线会在底部交叉成一个 X ——
      * 离屏图上一眼就能看出"这两条到底谁指谁"。改成左右各占底座一角后互不相交。
      */
-    public static final int[] ANCHOR_X = {107, 104, 110, 139, 150, 156, 146};
-    public static final int[] ANCHOR_Y = {56, 118, 150, 45, 72, 108, 152};
+    public static final int[] ANCHOR_X = {104, 98, 110, 146, 158, 158, 146};
+    public static final int[] ANCHOR_Y = {84, 96, 112, 78, 90, 104, 116};
 
     /** 左栏文字右边界（引线从这往右伸） */
     public static final int LEFT_TEXT_RIGHT = 92;
@@ -109,11 +109,18 @@ public final class LabelLayout {
     public static final int ELBOW_LEFT = 98;
     public static final int ELBOW_RIGHT = 158;
 
-    /** 中央示意图的包围盒（自测用，防止锚点跑到图外面） */
-    public static final int FIG_L = 100;
-    public static final int FIG_R = 156;
-    public static final int FIG_T = 38;
-    public static final int FIG_B = 160;
+    /**
+     * 中央"核心"的包围盒（四角括号所在的那个框，自测也用它校验锚点不许飞出去）。
+     *
+     * 【为什么不再画一整台机器】v4.1 第一版在中间堆了一台"穹顶 + 柱体 + 底座"的设备图，
+     * 结果 192 逻辑像素高根本放不下：穹顶顶到顶栏、引线落点被挤到图外，
+     * 实机截图里上半截是被切掉的。改成参考图那种"一个发光椭圆 + 四角括号"之后，
+     * 版面稳、七条引线都能落在括号上，也不会跟顶栏打架。
+     */
+    public static final int FIG_L = 94;
+    public static final int FIG_R = 162;
+    public static final int FIG_T = 66;
+    public static final int FIG_B = 126;
 
     private LabelLayout() {
     }
