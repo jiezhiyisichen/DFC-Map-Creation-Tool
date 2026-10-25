@@ -429,10 +429,15 @@ public final class DfcBridge {
      */
     public static boolean readLaser(TileEntity raw, LaserInfo lab) {
         TileEntity te = resolveProxy(raw);
-        int kind = laserKind(te);
-        if (te == null || kind == LaserInfo.KIND_NONE) {
+        if (te == null) {
             lab.alive = false;
             return false;
+        }
+        int kind = laserKind(te);
+        if (kind == LaserInfo.KIND_NONE) {
+            // 认不出是哪种激光（储罐、电池、外壳……）：照样收下走通用页，
+            // 把能读到的开关 / 电量 / 罐列出来。直接判死会让"添加"看起来没反应。
+            kind = LaserInfo.KIND_GEN;
         }
         lab.kind = kind;
         lab.alive = true;

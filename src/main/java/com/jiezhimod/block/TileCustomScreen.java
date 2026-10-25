@@ -113,7 +113,10 @@ public class TileCustomScreen extends TileDfcScreen {
             // 记录时存的是**设备自己的坐标**，但万一那台机器后来被换成了外壳块（多方块重装），
             // 这里再代理解一次链，能救回来就救回来。
             TileEntity dev = DfcBridge.resolveProxy(this.world.getTileEntity(dp));
-            if (!DfcBridge.isDevice(dev)) {
+            // 激光部件（稳定器/发射器/接收器/喷射器）不一定有"罐 + 电量"，
+            // 单看 isDevice 会把它判成"失联"。这里放行所有 DFC 激光部件。
+            if (!DfcBridge.isDevice(dev)
+                    && DfcBridge.laserKind(dev) == com.jiezhimod.dfc.LaserInfo.KIND_NONE) {
                 missing++;
                 continue;
             }

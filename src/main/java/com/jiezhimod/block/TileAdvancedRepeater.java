@@ -61,7 +61,7 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
         this.timer.clampDelay(next);
         this.markDirty();
         // 立刻按新延迟重算一次：改小延迟时玩家期待"马上就有反应"
-        this.recompute();
+        this.recompute(false);
         if (this.world != null && !this.world.isRemote) {
             IBlockState state = this.world.getBlockState(this.pos);
             // flag 3：既让客户端收到方块状态，也把方块实体（延迟）同步过去
@@ -77,12 +77,12 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
         if (this.world == null || this.world.isRemote) {
             return;
         }
-        this.recompute();
+        this.recompute(false);
     }
 
     /** 放置后立刻算一次：背面本来就有信号时不用等玩家再来碰一下才亮 */
     public void updateNow() {
-        this.recompute();
+        this.recompute(false);
     }
 
     /**
@@ -91,7 +91,12 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
      * 【为什么"变了才写状态"】每刻无条件 {@code setBlockState} 会引发全服范围的
      * 邻居更新风暴（一个中继器就能把整条线拖慢），所以只有亮灭/锁定真的翻转时才写。
      */
-    private void recompute() {
+    /**
+     * @param fromSchedule true = 由**计划刻**触发（见 BlockAdvancedRepeater#neighborChanged）：
+     *                     这时如果计数器还没跟上，就直接按当前输入对齐。
+     *                     正常情况（计数器每刻在跑）走到这里状态已经一致，等于什么都不做。
+     */
+    public void recompute(boolean fromSchedule) {
         World world = this.world;
         if (world == null || world.isRemote) {
             return;
@@ -116,8 +121,14 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
         boolean powered = poweredNow;
         if (!locked) {
             boolean input = BlockAdvancedRepeater.hasInput(world, pos, state);
-            this.timer.tick(input, this.delay);
-            powered = this.timer.output();
+            if (fromSchedule && input != this.timer.output()) {
+                // 计数器可能没在跑（区块刚加载 / 被别的优化 mod 跳过）：直接对齐
+                this.timer.syncOutput(input);
+                powered = input;
+            } else {
+                this.timer.tick(input, this.delay);
+                powered = this.timer.output();
+            }
         }
 
         if (powered == poweredNow

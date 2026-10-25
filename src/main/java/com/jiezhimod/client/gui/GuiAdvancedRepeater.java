@@ -54,9 +54,18 @@ public class GuiAdvancedRepeater extends GuiContainer {
     private static final int ID_APPLY = 7;
     private static final int ID_CLOSE = 8;
 
-    /** 秒模式下的两档步进（tick 模式下是 1 / 10 tick） */
+    /**
+     * 秒模式下的两档步进（tick 模式下是 1 / 100 tick）。
+     *
+     * 【大步为什么是 1 秒 → 10 秒】上限是 60 秒，用 ±1.00 要点 60 下 ——
+     * 实机反馈"最多只能设到两秒"，一半原因就是按钮点不上去。
+     * 改成 ±10.00 之后 6 下到顶，再用小步微调。
+     */
     private static final double STEP_SECOND_SMALL = 0.10D;
-    private static final double STEP_SECOND_BIG = 1.00D;
+    private static final double STEP_SECOND_BIG = 10.00D;
+    /** tick 模式的两档步进 */
+    private static final int STEP_TICK_SMALL = 1;
+    private static final int STEP_TICK_BIG = 100;
 
     private static final int COLOR_LABEL = 0xFF8FA0B0;
     private static final int COLOR_OK = 0xFF7FE3A0;
@@ -130,9 +139,9 @@ public class GuiAdvancedRepeater extends GuiContainer {
                 + I18n.format("gui.jiezhimod.repeater.unit.second"));
 
         String small = this.unitSeconds
-                ? String.format(Locale.ROOT, "%.2f", STEP_SECOND_SMALL) : "1";
+                ? String.format(Locale.ROOT, "%.2f", STEP_SECOND_SMALL) : String.valueOf(STEP_TICK_SMALL);
         String big = this.unitSeconds
-                ? String.format(Locale.ROOT, "%.2f", STEP_SECOND_BIG) : "10";
+                ? String.format(Locale.ROOT, "%.2f", STEP_SECOND_BIG) : String.valueOf(STEP_TICK_BIG);
         setButtonText(ID_MINUS_BIG, "-" + big);
         setButtonText(ID_MINUS, "-" + small);
         setButtonText(ID_PLUS, "+" + small);
@@ -252,19 +261,31 @@ public class GuiAdvancedRepeater extends GuiContainer {
         }
 
         // 步进按钮：在当前单位上加减，写回输入框，等玩家按「应用」
-        int ticks = currentTicks();
+        //
+        // 【必须从**输入框**累加，不能从 currentTicks()】后者是服务端同步回来的
+        // 已生效值，点两下之前不会变 —— 于是每一下都会算回同一个数，
+        // 玩家狂点 +10 却一直停在原地（实机反馈的"设不上去"就是这个）。
+        int base = parseInput();
+        if (base < 0) {
+            base = currentTicks();
+        }
+        int stepSmall = this.unitSeconds
+                ? RepeaterDelay.fromSeconds(STEP_SECOND_SMALL) : STEP_TICK_SMALL;
+        int stepBig = this.unitSeconds
+                ? RepeaterDelay.fromSeconds(STEP_SECOND_BIG) : STEP_TICK_BIG;
+        int ticks;
         switch (button.id) {
             case ID_MINUS_BIG:
-                ticks -= this.unitSeconds ? RepeaterDelay.fromSeconds(STEP_SECOND_BIG) : 10;
+                ticks = base - stepBig;
                 break;
             case ID_MINUS:
-                ticks -= this.unitSeconds ? RepeaterDelay.fromSeconds(STEP_SECOND_SMALL) : 1;
+                ticks = base - stepSmall;
                 break;
             case ID_PLUS:
-                ticks += this.unitSeconds ? RepeaterDelay.fromSeconds(STEP_SECOND_SMALL) : 1;
+                ticks = base + stepSmall;
                 break;
             case ID_PLUS_BIG:
-                ticks += this.unitSeconds ? RepeaterDelay.fromSeconds(STEP_SECOND_BIG) : 10;
+                ticks = base + stepBig;
                 break;
             default:
                 return;

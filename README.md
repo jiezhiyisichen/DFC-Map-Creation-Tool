@@ -5,13 +5,13 @@
 <h1 align="center">节枝特效工具 · JiezhiMod</h1>
 
 <p align="center">
-  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-4.2.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
+  <sub>仓库名 <code>DFC-Map-Creation-Tool</code> ｜ 构建产物 <code>jiezhi-1.12.2-dfcmaptools-4.3.jar</code> ｜ 模组 ID <code>jiezhimod</code></sub>
 </p>
 
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-4.2--beta-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-4.3--beta-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">
@@ -680,7 +680,7 @@
 
 1. 安装 **Minecraft 1.12.2** 与 **Forge 14.23.5.2864**；
 2. 把 `jiezhi-1.12.2-dfcmaptools-3.9.jar` 放进 `.minecraft/mods/`（**服务端也要放**，特效靠网络包下发）；
-3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v4.2 is loading.` 即加载成功；
+3. 启动游戏，日志里出现 `jiezhi` 大字 LOGO 与 `JiezhiMod v4.3 is loading.` 即加载成功；
 4. 进世界输入 `/shake 40` 自验。
 
 > **服务端必须装**：指令在服务端注册，画面在客户端渲染。只装服务端能注册指令但看不到特效，只装客户端则连指令都没有。
@@ -856,6 +856,7 @@ jar 内置完整性校验，说明文件被改动过（反编译、二次打包�
 
 摘要（完整版见 [CHANGELOG.md](CHANGELOG.md)）：
 
+- **4.3-beta**（测试版，未发布） —— 修中继器延迟设不上去（步进不累加 + 大步长太小 + 长延迟保险）、遥控器不再从稳定器顺带记核心、激光屏不再拒收设备。
 - **4.2-beta**（测试版，未发布） —— 新增**激光状态显示器**（4 台激光 2×2，SL/PL/OL/喷射器 + 其余 DFC 激光部件，冷凝胶与透镜耐久三级告警 + 底部弹窗）；**标注显示器改版**：中间那台"设备图"改成一颗发光核心 + 四角括号（原来那台机器图顶到顶栏、引线落点被挤出去）。
 - **4.1-beta**（测试版，未发布） —— 新增**标注显示器**（中央示意图 + 七条引线标注，七格指标可自选）；**多屏性能大修**：重绘改成零拷贝像素直传、每帧限两块屏重绘（不再几块屏挤在同一帧里一起卡）、远处的屏按距离自动降频、关机态从 20Hz 降到 10Hz、AWT 渲染质量档位下调。
 - **4.0-beta**（测试版） —— 新增**高级红石中继器**：外形与红石行为照搬原版中继器，延迟从 1~4 档放开到 **1~1200 tick（0.05~60 秒）**，右键打开界面用 **tick / 秒**两种单位直接填数值；上升/下降沿对称延迟、短脉冲被吞掉、侧面锁定等原版行为全部保留，拆下来连延迟一起带走。页签调整：密码盘与密码控制台从「红石」页搬到「物品」页，红石页腾给高级红石中继器。

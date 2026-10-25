@@ -56,9 +56,12 @@ public class TileLaserScreen extends TileCustomScreen {
             return 0;
         }
         TileEntity dev = DfcBridge.resolveProxy(te);
-        if (DfcBridge.laserKind(dev) == LaserInfo.KIND_NONE) {
-            return 0;   // 不是设备，别往列表里塞一条永远"离线"的空行
+        if (dev == null) {
+            return 0;
         }
+        // 【不再按"是不是 DFC 激光"过滤】实机反馈过"加了却什么都没出现"：
+        // 玩家用遥控器记的可能是外壳格、可能是别的机器，直接拒掉会让人以为功能坏了。
+        // 现在一律收下，读不出激光数据时走通用页（把能读到的开关/电量/罐列出来）。
         int dim = this.world == null ? Integer.MIN_VALUE : this.world.provider.getDimension();
         net.minecraft.util.math.BlockPos p = dev.getPos();
         List<DfcWatch> slots = getSlots();

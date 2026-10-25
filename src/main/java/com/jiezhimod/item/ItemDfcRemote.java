@@ -91,20 +91,21 @@ public class ItemDfcRemote extends Item {
         TileEntity te = DfcBridge.resolveProxy(world.getTileEntity(pos));
         ItemStack stack = player.getHeldItem(hand);
 
-        // A. 反应堆部件（核心 / 稳定器）：无视是否蹲下，都按"记录反应堆源"处理 ——
-        //    这两样是核心屏的数据源头，语义和"外部设备"完全不同，优先判掉。
-        if (DfcBridge.isDataSource(te)) {
-            boolean core = DfcBridge.isDfcCore(te);
+        // A. **只有核心**才记成"反应堆源"。
+        //
+        // 【为什么不再顺手把稳定器也当数据源】v4.2 之前对稳定器写的是
+        // "target = 稳定器 + 自动解析它挂的核心"，于是玩家只要拿遥控器点了稳定器，
+        // 遥控器里就多出一份"核心"的记录 —— 而激光状态屏要的是**稳定器本身**。
+        // 实机反馈："设置 SL 会记录核心，这不行"。
+        // 现在：核心仍按数据源记（核心屏要用），稳定器/发射器/接收器/喷射器
+        // 一律当普通设备，蹲下右键记录（见下面 B 段），并且**不再解析核心**。
+        if (DfcBridge.isDfcCore(te)) {
             BlockPos dpos = te.getPos();
-            writeTarget(stack, dpos, world.provider.getDimension(), core ? "CORE" : "STABILIZER");
-            BlockPos resolved = DfcBridge.resolveCore(world, dpos);
-            String tail = resolved == null
-                    ? TextFormatting.RED + " (no core resolved)"
-                    : TextFormatting.GRAY + " -> core " + pos(resolved);
+            writeTarget(stack, dpos, world.provider.getDimension(), "CORE");
             player.sendStatusMessage(new TextComponentString(
                     TextFormatting.AQUA + "[jiezhimod] " + TextFormatting.RESET
-                            + "Recorded " + (core ? "CORE" : "STABILIZER") + " " + pos(dpos)
-                            + tail), false);
+                            + "Recorded CORE " + pos(dpos)
+                            + TextFormatting.DARK_GRAY + "  (bind a monitor to it)"), false);
             return EnumActionResult.SUCCESS;
         }
 

@@ -157,17 +157,65 @@ public class BlockAdvancedRepeater extends Block {
         return world.getBlockState(pos.down()).isTopSolid();
     }
 
-    /** 底下的方块被拆掉时自己也掉下来（原版中继器同款） */
+    /**
+     * 底下的方块被拆掉时自己也掉下来（原版中继器同款）；否则刷新一次。
+     *
+     * 【为什么要顺手排一个计划刻】计时主体是方块实体里的计数器（每刻 +1），
+     * 但**万一那块屏所在区块的方块实体没在逐刻跑**（区块刚加载、被别人家的
+     * chunk 优化 mod 跳过之类），计数器就会停在原地 —— 延迟越长越像"根本不动"。
+     * 这里在每一个边沿之后按 delay 排一个计划刻，到点了直接按当前输入对齐，
+     * 相当于给长延迟上了一份保险。计数正常时它就是一次空转（状态已经一致）。
+     */
     @Override
     public void neighborChanged(IBlockState state, World world, BlockPos pos, Block block,
                                 BlockPos fromPos) {
         if (!world.getBlockState(pos.down()).isTopSolid()) {
             this.dropBlockAsItem(world, pos, state, 0);
             world.setBlockToAir(pos);
+            return;
+        }
+        if (world.isRemote) {
+            return;
+        }
+        TileEntity te = world.getTileEntity(pos);
+        int delay = te instanceof TileAdvancedRepeater
+                ? ((TileAdvancedRepeater) te).getDelay() : RepeaterDelay.DEFAULT_TICKS;
+        world.scheduleUpdate(pos, this, Math.max(1, delay));
+        if (te instanceof TileAdvancedRepeater) {
+            // 锁定态要立刻反映（锁定本身不该有延迟）
+            ((TileAdvancedRepeater) te).recompute(false);
         }
     }
 
-    /** 输出方向 = 玩家看的方向（和原版一致：输入朝向玩家那一侧） */
+    /** 计划刻到点：按当前输入把输出对齐（长延迟的保险，见 neighborChanged 的说明） */
+    @Override
+    public void updateTick(World world, BlockPos pos, IBlockState state, Random rand) {
+        if (world.isRemote) {
+            return;
+        }
+        TileEntity te = world.getTileEntity(pos);
+        if (te instanceof TileAdvancedRepeater) {
+            ((TileAdvancedRepeater) te).recompute(true);
+        }
+    }
+
+    /** 放下去先排一 tick，让背面本来就有信号的场合能自己亮起来 */
+    @Override
+    public void onBlockAdded(World world, BlockPos pos, IBlockState state) {
+        super.onBlockAdded(world, pos, state);
+        if (!world.isRemote) {
+            world.scheduleUpdate(pos, this, 1);
+        }
+    }
+
+    /**
+     * 朝向 = 玩家视线方向（输出朝他那边）。
+     *
+     * 【别照抄原版那行 getOpposite()】原版的 FACING 指"输入侧"，这里反过来定义
+     * （FACING = 输出侧，输入读 FACING.getOpposite()）。两套内部自洽，
+     * 但**只改一半就会整块反掉**：实机验证过现在这套接法能正常读信号，
+     * 所以不要单独去改放置方向或 getWeakPower 的侧别 —— 要改就三条一起改。
+     */
     @Override
     public IBlockState getStateForPlacement(World world, BlockPos pos, EnumFacing facing,
                                             float hitX, float hitY, float hitZ, int meta,
@@ -242,13 +290,24 @@ public class BlockAdvancedRepeater extends Block {
         return true;
     }
 
-    /** 只在**正面**给 15 级弱充能（原版中继器同款） */
+    /**
+     * 只在**正面**（FACING）给 15 级弱充能。
+     *
+     * 这里的 FACING 是"输出侧"（见 getStateForPlacement 的说明），
+     * 所以正面才是下游。别把它当成原版的"输入侧"去改。
+     */
     @Override
     public int getWeakPower(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
         if (!state.getValue(POWERED)) {
             return 0;
         }
         return state.getValue(FACING) == side ? 15 : 0;
+    }
+
+    /** 强充能与弱充能同口径（原版 {@code BlockRedstoneDiode} 也是这么转发） */
+    @Override
+    public int getStrongPower(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
+        return getWeakPower(state, world, pos, side);
     }
 
     /** 红石粉只接前后两面（左右是绝缘的，和原版一致） */
@@ -259,58 +318,63 @@ public class BlockAdvancedRepeater extends Block {
     }
 
     /**
-     * 背面当前有没有信号（红石粉、中继器、比较器、拉杆……都算"往我这里发的弱电"）。
+     * 输入侧当前有没有信号（红石粉、中继器、比较器、拉杆……都算）。
      *
-     * 【为什么要单独补一段红石粉】{@code getRedstonePower(back, facing)} 对红石粉未必
-     * 返回读数（取决于那根粉有没有朝这个方向"连通"），原版
-     * {@code BlockRedstoneDiode.calculateInputStrength} 就为这件事专门加了一条
-     * "背面是红石粉就直接读它的 POWER 属性"的分支。这里照抄同款兜底，
-     * 否则会出现"粉明明亮着，高级红石中继器就是不亮"。
+     * 【输入侧 = FACING 的反面，输出 = FACING】本项目把 FACING 定义成"输出侧"
+     * （原版是反过来的）。两边内部自洽即可，关键是**别只改一半**。
+     *
+     * 【为什么还要单独补一段红石粉】{@code getRedstonePower} 对红石粉未必返回读数
+     * （取决于那根粉有没有朝这个方向连通），原版为此专门加了一条
+     * "相邻是红石粉就直接读它的 POWER"的分支。不补会出现"粉明明亮着，中继器就是不亮"。
      */
     public static boolean hasInput(World world, BlockPos pos, IBlockState state) {
         EnumFacing facing = state.getValue(FACING);
-        BlockPos back = pos.offset(facing.getOpposite());
-        int power = world.getRedstonePower(back, facing);
+        BlockPos src = pos.offset(facing.getOpposite());
+        int power = world.getRedstonePower(src, facing);
         if (power > 0) {
             return true;
         }
-        IBlockState backState = world.getBlockState(back);
-        return backState.getBlock() == Blocks.REDSTONE_WIRE
-                && backState.getValue(BlockRedstoneWire.POWER) > 0;
+        IBlockState srcState = world.getBlockState(src);
+        return srcState.getBlock() == Blocks.REDSTONE_WIRE
+                && srcState.getValue(BlockRedstoneWire.POWER) > 0;
     }
 
     /**
-     * 是否被侧面锁住：左右相邻的**上电中继器 / 比较器**如果正对着我，就把我按住。
-     * 前后同轴的不算（那是串联，不是锁定）。
+     * 左右两侧是不是被"上电的中继器 / 比较器 / 红石块 / 红石粉"顶着。
+     *
+     * 【为什么改成原版那套判据】原版 {@code BlockRedstoneRepeater.isLocked} 看的是
+     * 两侧的 {@code getPowerOnSides}：红石块给 15、红石粉读 POWER、中继器/比较器走
+     * {@code getStrongPower(邻居坐标, 朝我这一侧)}（也就是**必须朝着我**才算）。
+     *
+     * v4.1 那版要求"邻居的 FACING == 朝向我的方向"，但原版中继器的 FACING 指的是
+     * **输入**侧，于是两颗并排、各自朝前的原版中继器会被误判成互相锁定；
+     * 一旦锁定就不再推进计时 —— 实机表现就是"中继器偶尔彻底不动"。
      */
     public static boolean isLocked(World world, BlockPos pos, IBlockState state) {
         EnumFacing facing = state.getValue(FACING);
-        for (EnumFacing side : EnumFacing.Plane.HORIZONTAL) {
-            if (side.getAxis() == facing.getAxis()) {
-                continue;
-            }
-            BlockPos otherPos = pos.offset(side);
-            IBlockState other = world.getBlockState(otherPos);
-            Block block = other.getBlock();
+        EnumFacing left = facing.rotateYCCW();
+        EnumFacing right = facing.rotateY();
+        return Math.max(powerOnSide(world, pos.offset(left), left),
+                powerOnSide(world, pos.offset(right), right)) > 0;
+    }
 
-            // 【为什么不用 BlockRedstoneDiode.POWERED】原版中继器/比较器不是用一个
-            // powered 属性，而是**拆成两个方块实例**（unpowered_repeater / powered_repeater）。
-            // BlockRedstoneDiode 里也没有公开的 POWERED 字段，只有 protected 的
-            // isRepeaterPowered —— 所以这里直接按方块实例判断，最直白也最不容易错。
-            if (block == Blocks.POWERED_REPEATER || block == Blocks.POWERED_COMPARATOR) {
-                if (other.getValue(BlockHorizontal.FACING) == side.getOpposite()) {
-                    return true;
-                }
-                continue;
-            }
-            // 自己这种"延迟存方块实体"的中继器：按方块状态里的 POWERED 判断
-            if (block instanceof BlockAdvancedRepeater) {
-                if (other.getValue(POWERED) && other.getValue(FACING) == side.getOpposite()) {
-                    return true;
-                }
-            }
+    /**
+     * 邻居能给多少"锁定"信号（照原版 {@code getPowerOnSide} 的配对：side 是从我指向邻居）。
+     */
+    private static int powerOnSide(World world, BlockPos neighbor, EnumFacing side) {
+        IBlockState s = world.getBlockState(neighbor);
+        Block b = s.getBlock();
+        if (b == Blocks.REDSTONE_BLOCK) {
+            return 15;
         }
-        return false;
+        if (b == Blocks.REDSTONE_WIRE) {
+            return s.getValue(BlockRedstoneWire.POWER);
+        }
+        if (b == Blocks.POWERED_REPEATER || b == Blocks.POWERED_COMPARATOR
+                || b instanceof BlockAdvancedRepeater) {
+            return world.getStrongPower(neighbor, side);
+        }
+        return 0;
     }
 
     // ==================== 交互 ====================
