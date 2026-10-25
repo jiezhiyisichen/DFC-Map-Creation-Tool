@@ -23,6 +23,14 @@ public class ModItems {
     public static final Item DFC_REMOTE = new ItemDfcRemote();
     /** 密码连接器：把密码盘接进密码控制台 */
     public static final Item CONNECTOR = new ItemConnector();
+    /**
+     * 激光链接器：专门给激光状态显示器记设备用。
+     *
+     * 【为什么不让遥控器兼任】遥控器已经背着"核心屏绑定反应堆源"和
+     * "自定义屏接外部设备"两套语义，再挂上激光屏就是同一个物品在三块屏上做三件不同的事，
+     * 玩家必然记错（实机反馈"设置 SL 却把核心记进去了"正是这么来的）。
+     */
+    public static final Item LASER_CONNECTOR = new ItemLaserConnector();
     /** 调试棒：蹲下右键任意本模组方块，打开调试界面（显示器可调刷新率） */
     public static final Item DEBUG_STICK = new ItemDebugStick();
 
@@ -43,6 +51,7 @@ public class ModItems {
         JET_SWITCH.setCreativeTab(TAB);
         DFC_REMOTE.setCreativeTab(TAB);
         CONNECTOR.setCreativeTab(TAB);
+        LASER_CONNECTOR.setCreativeTab(TAB);
         DEBUG_STICK.setCreativeTab(TAB);
     }
 
@@ -55,6 +64,7 @@ public class ModItems {
         event.getRegistry().register(JET_SWITCH);
         event.getRegistry().register(DFC_REMOTE);
         event.getRegistry().register(CONNECTOR);
+        event.getRegistry().register(LASER_CONNECTOR);
         event.getRegistry().register(DEBUG_STICK);
     }
 }

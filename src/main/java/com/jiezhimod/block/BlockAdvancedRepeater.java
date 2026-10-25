@@ -209,18 +209,20 @@ public class BlockAdvancedRepeater extends Block {
     }
 
     /**
-     * 朝向 = 玩家视线方向（输出朝他那边）。
+     * 朝向**完全照抄原版** {@code BlockRedstoneDiode}：{@code FACING = 视线反方向}。
      *
-     * 【别照抄原版那行 getOpposite()】原版的 FACING 指"输入侧"，这里反过来定义
-     * （FACING = 输出侧，输入读 FACING.getOpposite()）。两套内部自洽，
-     * 但**只改一半就会整块反掉**：实机验证过现在这套接法能正常读信号，
-     * 所以不要单独去改放置方向或 getWeakPower 的侧别 —— 要改就三条一起改。
+     * 【为什么这里必须和原版一致，不能自创】中继器要和**原版中继器 / 比较器 / 红石粉**
+     * 对接，而"哪一面算输入、哪一面算输出"是原版定死的：
+     * 只要有一处和原版的理解不同，实机表现就是"原版那颗亮着，我这颗怎么都不动"
+     * （v4.2 及之前就是这样：read 输入读的是 FACING 的背面）。
+     * 现在四条（放置 / 读输入 / 给弱充能 / 锁定判据）全部按原版写，模型旋转也是抄原版的
+     * blockstate，所以朝向、模型、信号流向三者天然一致。
      */
     @Override
     public IBlockState getStateForPlacement(World world, BlockPos pos, EnumFacing facing,
                                             float hitX, float hitY, float hitZ, int meta,
                                             EntityLivingBase placer) {
-        return this.getDefaultState().withProperty(FACING, placer.getHorizontalFacing());
+        return this.getDefaultState().withProperty(FACING, placer.getHorizontalFacing().getOpposite());
     }
 
     @Override
@@ -290,12 +292,7 @@ public class BlockAdvancedRepeater extends Block {
         return true;
     }
 
-    /**
-     * 只在**正面**（FACING）给 15 级弱充能。
-     *
-     * 这里的 FACING 是"输出侧"（见 getStateForPlacement 的说明），
-     * 所以正面才是下游。别把它当成原版的"输入侧"去改。
-     */
+    /** 原版口径：{@code side == FACING} 时给 15（见 getStateForPlacement 的说明） */
     @Override
     public int getWeakPower(IBlockState state, IBlockAccess world, BlockPos pos, EnumFacing side) {
         if (!state.getValue(POWERED)) {
@@ -320,8 +317,10 @@ public class BlockAdvancedRepeater extends Block {
     /**
      * 输入侧当前有没有信号（红石粉、中继器、比较器、拉杆……都算）。
      *
-     * 【输入侧 = FACING 的反面，输出 = FACING】本项目把 FACING 定义成"输出侧"
-     * （原版是反过来的）。两边内部自洽即可，关键是**别只改一半**。
+     * 【输入侧 = FACING 那一面】照抄原版 {@code calculateInputStrength}
+     * （{@code pos.offset(FACING)} + {@code getRedstonePower(那个格子, FACING)}）。
+     * 这四个口径（放置 / 读输入 / 给弱充能 / 锁定）必须整套照原版，
+     * 混着写就会变成"原版喂不进信号"——v4.2 的实机问题正是这么来的。
      *
      * 【为什么还要单独补一段红石粉】{@code getRedstonePower} 对红石粉未必返回读数
      * （取决于那根粉有没有朝这个方向连通），原版为此专门加了一条
@@ -329,7 +328,7 @@ public class BlockAdvancedRepeater extends Block {
      */
     public static boolean hasInput(World world, BlockPos pos, IBlockState state) {
         EnumFacing facing = state.getValue(FACING);
-        BlockPos src = pos.offset(facing.getOpposite());
+        BlockPos src = pos.offset(facing);
         int power = world.getRedstonePower(src, facing);
         if (power > 0) {
             return true;

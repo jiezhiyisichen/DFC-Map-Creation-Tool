@@ -71,6 +71,17 @@ public class ClientProxy extends CommonProxy {
             return new com.jiezhimod.client.gui.GuiAdvancedRepeater(p,
                     new com.jiezhimod.block.ContainerAdvancedRepeater(p));
         }
+        if (id == GUI_LASER_SCREEN) {
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TileLaserScreen) {
+                com.jiezhimod.block.TileLaserScreen tile =
+                        (com.jiezhimod.block.TileLaserScreen) te;
+                // 客户端自己造一份同参数的容器：槽位坐标/顺序必须和服务端那份逐一对齐
+                com.jiezhimod.block.ContainerLaserScreen container =
+                        new com.jiezhimod.block.ContainerLaserScreen(player.inventory, tile);
+                return new com.jiezhimod.client.gui.GuiLaserScreen(tile, container);
+            }
+        }
         if (id == GUI_CUSTOM_SCREEN) {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
             if (te instanceof com.jiezhimod.block.TileCustomScreen) {
@@ -139,6 +150,8 @@ public class ClientProxy extends CommonProxy {
             JiezhiMod.warn("Advanced repeater ItemBlock is missing; its item model is not bound.");
         }
         bindItemModel(ModItems.CONNECTOR, "jiezhimod:connector");
+        // 激光链接器（激光状态显示器专用，和遥控器分开）
+        bindItemModel(ModItems.LASER_CONNECTOR, "jiezhimod:laser_connector");
         bindItemModel(ModItems.DEBUG_STICK, "jiezhimod:debug_stick");
         // DFC 自定义显示屏（第三块显示器）
         Item customItem = Item.getItemFromBlock(ModBlocks.DFC_CUSTOM);

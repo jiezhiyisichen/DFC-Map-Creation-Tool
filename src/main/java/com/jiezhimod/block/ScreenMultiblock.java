@@ -137,16 +137,50 @@ public final class ScreenMultiblock {
      * 玩家十有八九点是屏幕正中间，而那一格是占位块 —— 如果只给控制器写交互，
      * "右键开关"在这个最常见的位置上会毫无反应。所以两个方块都转发到这里。
      *
-     * 三条分支：
+     * 四条分支（第 0 条最先判，因为激光屏也是自定义屏的子类）：
+     *   0. 目标是**激光状态显示器** -> 开它自己的面板（{@code GUI_LASER_SCREEN}），
+     *      拿遥控器点它则提示"请用激光链接器"；
      *   1. 手持 DFC 遥控器 + 目标屏是**自定义屏** + **蹲下** -> 把遥控器里记录的设备接进来；
      *   2. 手持 DFC 遥控器 + 其它情况 -> 交给遥控器（核心屏/监视器是"绑定反应堆源"）；
      *   3. 空手（或非遥控器）：自定义屏打开 GUI，核心屏/监视器切换开关。
      *
      * 【为什么自定义屏的"不蹲下右键"要落到 3】它的内容得在 GUI 里编排，
      * 所以"右键打开面板"是它的主操作；绑定设备反而成了次要动作，挪到蹲下。
+     * 激光屏同理，而且它的接入动作（蹲下 + 激光链接器）在
+     * {@code ItemLaserConnector.onItemUse} 里就把事件吃掉了，不会走到这里。
      */
     public static boolean handleUse(World world, BlockPos pos, EntityPlayer player, EnumHand hand) {
         net.minecraft.item.ItemStack held = player.getHeldItem(hand);
+
+        // ---- 0. 激光状态显示器：**它有自己的面板，什么都先让给它** ----
+        //
+        // 【为什么要单独抢在最前面】它也是 TileCustomScreen 的子类，
+        // 落到下面那段就会开成自定义屏那个 8 行面板（v4.2 的实机问题）。
+        // 手里的激光链接器若在"蹲下"状态，onItemUse 已经返回 SUCCESS 把动作吃掉了，
+        // 根本走不到这里；能走到这里只可能是"不蹲下"或拿着别的东西 —— 那就是"开面板"。
+        BlockPos lcp = findController(world, pos);
+        net.minecraft.tileentity.TileEntity lte = lcp == null ? null : world.getTileEntity(lcp);
+        if (lte instanceof TileLaserScreen) {
+            if (world.isRemote) {
+                return true;
+            }
+            if (held != null && held.getItem() instanceof com.jiezhimod.item.ItemDfcRemote) {
+                // 拿着遥控器点激光屏：这块屏不吃遥控器，说清楚该用什么，
+                // 否则玩家会以为"添加没反应"（遥控器记录的是自定义屏那套数据槽语义）。
+                player.sendStatusMessage(new net.minecraft.util.text.TextComponentString(
+                        net.minecraft.util.text.TextFormatting.AQUA + "[jiezhimod] "
+                                + net.minecraft.util.text.TextFormatting.RESET
+                                + net.minecraft.util.text.TextFormatting.YELLOW
+                                + "激光状态显示器要用【激光链接器】接入，遥控器只管核心屏和自定义屏。"),
+                        true);
+                return true;
+            }
+            player.openGui(com.jiezhimod.JiezhiMod.instance,
+                    com.jiezhimod.proxy.CommonProxy.GUI_LASER_SCREEN, world,
+                    lcp.getX(), lcp.getY(), lcp.getZ());
+            return true;
+        }
+
         if (held != null && held.getItem() instanceof com.jiezhimod.item.ItemDfcRemote) {
             BlockPos cp = findController(world, pos);
             boolean custom = cp != null && world.getTileEntity(cp) instanceof TileCustomScreen;

@@ -51,8 +51,7 @@ public class TileLaserScreen extends TileCustomScreen {
      * @return 实际新增条数（0 = 满了 / 已经加过 / 不是可读设备）
      */
     @Override
-    public int addDevice(TileEntity te) {
-        if (te == null) {
+    public int addDevice(TileEntity te) {        if (te == null) {
             return 0;
         }
         TileEntity dev = DfcBridge.resolveProxy(te);
@@ -77,6 +76,50 @@ public class TileLaserScreen extends TileCustomScreen {
         slots.add(new DfcWatch(p.getX(), p.getY(), p.getZ(), dim, DfcWatch.KIND_NONE, 0));
         this.markDirty();
         return 1;
+    }
+
+    /**
+     * 从**激光链接器**里把记录到的设备接进来（覆盖父类的遥控器版本）。
+     *
+     * 【为什么必须覆盖】父类读的是 {@code ItemDfcRemote} 的 NBT 键（{@code DfcDevCount} 等）。
+     * 激光屏只认激光链接器，两者是不同的物品、不同的键 —— 不覆盖的话
+     * GUI 里点「添加」永远读不到东西（链接器里明明记了 3 台，界面毫无反应）。
+     *
+     * @return {新接入台数, 跳过台数（满了/已接过）, 失联台数（换维度/机器没了）}
+     */
+    @Override
+    public int[] importDevices(net.minecraft.item.ItemStack stack) {
+        int added = 0;
+        int skipped = 0;
+        int missing = 0;
+        if (this.world == null) {
+            return new int[]{0, 0, 0};
+        }
+        int dim = this.world.provider.getDimension();
+        int n = com.jiezhimod.item.ItemLaserConnector.deviceCount(stack);
+        for (int i = 0; i < n; i++) {
+            net.minecraft.util.math.BlockPos dp =
+                    com.jiezhimod.item.ItemLaserConnector.deviceAt(stack, i);
+            if (dp == null) {
+                continue;
+            }
+            if (com.jiezhimod.item.ItemLaserConnector.deviceDim(stack, i) != dim) {
+                missing++;
+                continue;
+            }
+            // 记录时存的是设备自己的坐标；万一那台机器后来被换成外壳块，这里再代理解一次链
+            TileEntity dev = DfcBridge.resolveProxy(this.world.getTileEntity(dp));
+            if (DfcBridge.laserKind(dev) == LaserInfo.KIND_NONE) {
+                missing++;
+                continue;
+            }
+            if (addDevice(dev) == 0) {
+                skipped++;   // 满了，或者这台已经接过了
+            } else {
+                added++;
+            }
+        }
+        return new int[]{added, skipped, missing};
     }
 
     /**

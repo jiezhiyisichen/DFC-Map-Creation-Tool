@@ -9,6 +9,7 @@ tile.dfc_monitor.name=DFC Component Monitor
 tile.dfc_custom.name=DFC Custom Display
 tile.dfc_graph.name=DFC Graph Display
 item.dfc_remote.name=DFC Remote
+item.laser_connector.name=Laser Connector
 itemGroup.jiezhimod_screen=DFC Screens
 
 itemGroup.jiezhimod_redstone=jiezhimod-Redstone
@@ -193,4 +194,26 @@ tooltip.jiezhimod.dfc_laser.1=Up to %s lasers per screen, one cell each (icon + 
 tooltip.jiezhimod.dfc_laser.2=Works with stabilizers (SL), emitters (PL), receivers (OL), injectors, and other DFC laser parts
 tooltip.jiezhimod.dfc_laser.3=Right-click for the panel: drop a DFC remote into the slot and press Add; an active laser draws its beam
 tooltip.jiezhimod.dfc_laser.4=Low cryogel or a nearly burnt lens shows a warning triangle and a banner at the bottom
+tooltip.jiezhimod.laser_connector.0=Recording tool for the Laser Status Display only
+tooltip.jiezhimod.laser_connector.1=Sneak + right-click a laser part (stabilizer / emitter / receiver / injector) = record
+tooltip.jiezhimod.laser_connector.2=Right-click the laser screen, put it in the slot, press Add
+tooltip.jiezhimod.laser_connector.3=Recorded: %s / %s
+tooltip.jiezhimod.laser_connector.4=Sneak + right-click air = clear all records
 gui.jiezhimod.laser.title=DFC Laser Status Display
+gui.jiezhimod.laser.power.on=Power on
+gui.jiezhimod.laser.power.off=Power off
+gui.jiezhimod.laser.state.on=State: on
+gui.jiezhimod.laser.state.off=State: off
+gui.jiezhimod.laser.delete=Del
+gui.jiezhimod.laser.clear=Clear
+gui.jiezhimod.laser.close=Close
+gui.jiezhimod.laser.add=Add
+gui.jiezhimod.laser.add.hint=Put the Laser Connector in the slot
+gui.jiezhimod.laser.connector=Laser Connector
+gui.jiezhimod.laser.connector.empty=empty
+gui.jiezhimod.laser.connector.count=%s / %s recorded
+gui.jiezhimod.laser.count=%s of %s lasers
+gui.jiezhimod.laser.empty=(empty)
+gui.jiezhimod.laser.empty.hint=Hook up a laser with the Laser Connector
+gui.jiezhimod.laser.offline=offline
+gui.jiezhimod.laser.hint=Sneak + right-click a laser part to record it, then put the connector in the slot and press Add (max %s)

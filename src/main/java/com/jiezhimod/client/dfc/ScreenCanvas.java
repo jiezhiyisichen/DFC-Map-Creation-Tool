@@ -2155,9 +2155,9 @@ public final class ScreenCanvas {
         if (n == 0) {
             // 三步都写出来：实机反馈过"加了却什么都没出现"，多半是第①步没做
             textCenter("尚未添加激光", 64, TXT_DIM, fCjk(15));
-            textCenter("① 手持 DFC 遥控器 蹲下右键 激光设备", 99, TXT_DIM, fCjk(9));
+            textCenter("① 手持【激光链接器】蹲下右键 激光设备", 99, TXT_DIM, fCjk(9));
             textCenter("（稳定器 / 发射器 / 接收器 / 燃料喷射器）", 113, TXT_DIM, fCjk(9));
-            textCenter("② 右键本屏 → 把遥控器放进槽位 → 点「添加」", 133, TXT_DIM, fCjk(9));
+            textCenter("② 右键本屏 → 把链接器放进槽位 → 点「添加」", 133, TXT_DIM, fCjk(9));
             textCenter("一块屏最多 " + LaserLayout.SLOTS + " 台", 152, 0xFF3E586B, fCjk(8));
             return;
         }

@@ -128,6 +128,30 @@ public class MessageCustomScreenAction implements IMessage {
          * 这也是这套"只发操作不发数据"的一贯做法。
          */
         private static void importFromRemote(EntityPlayerMP player, TileCustomScreen screen) {
+            // ---- 激光状态显示器：面板是独立的 ContainerLaserScreen，槽里是激光链接器 ----
+            //
+            // 【为什么要分开判】两块屏的"添加"走同一个动作编号（界面逻辑一模一样），
+            // 但槽里的物品、导入实现、提示措辞都不同。这里按**玩家实际开着的容器**分流，
+            // 而不是按屏幕类型猜 —— 客户端伪造不了它没持有的物品。
+            if (player.openContainer instanceof com.jiezhimod.block.ContainerLaserScreen) {
+                com.jiezhimod.block.ContainerLaserScreen lc =
+                        (com.jiezhimod.block.ContainerLaserScreen) player.openContainer;
+                if (lc.getTile() != screen) {
+                    return;
+                }
+                ItemStack conn = lc.getConnectorStack();
+                if (conn.isEmpty() || !(conn.getItem() instanceof com.jiezhimod.item.ItemLaserConnector)) {
+                    return;
+                }
+                int[] lr = screen.importDevices(conn);
+                screen.refresh();
+                player.sendStatusMessage(new TextComponentString(
+                        TextFormatting.AQUA + "[jiezhimod] " + TextFormatting.RESET
+                                + com.jiezhimod.item.ItemLaserConnector.summarize(
+                                        lr, screen.getSlots().size())), false);
+                return;
+            }
+
             if (!(player.openContainer instanceof ContainerCustomScreen)) {
                 return;
             }

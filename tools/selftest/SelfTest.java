@@ -144,6 +144,7 @@ public class SelfTest {
         testAdvancedRepeater();
         testLabelLayout();
         testLaserDisplay();
+        testLaserScreenGuiLayout();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -3579,6 +3580,111 @@ public class SelfTest {
             }
         }
         return true;
+    }
+
+    // =====================================================================
+    // 激光状态显示器：独立面板的版面（v4.3 重写）
+    // =====================================================================
+    /**
+     * 这块面板是**为激光屏单独写的一份**（不再套自定义屏的 8 行面板）。
+     *
+     * 钉住四件事：
+     *   1. 行数 = {@link LaserLayout#SLOTS}（实机反馈"为什么是 8 条"就是套用了自定义屏）；
+     *   2. 左区所有控件都在左区里，右区列表一行都不许越到左区/面板外；
+     *   3. 提示区在玩家背包上方结束（旧版面被按钮盖掉半个字）；
+     *   4. 面板不超过 1.12.2 保证的 320×240 逻辑分辨率。
+     */
+    private static void testLaserScreenGuiLayout() {
+        section("laser screen GUI layout (own panel, 4 rows)");
+
+        final int W = com.jiezhimod.block.ContainerLaserScreen.PANEL_W;
+        final int H = com.jiezhimod.block.ContainerLaserScreen.PANEL_H;
+        final int M = com.jiezhimod.block.ContainerLaserScreen.MARGIN;
+        final int slot = 18;
+
+        final int listX = com.jiezhimod.block.ContainerLaserScreen.LIST_X;
+        final int listTop = com.jiezhimod.block.ContainerLaserScreen.LIST_TOP;
+        final int rowH = com.jiezhimod.block.ContainerLaserScreen.ROW_H;
+        final int delW = com.jiezhimod.block.ContainerLaserScreen.DEL_W;
+        final int delH = com.jiezhimod.block.ContainerLaserScreen.DEL_H;
+        final int delDy = com.jiezhimod.block.ContainerLaserScreen.DEL_DY;
+        final int hintY = com.jiezhimod.block.ContainerLaserScreen.HINT_Y;
+        final int invY = com.jiezhimod.block.ContainerLaserScreen.INV_Y;
+        final int hotY = com.jiezhimod.block.ContainerLaserScreen.HOTBAR_Y;
+        final int rows = com.jiezhimod.dfc.LaserLayout.SLOTS;
+
+        final int powerX = com.jiezhimod.block.ContainerLaserScreen.POWER_X;
+        final int powerY = com.jiezhimod.block.ContainerLaserScreen.POWER_Y;
+        final int powerW = com.jiezhimod.block.ContainerLaserScreen.POWER_W;
+        final int stateY = com.jiezhimod.block.ContainerLaserScreen.STATE_Y;
+        final int lsx = com.jiezhimod.block.ContainerLaserScreen.LINK_SLOT_X;
+        final int lsy = com.jiezhimod.block.ContainerLaserScreen.LINK_SLOT_Y;
+        final int llx = com.jiezhimod.block.ContainerLaserScreen.LINK_LABEL_X;
+        final int lly = com.jiezhimod.block.ContainerLaserScreen.LINK_LABEL_Y;
+        final int lcy = com.jiezhimod.block.ContainerLaserScreen.LINK_COUNT_Y;
+        final int addX = com.jiezhimod.block.ContainerLaserScreen.ADD_BTN_X;
+        final int addY = com.jiezhimod.block.ContainerLaserScreen.ADD_BTN_Y;
+        final int addW = com.jiezhimod.block.ContainerLaserScreen.ADD_BTN_W;
+        final int ahy = com.jiezhimod.block.ContainerLaserScreen.ADD_HINT_Y;
+        final int cntY = com.jiezhimod.block.ContainerLaserScreen.COUNT_Y;
+        final int clearX = com.jiezhimod.block.ContainerLaserScreen.CLEAR_X;
+        final int clearY = com.jiezhimod.block.ContainerLaserScreen.CLEAR_Y;
+        final int clearW = com.jiezhimod.block.ContainerLaserScreen.CLEAR_W;
+        final int closeX = com.jiezhimod.block.ContainerLaserScreen.CLOSE_X;
+        final int closeW = com.jiezhimod.block.ContainerLaserScreen.CLOSE_W;
+
+        /** 左区的右边界（右区列表从这里开始） */
+        final int leftRight = listX - 4;
+        final int delX = W - M - delW;
+
+        // ---------- 0. 行数必须是 4 ----------
+        check("行数：一块屏就是 4 行（实机反馈\"为什么是 8 条\"）", rows == 4);
+        check("行数：面板行数与 LaserLayout.SLOTS 是同一个数", rows == 4 && rowH >= 24);
+
+        // ---------- 1. 面板硬上限 ----------
+        check("版面：PANEL_H <= 240（GuiContainer 不为超屏做处理）", H <= 240);
+        check("版面：PANEL_W <= 312（6 倍 GUI 缩放下逻辑宽只有约 319）", W <= 312);
+
+        // ---------- 2. 左区 ----------
+        check("左区：关机按钮在左区内", powerX >= M && powerX + powerW <= leftRight
+                && powerY + 16 <= H);
+        check("左区：状态文字在关机按钮下方且不压链接器槽",
+                stateY >= powerY + 16 && stateY + 8 <= lsy);
+        check("左区：链接器槽完整落在左区内", lsx >= M && lsx + slot <= leftRight
+                && lsy + slot <= H);
+        check("左区：链接器标签在槽右侧、纵向落在槽内",
+                llx >= lsx + slot && lly >= lsy && lly + 8 <= lsy + slot);
+        check("左区：已记录台数在标签下方、在「添加」按钮上方",
+                lcy >= lly + 9 && lcy + 8 <= addY);
+        check("左区：标签 + 台数不越出左区",
+                llx + textW("已记录 4 / 4 台") <= leftRight);
+        check("左区：链接器槽在添加按钮上方", lsy + slot <= addY);
+        check("左区：添加按钮在左区内", addX >= M && addX + addW <= leftRight
+                && addY + 16 <= H);
+        check("左区：添加提示不压按钮、不越出左区",
+                ahy >= addY + 16 && addX + textW("把激光链接器放进槽位") <= leftRight);
+        check("左区：「已接入 n/4」在提示下方、在按钮行上方",
+                cntY >= ahy + 8 && cntY + 8 <= clearY);
+        check("左区：清空 / 关闭两个按钮不重叠、都在左区内、都在提示上方",
+                clearX >= M && clearX + clearW <= closeX && closeX + closeW <= leftRight
+                        && clearY + 16 <= hintY);
+
+        // ---------- 3. 右区：4 行 ----------
+        check("右区：列表从第 1 行起算，4 行结束后给提示区留出位置",
+                listTop >= M + 4 && listTop + rows * rowH <= hintY);
+        check("右区：「删除」按钮在面板内", delX + delW <= W - M);
+        check("右区：列表文字区至少有 60px（否则类型名会被裁成半个字）",
+                delX - listX >= 60);
+        check("右区：行内「删除」按钮不越到下一行", delDy + delH <= rowH);
+        check("右区：行内两条字 + 数据条（2 + 9 + 9 = 20）在行高内",
+                rowH >= 20);
+
+        // ---------- 4. 底部 ----------
+        check("底部：提示最多 2 行，必须在玩家背包上方结束", hintY + 2 * 9 <= invY);
+        check("底部：背包 3 行 + 快捷栏都在面板内",
+                invY + 3 * 18 <= hotY && hotY + 18 <= H);
+        check("底部：背包水平居中", com.jiezhimod.block.ContainerLaserScreen.INV_X > 0
+                && com.jiezhimod.block.ContainerLaserScreen.INV_X + 9 * 18 <= W);
     }
 
     /** 2×2 的四个格子不许压在一起 */

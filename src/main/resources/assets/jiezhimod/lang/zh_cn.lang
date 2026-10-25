@@ -9,6 +9,7 @@ tile.dfc_monitor.name=DFC 部件监视器
 tile.dfc_custom.name=DFC 自定义显示屏
 tile.dfc_graph.name=DFC 曲线显示器
 item.dfc_remote.name=DFC 遥控器
+item.laser_connector.name=激光链接器
 itemGroup.jiezhimod_screen=DFC显示器
 
 itemGroup.jiezhimod_redstone=jiezhimod-红石
@@ -191,6 +192,28 @@ tile.dfc_laser.name=DFC 激光状态显示器
 tooltip.jiezhimod.dfc_laser.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
 tooltip.jiezhimod.dfc_laser.1=一块屏最多 %s 台激光，每台一个格子（小图 + 五行读数 + 数据条）
 tooltip.jiezhimod.dfc_laser.2=支持稳定器 SL / 发射器 PL / 接收器 OL / 燃料喷射器，其余 DFC 激光部件也能接
-tooltip.jiezhimod.dfc_laser.3=右键打开面板：把 DFC 遥控器放进槽位 → 点「添加」；开启时小图上会射出光束
+tooltip.jiezhimod.dfc_laser.3=右键打开面板：把【激光链接器】放进槽位 → 点「添加」（用遥控器记设备会被拒）
 tooltip.jiezhimod.dfc_laser.4=冷凝胶不足或透镜快烧了会在图上打三角，并在底部弹出告警
+tooltip.jiezhimod.laser_connector.0=只给【激光状态显示器】用的记录工具
+tooltip.jiezhimod.laser_connector.1=蹲下右键激光部件（稳定器 / 发射器 / 接收器 / 喷射器）= 记录
+tooltip.jiezhimod.laser_connector.2=右键激光屏打开面板 → 放进槽位 → 点「添加」
+tooltip.jiezhimod.laser_connector.3=已记录：%s / %s 台
+tooltip.jiezhimod.laser_connector.4=蹲下右键空气 = 清空全部记录
 gui.jiezhimod.laser.title=DFC 激光状态显示器
+gui.jiezhimod.laser.power.on=开机
+gui.jiezhimod.laser.power.off=关机
+gui.jiezhimod.laser.state.on=当前：已开机
+gui.jiezhimod.laser.state.off=当前：已关机
+gui.jiezhimod.laser.delete=删除
+gui.jiezhimod.laser.clear=清空
+gui.jiezhimod.laser.close=关闭
+gui.jiezhimod.laser.add=添加
+gui.jiezhimod.laser.add.hint=把激光链接器放进槽位
+gui.jiezhimod.laser.connector=激光链接器
+gui.jiezhimod.laser.connector.empty=空
+gui.jiezhimod.laser.connector.count=已记录 %s / %s 台
+gui.jiezhimod.laser.count=已接入 %s 台 / 最多 %s 台
+gui.jiezhimod.laser.empty=（空）
+gui.jiezhimod.laser.empty.hint=用激光链接器接入一台激光
+gui.jiezhimod.laser.offline=离线
+gui.jiezhimod.laser.hint=蹲下右键激光部件记录 → 把链接器放进槽位点「添加」；最多 %s 台，一行一台，行首是类型短名

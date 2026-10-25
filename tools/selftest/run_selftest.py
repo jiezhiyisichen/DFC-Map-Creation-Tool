@@ -238,6 +238,9 @@ def main():
         "assets/jiezhimod/blockstates/dfc_laser.json",
         "assets/jiezhimod/models/item/dfc_laser.json",
         "assets/jiezhimod/textures/items/dfc_laser.png",
+        # 激光链接器（激光屏专用，v4.3 起不再借遥控器）：模型 / 贴图缺一个就是紫黑格
+        "assets/jiezhimod/models/item/laser_connector.json",
+        "assets/jiezhimod/textures/items/laser_connector.png",
         # GUI 纯色填充用的白纹理。缺了它 GuiDraw 绑不上纹理，
         # 所有自绘面板/格子/进度条都会变成紫黑（或直接看不见）
         "assets/jiezhimod/textures/gui/white.png",
@@ -289,6 +292,7 @@ def main():
         "blockstates/dfc_label.json",
         "models/item/dfc_laser.json",
         "blockstates/dfc_laser.json",
+        "models/item/laser_connector.json",
         "models/block/dfc_screen_empty.json",
         "models/item/jetpack.json",
         "models/item/jet_switch.json",
@@ -403,6 +407,15 @@ def main():
         "tile.dfc_laser.name",
         "tooltip.jiezhimod.dfc_laser.0",
         "tooltip.jiezhimod.dfc_laser.4",
+        # ---- v4.3：激光链接器 + 激光屏独立面板 ----
+        "item.laser_connector.name",
+        "tooltip.jiezhimod.laser_connector.0",
+        "tooltip.jiezhimod.laser_connector.4",
+        "gui.jiezhimod.laser.add",
+        "gui.jiezhimod.laser.connector",
+        "gui.jiezhimod.laser.empty",
+        "gui.jiezhimod.laser.offline",
+        "gui.jiezhimod.laser.hint",
     ]
     for lang in ("en_us", "zh_cn"):
         path = os.path.join(ROOT, "src", "main", "resources", "assets", "jiezhimod", "lang", lang + ".lang")
@@ -432,6 +445,76 @@ def main():
         print("      MISSING resources in jar: %s" % missing)
         return 1
     print("      all %d required resources packaged" % len(required))
+
+    # ---- v4.3：激光屏独立面板 / 激光链接器 / 中继器朝向 的源码哨兵 ----------
+    # 【为什么要在源码层面再钉一遍】这三件事的共同点是"编译能过、运行不报错、
+    # 但功能就是没有"：
+    #   · 激光屏若又落回 GUI_CUSTOM_SCREEN，界面就变回自定义屏那个 8 行面板；
+    #   · 激光屏若继续读遥控器的 NBT 键，「添加」永远读不到东西；
+    #   · 中继器的 FACING 语义只要有一处和原版不一致，实机就是"喂不进信号/不输出"。
+    def _src(rel):
+        with io.open(os.path.join(java_src_probe, rel), encoding="utf-8") as fh:
+            return fh.read()
+
+    java_src_probe = os.path.join(ROOT, "src", "main", "java")
+    multiblock = _src("com/jiezhimod/block/ScreenMultiblock.java")
+    # 激光屏是 TileCustomScreen 的子类，必须**先**判它，后判自定义屏
+    i_laser = multiblock.find("instanceof TileLaserScreen")
+    i_custom = multiblock.find("instanceof TileCustomScreen")
+    if i_laser < 0 or i_custom < 0 or i_laser > i_custom:
+        print("      ScreenMultiblock: 必须先判 TileLaserScreen 再判 TileCustomScreen"
+              "（否则激光屏会开成自定义屏那个 8 行面板）")
+        return 1
+    if "GUI_LASER_SCREEN" not in multiblock:
+        print("      ScreenMultiblock: 右键激光屏没有打开 GUI_LASER_SCREEN")
+        return 1
+
+    for proxy in ("com/jiezhimod/proxy/CommonProxy.java", "com/jiezhimod/proxy/ClientProxy.java"):
+        body = _src(proxy)
+        if "GUI_LASER_SCREEN" not in body:
+            print("      %s: 没有处理 GUI_LASER_SCREEN（界面打不开）" % proxy)
+            return 1
+    if "ContainerLaserScreen" not in _src("com/jiezhimod/proxy/CommonProxy.java"):
+        print("      CommonProxy: GUI_LASER_SCREEN 没有对应的容器（客户端开不出界面）")
+        return 1
+    if "GuiLaserScreen" not in _src("com/jiezhimod/proxy/ClientProxy.java"):
+        print("      ClientProxy: GUI_LASER_SCREEN 没有对应的 GUI")
+        return 1
+
+    # 激光屏必须覆盖 importDevices（父类读的是遥控器的键，读链接器读不到）
+    laser_tile = _src("com/jiezhimod/block/TileLaserScreen.java")
+    if "int[] importDevices(" not in laser_tile:
+        print("      TileLaserScreen 没覆盖 importDevices：点「添加」永远接不进设备")
+        return 1
+    if "ItemLaserConnector" not in laser_tile:
+        print("      TileLaserScreen.importDevices 没有读激光链接器")
+        return 1
+
+    # 面板行数：界面必须按 LaserLayout.SLOTS 画，不许再用 DfcWatch.MAX 那个 8
+    gui_laser = _src("com/jiezhimod/client/gui/GuiLaserScreen.java")
+    if "LaserLayout.SLOTS" not in gui_laser:
+        print("      GuiLaserScreen: 行数没有走 LaserLayout.SLOTS（会又画成 8 行）")
+        return 1
+    if "DfcWatch.MAX" in gui_laser:
+        print("      GuiLaserScreen: 还在用 DfcWatch.MAX（8 条）当行数")
+        return 1
+
+    # 中继器：四条口径必须整套照原版（混着写就是"不输出信号"）
+    repeater = _src("com/jiezhimod/block/BlockAdvancedRepeater.java")
+    if "getHorizontalFacing().getOpposite()" not in repeater:
+        print("      BlockAdvancedRepeater: 放置朝向不是原版的 getOpposite()")
+        return 1
+    if "BlockPos src = pos.offset(facing);" not in repeater:
+        print("      BlockAdvancedRepeater: hasInput 读的不是 FACING 那一面"
+              "（输入/输出会同侧 = 永远不输出）")
+        return 1
+    if "pos.offset(facing.getOpposite())" in repeater:
+        print("      BlockAdvancedRepeater: hasInput 又改回读 FACING 的反面了")
+        return 1
+    if "state.getValue(FACING) == side ? 15 : 0" not in repeater:
+        print("      BlockAdvancedRepeater: getWeakPower 的侧别不是原版口径")
+        return 1
+    print("      激光屏独立面板 / 激光链接器 / 中继器朝向：源码哨兵全部命中")
 
     # ---- 方块实体注册自检 -------------------------------------------------
     # TileEntity.writeToNBT 内部会做 REGISTRY.getNameForObject(this.getClass())，
@@ -797,6 +880,17 @@ def main():
         # 每次进存档都变回出厂值，且不报任何错。
         ("com/jiezhimod/block/TileLabelScreen.class",
          ["func_145839_a", "func_189515_b"]),
+        # 激光状态屏的独立面板（v4.3）：三个入口任一被改名，
+        # 右键就是"开了个空面板/按钮不响应"，和 3.9.2 的控制台一模一样。
+        ("com/jiezhimod/client/gui/GuiLaserScreen.class",
+         ["func_73866_w_", "func_146976_a", "func_146284_a"]),
+        # 容器的关闭 / 转移 / 交互判定：关界面要把激光链接器还给玩家，
+        # 这三个被改名就会出现"链接器卡在屏里拿不回来"。
+        ("com/jiezhimod/block/ContainerLaserScreen.class",
+         ["func_75145_c", "func_75134_a", "func_82846_b"]),
+        # 激光链接器物品：onItemUse 被改名 = 蹲下右键记不了设备，且不报错
+        ("com/jiezhimod/item/ItemLaserConnector.class",
+         ["func_180614_a", "func_77659_a", "func_77624_a"]),
     ]
     with zipfile.ZipFile(FINAL_JAR) as z:
         jar_names = set(z.namelist())

@@ -24,6 +24,14 @@ public class CommonProxy implements IGuiHandler {
     public static final int GUI_DEBUG = 3;
     /** 高级红石中继器的延迟设置界面（右键方块打开） */
     public static final int GUI_ADVANCED_REPEATER = 4;
+    /**
+     * 激光状态显示器的面板（右键方块打开）。
+     *
+     * 【为什么不能和 {@link #GUI_CUSTOM_SCREEN} 共用一个号】两者的容器不一样：
+     * 自定义屏是 8 条数据槽 + 遥控器，激光屏是 4 台激光 + 激光链接器。
+     * 共用编号就只能开成同一个界面（v4.2 就是这样，于是激光屏一开就是 8 行）。
+     */
+    public static final int GUI_LASER_SCREEN = 5;
 
     public void preInit() {
         // 服务端/通用侧无需注册客户端渲染事件
@@ -53,6 +61,16 @@ public class CommonProxy implements IGuiHandler {
         if (id == GUI_ADVANCED_REPEATER) {
             // 纯配置界面，没有物品槽；但服务端必须给出容器，否则客户端开不出界面
             return new com.jiezhimod.block.ContainerAdvancedRepeater(new BlockPos(x, y, z));
+        }
+        if (id == GUI_LASER_SCREEN) {
+            // 激光屏的面板是**独立的一份**（4 台激光 + 激光链接器槽），
+            // 不能再落回自定义屏那个容器，否则又变回 8 行。
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TileLaserScreen) {
+                return new com.jiezhimod.block.ContainerLaserScreen(
+                        player.inventory, (com.jiezhimod.block.TileLaserScreen) te);
+            }
+            return null;
         }
         if (id == GUI_CUSTOM_SCREEN) {
             // 容器现在要拿着方块实体（遥控器槽 / 导入 / 距离判定都要用）。
