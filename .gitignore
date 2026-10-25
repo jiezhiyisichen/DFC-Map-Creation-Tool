@@ -77,3 +77,7 @@ Thumbs.db
 desktop.ini
 *.bak
 *.tmp
+
+# 构建日志（不跟踪）
+build_log.txt
+proguard_log.txt
