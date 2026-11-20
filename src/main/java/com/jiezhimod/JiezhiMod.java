@@ -23,7 +23,7 @@ public class JiezhiMod
 {
     public static final String MODID = "jiezhimod";
     public static final String NAME = "JiezhiMod";
-    public static final String VERSION = "4.3";
+    public static final String VERSION = "5.4.9";
 
     @Instance(MODID)
     public static JiezhiMod instance;
@@ -105,6 +105,19 @@ public class JiezhiMod
         // 老规矩**按具体类**注册，漏了就"missing a mapping!"，存档一读就炸。
         GameRegistry.registerTileEntity(com.jiezhimod.block.TileAdvancedRepeater.class,
                 new ResourceLocation(MODID, "advanced_repeater"));
+        // 灯圈 / 灯圈控制台（v4.4）。老规矩**按具体类**注册：漏了就是
+        // "missing a mapping!" —— 灯的颜色 / 亮灭与控制台的绑定全部丢光。
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileLightRing.class,
+                new ResourceLocation(MODID, "light_ring"));
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileRingConsole.class,
+                new ResourceLocation(MODID, "ring_console"));
+        // 旋转警示灯 / 警示灯控制台（v4.5）。**必须按具体类注册**：
+        // 漏了就是 "missing a mapping!" —— 颜色 / 转速 / 成员表全部读不回来，
+        // 而且 autotest 的 UNREGISTERED 检查会直接报出来。
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileAlarmLight.class,
+                new ResourceLocation(MODID, "alarm_light"));
+        GameRegistry.registerTileEntity(com.jiezhimod.block.TileAlarmConsole.class,
+                new ResourceLocation(MODID, "alarm_console"));
         NetworkRegistry.INSTANCE.registerGuiHandler(instance, proxy);
         // 服务端倒计时管理（ServerTick/PlayerLoggedIn 仅在服务端与集成服务器触发）
         MinecraftForge.EVENT_BUS.register(new ServerCountdownManager());
