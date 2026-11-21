@@ -2,6 +2,7 @@ package com.jiezhimod.block;
 
 import com.jiezhimod.dfc.LabelLayout;
 import com.jiezhimod.dfc.ScreenStructure;
+import net.minecraft.block.state.IBlockState;
 import net.minecraft.client.resources.I18n;
 import net.minecraft.client.util.ITooltipFlag;
 import net.minecraft.item.Item;
@@ -36,6 +37,20 @@ public class BlockDfcLabel extends BlockDfcScreen {
     public BlockDfcLabel() {
         // 注册名只能在父类构造期一次定下（二次 setRegistryName 会抛异常 = 加载即崩）
         super("dfc_label", "dfc_label");
+    }
+
+    /**
+     * ★★ 必须是 `createTileEntity`（Forge 实际调用的那一个）。
+     *
+     * <p>【同一个坑踩了两次】父类 {@link BlockDfcScreen} 覆写了
+     * {@code createTileEntity} 并直接返回 {@link TileDfcScreen}；这里原来只覆写了
+     * {@code createNewTileEntity} —— 那是 `BlockContainer` 默认实现内部才调的，
+     * 父类已经把入口换掉了，所以它**永远不会被调用**。
+     * 结果：每一块标注显示器背后都是 `TileDfcScreen`，7 个指标配置根本没被读写。</p>
+     */
+    @Override
+    public TileEntity createTileEntity(World world, IBlockState state) {
+        return new TileLabelScreen();
     }
 
     @Override

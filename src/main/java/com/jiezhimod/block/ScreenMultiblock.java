@@ -160,6 +160,17 @@ public final class ScreenMultiblock {
         // 根本走不到这里；能走到这里只可能是"不蹲下"或拿着别的东西 —— 那就是"开面板"。
         BlockPos lcp = findController(world, pos);
         net.minecraft.tileentity.TileEntity lte = lcp == null ? null : world.getTileEntity(lcp);
+        // 【判据优先看**方块**】激光屏的方块实体本该是 TileLaserScreen；旧存档里它是
+        // TileCustomScreen（4.4 之前的 createTileEntity 坑，见 TileCustomScreen#healLaserTile）。
+        // 这里先按方块认出"这是激光屏"，再把方块实体就地换成正确的类 ——
+        // 不然玩家一点就掉进自定义屏那 8 行面板，链接器永远放不进去。
+        if (!world.isRemote && lcp != null
+                && world.getBlockState(lcp).getBlock() instanceof BlockDfcLaser
+                && !(lte instanceof TileLaserScreen)) {
+            if (lte instanceof TileDfcScreen && ((TileDfcScreen) lte).healScreenTile()) {
+                lte = world.getTileEntity(lcp);
+            }
+        }
         if (lte instanceof TileLaserScreen) {
             if (world.isRemote) {
                 return true;

@@ -1,5 +1,6 @@
 package com.jiezhimod.client.render;
 
+import com.jiezhimod.JiezhiMod;
 import com.jiezhimod.block.BlockAlarmLight;
 import com.jiezhimod.block.TileAlarmLight;
 import net.minecraft.block.state.IBlockState;
@@ -73,6 +74,9 @@ public class RenderAlarmLight extends TileEntitySpecialRenderer<TileAlarmLight> 
 
     /** 墙面平面内的"向下"切向：{@code V = (0,-1,0)}，挂壁画圆的下垂基准 */
     private static final Vec3d WALL_DOWN = new Vec3d(0.0D, -1.0D, 0.0D);
+
+    /** v5.5.9 排查日志：挂壁方向日志的节流计数（每 10 次调用打一行） */
+    private static int wallLogCount;
 
     /**
      * 吊装（{@link LightType#CEILING}）光束的径向倾斜量 —— <b>必须是 0</b>。
@@ -299,8 +303,7 @@ public class RenderAlarmLight extends TileEntitySpecialRenderer<TileAlarmLight> 
         return u.scale(Math.cos(spin)).add(v.scale(Math.sin(spin)));
     }
 
-    /** 取一个向量的水平分量并单位化；退化时兜底 {@code (0,0,1)} */
-    private static Vec3d horizontal(Vec3d v) {
+    /** 取一个向量的水平分量并单位化；退化时兜底 {@code (0,0,1)} */    private static Vec3d horizontal(Vec3d v) {
         Vec3d flat = new Vec3d(v.x, 0.0D, v.z);
         double len = flat.lengthVector();
         if (len < 1.0E-6D) {
@@ -329,9 +332,9 @@ public class RenderAlarmLight extends TileEntitySpecialRenderer<TileAlarmLight> 
      * <ul>
      *   <li><b>FLOOR</b>：径向扫描 + {@link #BEAM_PITCH} 抬离 + {@link #BEAM_DROP} 下压；</li>
      *   <li><b>CEILING</b>：<b>严格垂直向下</b>（{@code axis}），零横向扫描；</li>
-     *   <li><b>WALL</b>：<b>单束完整贴墙圆环 + 下移</b> ——
-     *       {@code normalize(T·(R·cos) + V·(yOffset + R·sin) − n·SEEP)}，
-     *       半径 {@code 0.5}、圆心下移 {@code 1.0}、掠射角 {@code 0.2}。</li>
+     *   <li><b>WALL</b>：<b>单束完整贴墙圆环</b>（v5.5.9 回滚 5.4.8 公式）——
+     *       {@code normalize(T·(R·cos) + V·(R·sin) − n·SEEP)}，圆心在灯口水平面上，
+     *       sin 自然在 ±R 摆动 ⇒ 光斑有上有下。radius {@code 0.5}、SEEP {@code 0.2}。</li>
      * </ul>
      *
      * @param axis     灯口朝外的单位向量（{@code FACING}）
@@ -344,17 +347,41 @@ public class RenderAlarmLight extends TileEntitySpecialRenderer<TileAlarmLight> 
         Vec3d radial = radialUnit(u, v, angleDeg);
         switch (type) {
             case WALL: {
-                // ★★★ v5.4.9：完整贴墙圆环 + 光斑中心下移 1 格。
-                //   cos/sin 公式结构不动，只把圆心加 yOffset 下移，V = WALL_DOWN = (0,-1,0)。
+                // ★★★ v5.5.9：回滚到 5.4.8 的完美全圆公式 —— 完全取消 yOffset。
+                //
+                //   dir = normalize(T·(R·cos) + V·(R·sin) − n·SEEP)，V = WALL_DOWN = (0,-1,0)。
+                //   sin 自然在 ±R 之间摆动 ⇒ 圆心在灯口水平面上，光斑有上有下。
+                //   ★ v5.5.7 的教训： yOffset(0.75)/D(1.5) 的有效圆心 = 0.5（灯下），
+                //     dir.y 恒为负 ⇒ 光束永远朝下 ⇒ 光斑只在下半圆、完全没有向上扫。
+                //     只有圆心回到灯口（无 yOffset），dir.y 才能取到正值。
+                //   ★ SEEP = 0.2 是法线分量（投影深度）：越小光斑越大（有效半径 ≈ R/SEEP = 2.5 格）、
+                //     扫得越远；越大光斑越小越贴灯。别写 ≥ 0.5（贴脸）、也别写 0.1 以下（飞远）。
+                //   ★ 裁剪平面已在 AlarmSpotlights.trace() 里对 WALL 整体停用（提前 return）。
                 Vec3d n = horizontal(axis); // 墙面朝外（房间方向）
                 Vec3d t = horizontal(u);    // 沿墙水平
                 double ang = Math.toRadians(angleDeg);
                 double radius = 0.5D;
-                double yOffset = 1.0D;       // ★ 将光斑中心往下移动 1 格
+                // 向内倾斜分量（投影深度）
                 double WALL_NORMAL_SEEP = 0.2D;
                 Vec3d targetOnWall = t.scale(radius * Math.cos(ang))
-                        .add(WALL_DOWN.scale(yOffset + radius * Math.sin(ang)));
-                return targetOnWall.subtract(n.scale(WALL_NORMAL_SEEP)).normalize();
+                        .add(WALL_DOWN.scale(radius * Math.sin(ang)));
+                Vec3d unit = targetOnWall.subtract(n.scale(WALL_NORMAL_SEEP)).normalize();
+                // ★ v5.5.9 排查日志 —— v5.6 封版：已停用（防刷屏）。
+                //   需要排查时取消下面的注释即可；dir.y 的符号直接说明这束光
+                //   朝上（正 = 光斑在灯上方）还是朝下（负）。
+                // if ((++wallLogCount % 10) == 0) {
+                //     JiezhiMod.warn("[SSS] 挂壁 ang={}° dir=({}, {}, {}) target=({}, {}, {}) R={} SEEP={}",
+                //             String.format("%.1f", Double.valueOf(angleDeg)),
+                //             String.format("%.3f", Double.valueOf(unit.x)),
+                //             String.format("%.3f", Double.valueOf(unit.y)),
+                //             String.format("%.3f", Double.valueOf(unit.z)),
+                //             String.format("%.3f", Double.valueOf(targetOnWall.x)),
+                //             String.format("%.3f", Double.valueOf(targetOnWall.y)),
+                //             String.format("%.3f", Double.valueOf(targetOnWall.z)),
+                //             String.format("%.2f", Double.valueOf(radius)),
+                //             String.format("%.2f", Double.valueOf(WALL_NORMAL_SEEP)));
+                // }
+                return unit;
             }
             case CEILING: {
                 // axis 指向正下方 ⇒ 光束就是"垂直向下"，不吃 angleDeg、不吃 pitch、不吃 drop。

@@ -820,6 +820,49 @@ def main():
               % (_ml, _shader_loop.group(1) if _shader_loop else "找不到"))
         return 1
 
+    # ★★★ v5.5.3：重建视图矩阵的相机高度必须是「眼高」，不能是脚底 posY。
+    #   setupCameraTransform 烘进 modelview 的是 T(-眼位)；按脚底重建 ⇒ 逆视图少 1.62 格
+    #   ⇒ 着色器把墙面重建到真实位置下方 1.62 格 ⇒ **所有聚光灯的光斑整体上浮 1.6 格**
+    #   （11-20 实机视频：光斑悬在灯口上方约 1.7 格，且跟 radius/SEEP/光锥都无关）。
+    _cam_basis = _ddp_raw[_ddp_raw.index("private void updateCameraBasis()"):]
+    _cam_basis = _cam_basis[:_cam_basis.index("camPitch =")]
+    if "getEyeHeight()" not in _cam_basis:
+        print("      DepthDebugPass.updateCameraBasis 的 camY 少了 getEyeHeight()："
+              "相机基准必须是眼位（脚底 + 眼高），按脚底重建会让所有光斑整体上浮 1.62 格")
+        return 1
+    _cam_y = re.search(r"camY\s*=\s*[^;]*;", _cam_basis)
+    if not _cam_y or "getEyeHeight" not in _cam_y.group(0):
+        print("      DepthDebugPass 的 camY 赋值里没有 getEyeHeight()："
+              "眼高必须加在 camY 上（v5.5.3）")
+        return 1
+
+    # ★★★ v5.5.5：GLSL 源码必须是纯 ASCII。
+    #   v5.5.4 往片元着色器里写了中文注释，NVIDIA 的 GLSL 120 前端直接拒收
+    #   （error C0000: syntax error, unexpected $end at token <EOF>），整个 pass
+    #   被丢弃 ⇒ 全屏无光。着色器字符串里永远不许出现任何非 ASCII 字符。
+    _ddp_java = _src("com/jiezhimod/client/render/DepthDebugPass.java")
+    for _glsl_name in ("VERTEX_SRC", "FRAGMENT_SRC"):
+        _gi = _ddp_java.index("String %s =" % _glsl_name)
+        _gk = _ddp_java.index("=", _gi) + 1
+        _gin = False; _gesc = False; _gpos = _gk
+        while True:
+            _gc = _ddp_java[_gpos]
+            if not _gin:
+                if _gc == '"': _gin = True
+                elif _gc == ";": break
+            else:
+                if _gesc: _gesc = False
+                elif _gc == "\\": _gesc = True
+                elif _gc == '"': _gin = False
+            _gpos += 1
+        _gseg = _ddp_java[_gk:_gpos]
+        _gbad = [ch for ch in _gseg if ord(ch) > 126]
+        if _gbad:
+            print("      %s 的 GLSL 字符串里有非 ASCII 字符（%s…）—— NVIDIA 的 GLSL 120"
+                  "前端会拒收整段着色器（C0000 unexpected $end），全屏无光。"
+                  "注释只许写 ASCII" % (_glsl_name, repr(_gbad[0])))
+            return 1
+
     _asp = _strip_java_comments(_src("com/jiezhimod/client/render/AlarmSpotlights.java"))
     if "isWallMounted" in _asp or "isWallMounted" in _alr:
         print("      v5.0.0 起安装方式只走 LightType.classify(axis)，不要再出现 isWallMounted"
@@ -862,27 +905,71 @@ def main():
               "灯塞在凹槽里时等于整盏灯不发光（v5.0.0 隐身 bug 的另一种写法）"
               % _cap.group(1))
         return 1
-    # ★★★ 挂壁灯方向：单束完整贴墙圆环 + 下移（v5.4.9 定案，哨兵已精简）
+    # ★★★ v5.5.6：挂壁灯必须跳过体素射线、不生成任何裁剪平面。
+    #   光斑贴在墙上，Z-Buffer 深度测试已够；灯口附近墙体凹凸不平（墙沿/邻块侧脸/墙顶），
+    #   锥轴频繁命中 side=up/south/west，裁剪平面帧帧变脸 ⇒ 光斑切碎 + 疯狂闪烁。
+    if not re.search(r"if \(type == LightType\.WALL\)\s*\{\s*return;\s*\}", _asp):
+        print("      AlarmSpotlights.trace 缺少 WALL 提前 return：挂壁灯必须跳过体素射线、"
+              "不生成任何裁剪平面（平面在灯口凹凸处帧帧变脸 ⇒ 切碎 + 闪烁，v5.5.6）")
+        return 1
+    # ★★★ 挂壁灯方向：单束完整贴墙圆环（v5.5.2 定案，投影深度 = 灯口到墙面距离）
     _wall_body = _alr[_alr.index("case WALL: {"):]
     _wall_body = _wall_body[:_wall_body.index("case CEILING: {")]
     # 校验：radius*cos（水平画圆）与 radius*sin（竖直画圆）必须成对
     if "radius * Math.cos(ang)" not in _wall_body:
         print("      beamWorldDir 的 WALL 分支没有 `radius * Math.cos(ang)`："
-              "墙面画圆必须有水平分量，否则光只会上下扫、全打在地上（v5.4.9）")
+              "墙面画圆必须有水平分量，否则光只会上下扫、全打在地上（v5.5.2）")
         return 1
     if "radius * Math.sin(ang)" not in _wall_body:
         print("      beamWorldDir 的 WALL 分支没有 `radius * Math.sin(ang)`："
-              "sin 必须与 cos 成对，构成完整圆环（v5.4.9）")
+              "sin 必须与 cos 成对，构成完整圆环（v5.5.2）")
         return 1
-    # v5.4.9：yOffset 重新启用（光斑中心下移 1 格）
-    if not re.search(r"double\s+yOffset\s*=\s*([0-9.]+)D", _wall_body):
-        print("      beamWorldDir 的 WALL 分支缺 yOffset：光斑中心必须下移，"
-              "圆心落在灯下方（v5.4.9）")
+    # ★★★ v5.5.9：回滚 5.4.8 公式 —— 圆心必须在灯口水平面上（无任何下移量）。
+    #   v5.5.7 实测：只要圆心在灯口下方（yOffset>0），dir.y 恒为负 ⇒ 光斑只在下半圆、
+    #   完全没有向上扫。只有 sin 自然在 ±R 摆动（无 yOffset）才有完整的上下扫。
+    #   法线分量 WALL_NORMAL_SEEP 是投影深度：越小光斑越大（有效半径 ≈ R/SEEP）。
+    _seep = re.search(r"WALL_NORMAL_SEEP\s*=\s*([0-9.]+)D", _wall_body)
+    if not _seep:
+        print("      beamWorldDir 的 WALL 分支缺 WALL_NORMAL_SEEP：法线分量必须显式声明"
+              "（v5.5.9 回滚 5.4.8 命名）")
         return 1
-    # 仅保留一条防回归：v5.4.6 的 WALL_SPOT_Y 下压写法已废弃（v5.4.9 用 yOffset）
+    if not (0.0 < float(_seep.group(1)) < 0.5):
+        print("      WALL_NORMAL_SEEP = %s 越界：须在 (0, 0.5)。太小(≤0.1)光会贴着墙飞远，"
+              "太大(≥0.5)光斑缩成贴脸小点" % _seep.group(1))
+        return 1
+    if "n.scale(WALL_NORMAL_SEEP)" not in _wall_body:
+        print("      beamWorldDir 的 WALL 分支必须用 `n.scale(WALL_NORMAL_SEEP)` 产生"
+              "向内倾斜分量（v5.5.9）")
+        return 1
+    _rad = re.search(r"double\s+radius\s*=\s*([0-9.]+)D", _wall_body)
+    if not _rad:
+        print("      beamWorldDir 的 WALL 分支缺 radius：画圆半径必须显式声明")
+        return 1
+    if float(_rad.group(1)) < 0.3:
+        print("      WALL 分支 radius = %s < 0.3：圆退化成点，旋转轨迹看不出来（v5.5.9）"
+              % _rad.group(1))
+        return 1
+    # 任何下移量/旧命名都禁止复活：一旦圆心离开灯口水平面，上半圆就没了
+    for _bad_pat, _bad_name, _why in (
+            (r"double\s+yOffset\s*=", "yOffset",
+             "圆心一下移 dir.y 恒为负 ⇒ 光斑只在下半圆（v5.5.7 实测）"),
+            (r"double\s+WALL_MOUTH_DEPTH\s*=", "WALL_MOUTH_DEPTH",
+             "v5.5.9 已回滚为 WALL_NORMAL_SEEP 命名")):
+        if re.search(_bad_pat, _wall_body):
+            print("      WALL 分支出现了 %s —— %s" % (_bad_name, _why))
+            return 1
+    # 禁止硬编码横向补偿（offsetT/offsetY）：t 的符号随朝向翻转，同一组数值在
+    # 相对的两面墙上会朝相反方向偏。（v5.5.2 用户提过 0.8/0.2 的补偿，已论证否决）
+    for _bad in ("offsetT", "offsetY"):
+        if _bad in _wall_body:
+            print("      WALL 分支出现了 %s —— 禁止硬编码横向补偿："
+                  "t = horizontal(u) 的符号随朝向翻转，同一组数值在相对的两面墙上"
+                  "会朝相反方向偏（v5.5.2）" % _bad)
+            return 1
+    # 防回归：v5.4.6 的 WALL_SPOT_Y 下压写法已废弃
     if "WALL_SPOT_Y" in _alr:
         print("      RenderAlarmLight 里还有 WALL_SPOT_Y —— v5.4.6 的下压写法已废弃，"
-              "v5.4.9 起用 yOffset")
+              "v5.5.9 起圆心在灯口、法线分量 = WALL_NORMAL_SEEP")
         return 1
     # 吊装灯必须严格垂直向下，不许有横向扫描
     _cr = re.search(r"CEILING_RADIAL\s*=\s*([0-9.]+)D", _alr)

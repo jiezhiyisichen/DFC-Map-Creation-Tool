@@ -45,5 +45,22 @@ public class ModNetwork {
         // 标注显示器的单格指标切换（客户端 -> 服务端）
         CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageLabelConfig.Handler.class,
                 com.jiezhimod.network.msg.MessageLabelConfig.class, id++, Side.SERVER);
+        // 灯圈控制台的配置包（整份动作配置），客户端 -> 服务端
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageRingConsoleConfig.Handler.class,
+                com.jiezhimod.network.msg.MessageRingConsoleConfig.class, id++, Side.SERVER);
+        // 灯圈组状态广播，服务端 -> 客户端（**必须自己发**：notifyBlockUpdate 只同步方块状态，
+        // 方块实体包只在区块加载时随 SPacketChunkData 发一次，运行期没人替你发）
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageRingState.Handler.class,
+                com.jiezhimod.network.msg.MessageRingState.class, id++, Side.CLIENT);
+        // 灯圈控制台的整份状态回推，服务端 -> 客户端（配置 / 绑定 / 上次触发都要能回到界面）
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageRingConsoleSync.Handler.class,
+                com.jiezhimod.network.msg.MessageRingConsoleSync.class, id++, Side.CLIENT);
+        // 警示灯控制台（v4.5）：同一个包两个方向
+        //   CLIENT: 服务端推权威配置给客户端界面
+        //   SERVER: 客户端点一下就保存，服务端再推给所有绑定的灯
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageAlarmConsole.ClientHandler.class,
+                com.jiezhimod.network.msg.MessageAlarmConsole.class, id++, Side.CLIENT);
+        CHANNEL.registerMessage(com.jiezhimod.network.msg.MessageAlarmConsole.ServerHandler.class,
+                com.jiezhimod.network.msg.MessageAlarmConsole.class, id++, Side.SERVER);
     }
 }

@@ -196,20 +196,29 @@ def make_banner():
 # 3) 物品一览（等距视角不需要，物品就是 16x16 图标放大）
 # ----------------------------------------------------------------------------
 ITEMS = [
-    ("speed_coil.png",   "加速线圈",     "移速 ×5",        "jiezhimod:speed_coil"),
-    ("gravity_coil.png", "重力线圈",     "跳跃约 6 格",     "jiezhimod:gravity_coil"),
-    ("healing_coil.png", "治愈线圈",     "每秒 +4 生命",    "jiezhimod:healing_coil"),
-    ("jetpack.png",      "喷气背包",     "胸甲槽 · 飞行",   "jiezhimod:jetpack"),
-    ("jet_switch.png",   "喷气开关",     "手持 · 右键起飞",  "jiezhimod:jet_switch"),
-    ("dfc_remote.png",   "DFC 遥控器",   "绑定 / 记录设备",  "jiezhimod:dfc_remote"),
+    ("speed_coil.png",   "加速线圈",     "移速 ×5",          "jiezhimod:speed_coil"),
+    ("gravity_coil.png", "重力线圈",     "跳跃约 6 格",       "jiezhimod:gravity_coil"),
+    ("healing_coil.png", "治愈线圈",     "每秒 +4 生命",      "jiezhimod:healing_coil"),
+    ("jetpack.png",      "喷气背包",     "胸甲槽 · 飞行",     "jiezhimod:jetpack"),
+    ("jet_switch.png",   "喷气开关",     "手持 · 右键起飞",    "jiezhimod:jet_switch"),
+    ("dfc_remote.png",   "DFC 遥控器",   "绑定 / 记录设备",    "jiezhimod:dfc_remote"),
+    ("laser_connector.png", "激光链接器", "记录激光部件",      "jiezhimod:laser_connector"),
+    ("ring_connector.png",  "灯圈链接器", "绑定灯圈组",        "jiezhimod:ring_connector"),
+    ("connector.png",    "密码连接器",   "连接密码盘与控制台",  "jiezhimod:connector"),
+    ("keypad.png",       "密码盘",       "触摸式数字键盘",     "jiezhimod:keypad"),
+    ("password_console.png", "密码控制台", "红石动作可配置",    "jiezhimod:password_console"),
+    ("debug_stick.png",  "调试棒",       "蹲下右键 · 调屏幕",  "jiezhimod:debug_stick"),
     ("dfc_screen.png",   "DFC 监控显示器", "4×3 吊装 · 核心页", "jiezhimod:dfc_screen"),
     ("dfc_monitor.png",  "DFC 部件监视器", "4×3 吊装 · 部件页", "jiezhimod:dfc_monitor"),
     ("dfc_custom.png",   "DFC 自定义显示屏", "4×3 吊装 · 8 条数据", "jiezhimod:dfc_custom"),
+    ("dfc_graph.png",    "DFC 曲线显示器", "温度 / 发电量曲线",  "jiezhimod:dfc_graph"),
+    ("dfc_label.png",    "DFC 标注显示器", "七格指标引线",      "jiezhimod:dfc_label"),
+    ("dfc_laser.png",    "DFC 激光状态显示器", "4 台激光 · 独立面板", "jiezhimod:dfc_laser"),
 ]
 
 
 def make_items():
-    cols = 3
+    cols = 4
     cw, ch = 268, 258
     pad = 34
     head = 126                      # 标题(28) + 副标题(80) + 分隔线(110) 之后再开始排格子
@@ -300,36 +309,50 @@ def iso_cube(tex_top, tex_left, tex_right, w=104, h=52, dh=96):
 
 
 def make_blocks():
+    """方块一览：**当前版本真有自己贴图的四方块**（灯圈亮/灭、灯圈控制台、密码盘）。
+
+    2026-10 之前这里放的是"红石延时器 关/开"—— 那块方块在 3.9.1 就已经删掉了，
+    官网页面上一直挂着一块早就存在不了的方块（`jiezhimod:delay_block`）。
+    现在改成 v4.4 的主角灯圈（亮 / 灭两态，灭态就是把同一张贴图压暗，
+    和游戏里 `RingState.OFF_BRIGHT = 0.18` 同一个观感）。
+    """
     w, h, dh = 104, 52, 96
     cw, chh = 320, 300
     pad = 34
     head = 126
-    W = pad * 2 + cw * 2
-    H = head + chh + pad
+    cols = 2
+    rows = 2
+    W = pad * 2 + cw * cols
+    H = head + chh * rows + pad
     c = gradient(W, H, (13, 22, 31), (6, 10, 15)).convert("RGBA")
     grid(c, 34)
 
     d = ImageDraw.Draw(c)
     text(d, (pad, 26), "方块一览", font(FONT_BOLD, 40), TXT)
-    text(d, (pad, 80), "红石延时器：把红石信号整体延后输出（上升沿 / 下降沿都延时，短脉冲不会被吞）",
+    text(d, (pad, 80), "灯圈：整格的发光方块，颜色任意 RGB，相邻自动连成一组，红石激活任一格整组一起亮",
          font(FONT_REG, 17), DIM)
     d.line([(pad, 111), (W - pad, 111)], fill=(255, 255, 255, 30))
 
-    variants = [
-        ("delay_top.png", "delay_side.png", "delay_side.png", "关  OFF", DIM),
-        ("delay_top_on.png", "delay_side_on.png", "delay_side_on.png", "开  ON", OKC),
+    # (方块贴图, 亮暗系数, 名称, 注册名, 颜色)
+    cards = [
+        ("light_ring.png", 1.00, "灯圈 · 亮",    "jiezhimod:light_ring", OKC),
+        ("light_ring.png", 0.30, "灯圈 · 灭",    "jiezhimod:light_ring", DIM),
+        ("ring_console.png", 1.00, "灯圈控制台", "jiezhimod:ring_console", ACCENT),
+        ("keypad.png", 1.00, "密码盘",          "jiezhimod:keypad", CYAN),
     ]
-    for i, (t, l, r, label, col) in enumerate(variants):
-        x0 = pad + i * cw
-        box = [x0 + 6, head + 6, x0 + cw - 6, head + chh - 6]
+    for i, (tex, k, name, ident, col) in enumerate(cards):
+        r, cc = divmod(i, cols)
+        x0 = pad + cc * cw
+        y0 = head + r * chh
+        box = [x0 + 6, y0 + 6, x0 + cw - 6, y0 + chh - 6]
         panel(c, box, radius=14, fill=(255, 255, 255, 9), outline=(255, 255, 255, 24))
         d = ImageDraw.Draw(c)
 
         try:
-            cube = iso_cube(Image.open(os.path.join(TEX, "blocks", t)).convert("RGBA"),
-                            Image.open(os.path.join(TEX, "blocks", l)).convert("RGBA"),
-                            Image.open(os.path.join(TEX, "blocks", r)).convert("RGBA"),
-                            w, h, dh)
+            base = Image.open(os.path.join(TEX, "blocks", tex)).convert("RGBA")
+            if k < 1.0:      # 灭态：整体压暗（与游戏里 OFF_BRIGHT 的观感一致）
+                base = base.point(lambda v, k=k: int(v * k))
+            cube = iso_cube(base, base, base, w, h, dh)
             cx = box[0] + (box[2] - box[0]) // 2 - cube.width // 2
             c.alpha_composite(cube, (cx, box[1] + 26))
         except Exception as e:      # 贴图缺失时不要让整张图挂掉
@@ -337,8 +360,8 @@ def make_blocks():
 
         d = ImageDraw.Draw(c)
         cxm = box[0] + (box[2] - box[0]) // 2
-        text(d, (cxm, box[1] + 222), "红石延时器 " + label, font(FONT_BOLD, 24), col, anchor="ma")
-        text(d, (cxm, box[1] + 256), "jiezhimod:delay_block", font(FONT_MONO, 15), (104, 126, 142), anchor="ma")
+        text(d, (cxm, box[1] + 222), name, font(FONT_BOLD, 24), col, anchor="ma")
+        text(d, (cxm, box[1] + 256), ident, font(FONT_MONO, 15), (104, 126, 142), anchor="ma")
 
     c.convert("RGB").save(os.path.join(OUT, "blocks.png"))
     return "blocks.png"

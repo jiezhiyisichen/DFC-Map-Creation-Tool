@@ -74,6 +74,19 @@ public class BlockAdvancedRepeater extends Block {
     /** 是否被侧面的中继器锁定（原版也有这个属性，锁定时模型中间会多一根黑条） */
     public static final PropertyBool LOCKED = PropertyBool.create("locked");
 
+    /**
+     * 输入端此刻有没有信号（v4.4：给"输入侧那个红石火把"点亮用）。
+     *
+     * <p>【为什么不进 meta】1.12.2 的 {@code Block} 内部有几个按 meta 索引的
+     * **定长 16 数组**（harvestTool / harvestLevel …），meta 必须落在 0~15。
+     * 现在 facing(2 bit) + powered(1) + locked(1) 已经用满 4 bit，
+     * 再塞一个就上 32 → 那些数组直接越界崩。
+     * 所以这一位**只活在方块状态里、不进 meta**：区块存盘读回来时是 false，
+     * 服务端第一刻 {@code recompute} 就会重新算出来并同步给客户端。
+     * 它本来就是"派生态"，不该当配置存。</p>
+     */
+    public static final PropertyBool INPUT = PropertyBool.create("input");
+
     /** 外形照抄原版中继器：高度只有 2/16 */
     private static final AxisAlignedBB SHAPE = new AxisAlignedBB(0.0D, 0.0D, 0.0D, 1.0D, 0.125D, 1.0D);
 
@@ -90,7 +103,8 @@ public class BlockAdvancedRepeater extends Block {
         this.setDefaultState(this.blockState.getBaseState()
                 .withProperty(FACING, EnumFacing.NORTH)
                 .withProperty(POWERED, Boolean.FALSE)
-                .withProperty(LOCKED, Boolean.FALSE));
+                .withProperty(LOCKED, Boolean.FALSE)
+                .withProperty(INPUT, Boolean.FALSE));
     }
 
     // ==================== 形状 ====================
@@ -126,15 +140,21 @@ public class BlockAdvancedRepeater extends Block {
 
     @Override
     protected BlockStateContainer createBlockState() {
-        return new BlockStateContainer(this, new IProperty[]{FACING, POWERED, LOCKED});
+        return new BlockStateContainer(this, new IProperty[]{FACING, POWERED, LOCKED, INPUT});
     }
 
+    /**
+     * meta 只有 4 bit（见 {@link #INPUT} 的说明）：
+     * bit0-1 = facing，bit2 = powered，bit3 = locked。**input 不进 meta**，
+     * 读回来先给 false，服务端第一刻 recompute 会重新算。
+     */
     @Override
     public IBlockState getStateFromMeta(int meta) {
         return this.getDefaultState()
                 .withProperty(FACING, EnumFacing.getHorizontal(meta & 3))
                 .withProperty(POWERED, Boolean.valueOf((meta & 4) != 0))
-                .withProperty(LOCKED, Boolean.valueOf((meta & 8) != 0));
+                .withProperty(LOCKED, Boolean.valueOf((meta & 8) != 0))
+                .withProperty(INPUT, Boolean.FALSE);
     }
 
     @Override

@@ -4,6 +4,8 @@
         "particle": "minecraft:blocks/repeater_off",
         "slab": "minecraft:blocks/stone_slab_top",
         "top": "minecraft:blocks/repeater_off",
+        "lock": "minecraft:blocks/bedrock",
+        "lit": "minecraft:blocks/redstone_torch_on",
         "unlit": "minecraft:blocks/redstone_torch_off"
     },
     "elements": [
@@ -83,7 +85,7 @@
         {
             "from": [
                 7,
-                2,
+                7,
                 6
             ],
             "to": [
@@ -92,57 +94,12 @@
                 8
             ],
             "faces": {
-                "down": {
-                    "uv": [
-                        7,
-                        13,
-                        9,
-                        15
-                    ],
-                    "texture": "#unlit"
-                },
                 "up": {
                     "uv": [
                         7,
                         6,
                         9,
                         8
-                    ],
-                    "texture": "#unlit"
-                },
-                "north": {
-                    "uv": [
-                        7,
-                        6,
-                        9,
-                        11
-                    ],
-                    "texture": "#unlit"
-                },
-                "south": {
-                    "uv": [
-                        7,
-                        6,
-                        9,
-                        11
-                    ],
-                    "texture": "#unlit"
-                },
-                "west": {
-                    "uv": [
-                        7,
-                        6,
-                        9,
-                        11
-                    ],
-                    "texture": "#unlit"
-                },
-                "east": {
-                    "uv": [
-                        7,
-                        6,
-                        9,
-                        11
                     ],
                     "texture": "#unlit"
                 }
@@ -152,6 +109,70 @@
             "from": [
                 7,
                 2,
+                5
+            ],
+            "to": [
+                9,
+                8,
+                9
+            ],
+            "faces": {
+                "west": {
+                    "uv": [
+                        6,
+                        5,
+                        10,
+                        11
+                    ],
+                    "texture": "#unlit"
+                },
+                "east": {
+                    "uv": [
+                        6,
+                        5,
+                        10,
+                        11
+                    ],
+                    "texture": "#unlit"
+                }
+            }
+        },
+        {
+            "from": [
+                6,
+                2,
+                6
+            ],
+            "to": [
+                10,
+                8,
+                8
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        6,
+                        5,
+                        10,
+                        11
+                    ],
+                    "texture": "#unlit"
+                },
+                "south": {
+                    "uv": [
+                        6,
+                        5,
+                        10,
+                        11
+                    ],
+                    "texture": "#unlit"
+                }
+            }
+        },
+        {
+            "from": [
+                7,
+                7,
                 2
             ],
             "to": [
@@ -160,15 +181,6 @@
                 4
             ],
             "faces": {
-                "down": {
-                    "uv": [
-                        7,
-                        13,
-                        9,
-                        15
-                    ],
-                    "texture": "#unlit"
-                },
                 "up": {
                     "uv": [
                         7,
@@ -177,39 +189,67 @@
                         8
                     ],
                     "texture": "#unlit"
-                },
-                "north": {
-                    "uv": [
-                        7,
-                        6,
-                        9,
-                        11
-                    ],
-                    "texture": "#unlit"
-                },
-                "south": {
-                    "uv": [
-                        7,
-                        6,
-                        9,
-                        11
-                    ],
-                    "texture": "#unlit"
-                },
+                }
+            }
+        },
+        {
+            "from": [
+                7,
+                2,
+                1
+            ],
+            "to": [
+                9,
+                8,
+                5
+            ],
+            "faces": {
                 "west": {
                     "uv": [
-                        7,
                         6,
-                        9,
+                        5,
+                        10,
                         11
                     ],
                     "texture": "#unlit"
                 },
                 "east": {
                     "uv": [
-                        7,
                         6,
-                        9,
+                        5,
+                        10,
+                        11
+                    ],
+                    "texture": "#unlit"
+                }
+            }
+        },
+        {
+            "from": [
+                6,
+                2,
+                2
+            ],
+            "to": [
+                10,
+                8,
+                4
+            ],
+            "faces": {
+                "north": {
+                    "uv": [
+                        6,
+                        5,
+                        10,
+                        11
+                    ],
+                    "texture": "#unlit"
+                },
+                "south": {
+                    "uv": [
+                        6,
+                        5,
+                        10,
                         11
                     ],
                     "texture": "#unlit"

@@ -64,7 +64,7 @@ public final class DfcFormat {
     }
 
     /**
-     * 能量爆发（getDFCExpellingEnergy）—— 核心最近 1 秒里吐给接收器的能量之和。
+     * 能量抽取（getDFCExpellingEnergy）—— 核心最近 1 秒里吐给接收器的能量之和。
      *
      * 作者自己的 CoreGUI 就是这么标的（{@code "Expelling Energy: " + v/1000 + "MSPK/s"}），
      * 只是这里改用 SPK + 自动 SI 前缀，免得 "250000.000 MSPK/s" 这种长串撞出面板。
@@ -297,7 +297,7 @@ public final class DfcFormat {
         return si(raw * SPK_SCALE, "SPK");
     }
 
-    /** DFC 能量原始值 -> 每秒速率（"能量爆发"用） */
+    /** DFC 能量原始值 -> 每秒速率（"能量抽取"用） */
     public static String spkRate(double raw) {
         return si(raw * SPK_SCALE, "SPK") + "/s";
     }

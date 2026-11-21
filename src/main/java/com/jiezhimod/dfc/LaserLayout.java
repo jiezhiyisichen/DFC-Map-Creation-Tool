@@ -51,6 +51,18 @@ public final class LaserLayout {
     public static final int METRIC_RIGHT = CELL_W - 5;
 
     /** 底部告警带 */
+    // ---- 告警弹窗（v4.4：实机反馈"底部那条太不显眼，要像 DFC 引爆器那种弹窗"）----
+    // 不再挤在底部一条，改成**整页压暗 + 居中卡片**：视线直接被拉到中间，
+    // 卡里分三行：标题 / 哪台设备剩多少 / 预计多久耗尽。
+    public static final int WARN_W = 204;
+    public static final int WARN_H = 74;
+    public static final int WARN_X = (256 - WARN_W) / 2;
+    public static final int WARN_Y = 54;
+    /** 卡片上三行文字的基线（相对卡片顶） */
+    public static final int WARN_TITLE_DY = 20;
+    public static final int WARN_BODY_DY = 38;
+    public static final int WARN_ETA_DY = 56;
+
     public static final int BANNER_X = 4;
     public static final int BANNER_Y = 172;
     public static final int BANNER_W = 248;

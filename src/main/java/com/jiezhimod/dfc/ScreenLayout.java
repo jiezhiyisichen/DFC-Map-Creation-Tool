@@ -290,7 +290,7 @@ public final class ScreenLayout {
 
     /** 页面 0：核心遥测（温度 / 稳定度 / 能量 / 崩溃圆盘 / 事件日志） */
     public static final int PAGE_CORE = 0;
-    /** 页面 1：部件遥测（发射器 / 接收器 / 燃料 / 燃料喷射器 / 积蓄能量 / 能量爆发） */
+    /** 页面 1：部件遥测（发射器 / 接收器 / 燃料 / 燃料喷射器 / 积蓄能量 / 能量抽取） */
     public static final int PAGE_COMPONENTS = 1;
     /** 页面 2：自定义数据列表（最多 8 项，由 GUI 增删） */
     public static final int PAGE_CUSTOM = 2;

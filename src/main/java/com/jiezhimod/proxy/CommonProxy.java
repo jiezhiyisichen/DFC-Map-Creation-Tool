@@ -32,6 +32,10 @@ public class CommonProxy implements IGuiHandler {
      * 共用编号就只能开成同一个界面（v4.2 就是这样，于是激光屏一开就是 8 行）。
      */
     public static final int GUI_LASER_SCREEN = 5;
+    /** 灯圈控制台的配置界面（右键方块打开，v4.4） */
+    public static final int GUI_RING_CONSOLE = 6;
+    /** 警示灯控制台的配置界面（右键方块打开，v4.5） */
+    public static final int GUI_ALARM_CONSOLE = 7;
 
     public void preInit() {
         // 服务端/通用侧无需注册客户端渲染事件
@@ -62,10 +66,34 @@ public class CommonProxy implements IGuiHandler {
             // 纯配置界面，没有物品槽；但服务端必须给出容器，否则客户端开不出界面
             return new com.jiezhimod.block.ContainerAdvancedRepeater(new BlockPos(x, y, z));
         }
+        if (id == GUI_RING_CONSOLE) {
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TileRingConsole) {
+                return new com.jiezhimod.block.ContainerRingConsole(
+                        (com.jiezhimod.block.TileRingConsole) te);
+            }
+            return null;
+        }
+        if (id == GUI_ALARM_CONSOLE) {
+            // 纯配置界面（颜色 / 转速），没有物品槽；但服务端必须给出容器，否则开不出界面
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TileAlarmConsole) {
+                return new com.jiezhimod.block.ContainerAlarmConsole(
+                        player.inventory, (com.jiezhimod.block.TileAlarmConsole) te);
+            }
+            return null;
+        }
         if (id == GUI_LASER_SCREEN) {
             // 激光屏的面板是**独立的一份**（4 台激光 + 激光链接器槽），
             // 不能再落回自定义屏那个容器，否则又变回 8 行。
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            // 旧存档兜底：方块是激光屏、方块实体还是自定义屏那个类（见 healLaserTile）
+            if (te instanceof com.jiezhimod.block.TileDfcScreen
+                    && !(te instanceof com.jiezhimod.block.TileLaserScreen)) {
+                if (((com.jiezhimod.block.TileDfcScreen) te).healScreenTile()) {
+                    te = world.getTileEntity(new BlockPos(x, y, z));
+                }
+            }
             if (te instanceof com.jiezhimod.block.TileLaserScreen) {
                 return new com.jiezhimod.block.ContainerLaserScreen(
                         player.inventory, (com.jiezhimod.block.TileLaserScreen) te);
@@ -76,6 +104,14 @@ public class CommonProxy implements IGuiHandler {
             // 容器现在要拿着方块实体（遥控器槽 / 导入 / 距离判定都要用）。
             // 找不到方块实体就返回 null —— 宁可不打开，也不能开出一个功能残缺的面板。
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            // ★ 兜底：激光屏（TileLaserScreen）永远是它自己那份 4 行面板。
+            //   它继承 TileCustomScreen，万一有哪条路把它路由成 GUI_CUSTOM_SCREEN，
+            //   玩家就会看到一个 8 行、槽位只收遥控器的面板 —— 拿激光链接器怎么点都放不进去
+            //   （v4.4 实机反馈）。宁可在这里改道，也不要露出错的面板。
+            if (te instanceof com.jiezhimod.block.TileLaserScreen) {
+                return new com.jiezhimod.block.ContainerLaserScreen(
+                        player.inventory, (com.jiezhimod.block.TileLaserScreen) te);
+            }
             if (te instanceof TileCustomScreen) {
                 return new ContainerCustomScreen(player.inventory, (TileCustomScreen) te);
             }

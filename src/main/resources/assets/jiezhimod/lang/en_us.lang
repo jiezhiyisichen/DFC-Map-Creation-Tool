@@ -33,6 +33,7 @@ gui.jiezhimod.custom.close=Close
 gui.jiezhimod.custom.empty=(empty)
 gui.jiezhimod.custom.offline=offline
 gui.jiezhimod.custom.hint=Drop a DFC remote in and press Add to import every device it recorded (up to %s)
+gui.jiezhimod.custom.hint.laser=This is the custom display's remote slot (DFC remote only). The laser linker belongs to the laser status display's own 4-row panel.
 gui.jiezhimod.custom.add=Add
 gui.jiezhimod.custom.add.hint=Put a remote in the slot
 gui.jiezhimod.custom.remote=Remote
@@ -74,7 +75,7 @@ tooltip.jiezhimod.dfc_screen.4=Right-click with the DFC remote: bind a core
 tooltip.jiezhimod.dfc_monitor.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
 tooltip.jiezhimod.dfc_monitor.1=Place against the underside of a ceiling to hang it overhead
 tooltip.jiezhimod.dfc_monitor.2=Shows: emitters / receivers / fuel tanks
-tooltip.jiezhimod.dfc_monitor.3=       injectors / stored energy / energy burst
+tooltip.jiezhimod.dfc_monitor.3=       injectors / stored energy / energy extraction
 tooltip.jiezhimod.dfc_monitor.4=Right-click: power on / off
 tooltip.jiezhimod.dfc_monitor.5=Right-click with the DFC remote: bind a core
 tooltip.jiezhimod.dfc_custom.0=Occupies 4 wide x 3 tall = %s blocks (ceiling-mounted)
@@ -217,3 +218,80 @@ gui.jiezhimod.laser.empty=(empty)
 gui.jiezhimod.laser.empty.hint=Hook up a laser with the Laser Connector
 gui.jiezhimod.laser.offline=offline
 gui.jiezhimod.laser.hint=Sneak + right-click a laser part to record it, then put the connector in the slot and press Add (max %s)
+tile.light_ring.name=Light Ring
+tile.ring_console.name=Ring Console
+item.ring_connector.name=Ring Linker
+tooltip.jiezhimod.ring_connector.0=Links light rings to a ring console
+tooltip.jiezhimod.ring_connector.1=Sneak + right-click a ring = record (adjacent rings form one group)
+tooltip.jiezhimod.ring_connector.2=Sneak + right-click a ring console = bind (whole group is controlled)
+tooltip.jiezhimod.ring_connector.3=Sneak + right-click air = clear
+gui.jiezhimod.ring.title=Ring Console
+gui.jiezhimod.ring.apply=Apply
+gui.jiezhimod.ring.close=Close
+gui.jiezhimod.ring.actions=On redstone pulse (multi-select)
+gui.jiezhimod.ring.rgb=Color RGB
+gui.jiezhimod.ring.presets=Presets
+gui.jiezhimod.ring.act.color=Switch color to
+gui.jiezhimod.ring.act.on=Turn rings on
+gui.jiezhimod.ring.act.off=Turn rings off
+gui.jiezhimod.ring.act.blink=Blink
+gui.jiezhimod.ring.mode.instant=Instant
+gui.jiezhimod.ring.mode.fade=Gradual
+gui.jiezhimod.ring.mode.plain=Plain (at once)
+gui.jiezhimod.ring.mode.fadein=Fade in
+gui.jiezhimod.ring.mode.fadeout=Fade out
+gui.jiezhimod.ring.mode.blinkplain=Plain blink (on/off)
+gui.jiezhimod.ring.mode.blinkfade=Fade blink
+gui.jiezhimod.ring.row.color=Switch color
+gui.jiezhimod.ring.row.on=Turn on
+gui.jiezhimod.ring.row.off=Turn off
+gui.jiezhimod.ring.row.blink=Blink settings
+gui.jiezhimod.ring.sec=s
+gui.jiezhimod.ring.blink.period=s/period
+gui.jiezhimod.ring.blink.total=total (0=always)
+gui.jiezhimod.ring.blink.in=s fade in
+gui.jiezhimod.ring.blink.out=s fade out
+gui.jiezhimod.ring.bind.none=No ring bound (use the Ring Linker)
+gui.jiezhimod.ring.bind.ok=Bound to ring %s %s %s (whole group)
+gui.jiezhimod.ring.last=Last trigger: %s
+gui.jiezhimod.ring.saved=Saved automatically
+gui.jiezhimod.ring.pick=Tick an action on the left to show its settings here
+gui.jiezhimod.ring.hint=Changes apply instantly; chain consoles with repeater delays for a colour sequence
+
+# ===== Rotating Alarm Light (v4.5) =====
+tile.alarm_light.name=Rotating Alarm Light
+tile.alarm_console.name=Alarm Light Console
+item.alarm_connector.name=Alarm Light Connector
+tooltip.jiezhimod.alarm_light.0=Metal base, spinning reflector and a round glass dome
+tooltip.jiezhimod.alarm_light.1=It faces whichever side you click (ceiling, floor or wall)
+tooltip.jiezhimod.alarm_light.2=Right-click with a dye to recolor it instantly
+tooltip.jiezhimod.alarm_light.3=Link it to a console, or to a screen as a warning lamp
+tooltip.jiezhimod.alarm_light.4=Linked screens: color follows the alert level (yellow / orange / red) and spins faster
+tooltip.jiezhimod.alarm_console.0=Sets color and RPM, pushes them to every bound light on redstone
+tooltip.jiezhimod.alarm_console.1=Bind: sneak-right-click a light, then sneak-right-click this block
+tooltip.jiezhimod.alarm_console.2=Rising redstone edge turns lights on, falling edge turns them off
+tooltip.jiezhimod.alarm_connector.0=Links rotating alarm lights to a console, or to a screen as a warning lamp
+tooltip.jiezhimod.alarm_connector.1=Sneak-right-click a light to record it (then a console to bind)
+tooltip.jiezhimod.alarm_connector.2=Sneak-right-click a screen to record it as the alert source (then a light)
+tooltip.jiezhimod.alarm_connector.3=Sneak-right-click air to clear the record
+tooltip.jiezhimod.alarm_connector.4=Alerts: overheating=yellow, at melting point=orange, meltdown=red
+tooltip.jiezhimod.alarm_connector.5=Laser parts (lens / cryogel) light it up by the same levels
+alert.jiezhimod.level.0=normal
+alert.jiezhimod.level.1=warning
+alert.jiezhimod.level.2=critical
+alert.jiezhimod.level.3=meltdown
+alert.jiezhimod.ok=All nominal
+alert.jiezhimod.hot=Overheating
+alert.jiezhimod.melt=Reached melting point
+alert.jiezhimod.collapse=Entering meltdown
+alert.jiezhimod.detonation=Detonator engaged
+alert.jiezhimod.destroyed=Core destroyed
+alert.jiezhimod.stab=Stabilization low
+alert.jiezhimod.laser=Laser part warning
+alert.jiezhimod.off=Screen is off
+alert.jiezhimod.nosrc=Source unavailable
+gui.jiezhimod.alarm.title=Alarm Light Console
+gui.jiezhimod.alarm.rgb=Color RGB
+gui.jiezhimod.alarm.rpm=Spin speed
+gui.jiezhimod.alarm.still=stopped
+gui.jiezhimod.alarm.bound=Bound

@@ -39,7 +39,7 @@ public class ModBlocks {
     /**
      * DFC 部件监视器（第二块显示器）。
      * 与 DFC_SCREEN 是同一台硬件、同一套多方块外壳，只是主界面画"部件页"：
-     * 发射器 / 接收器 / 燃料 / 燃料喷射器 / 积蓄能量 / 能量爆发。
+     * 发射器 / 接收器 / 燃料 / 燃料喷射器 / 积蓄能量 / 能量抽取。
      * 复用同一批占位块与方块实体，见 {@link BlockDfcMonitor} 的说明。
      */
     public static final Block DFC_MONITOR = new BlockDfcMonitor();
@@ -88,6 +88,26 @@ public class ModBlocks {
     public static final Block ADVANCED_REPEATER = new BlockAdvancedRepeater();
     public static final ItemBlock ITEM_ADVANCED_REPEATER = new ItemBlock(ADVANCED_REPEATER);
 
+    /**
+     * 灯圈（v4.4）：一格一条发光的"圈"，相邻的圈自动连成一组。
+     * 颜色走原版 tint 管线（光影包兼容），亮着时是光源，见 {@link BlockLightRing}。
+     */
+    public static final Block LIGHT_RING = new BlockLightRing();
+    public static final ItemBlock ITEM_LIGHT_RING = new ItemBlock(LIGHT_RING);
+    /** 灯圈控制台（v4.4）：红石触发，按界面配置的动作操作绑定的灯圈组 */
+    public static final Block RING_CONSOLE = new BlockRingConsole();
+    public static final ItemBlock ITEM_RING_CONSOLE = new ItemBlock(RING_CONSOLE);
+
+    /**
+     * 旋转警示灯（v4.5）：底座 + 旋转灯芯 + 圆灯罩，外形与光锥全部由 TESR 现画
+     * （贴图画不出完美的圆），见 {@link BlockAlarmLight}。
+     */
+    public static final Block ALARM_LIGHT = new BlockAlarmLight();
+    public static final ItemBlock ITEM_ALARM_LIGHT = new ItemBlock(ALARM_LIGHT);
+    /** 警示灯控制台（v4.5）：配颜色 / 转速，红石上升沿把配置推给所有绑定的灯 */
+    public static final Block ALARM_CONSOLE = new BlockAlarmConsole();
+    public static final ItemBlock ITEM_ALARM_CONSOLE = new ItemBlock(ALARM_CONSOLE);
+
     /** 密码盘：占一格、高半格的触摸式数字键盘（右键按面板上的键，不开界面） */
     public static final Block KEYPAD = new BlockKeypad();
     public static final ItemBlock ITEM_KEYPAD = new ItemBlock(KEYPAD);
@@ -116,6 +136,15 @@ public class ModBlocks {
         ITEM_KEYPAD.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
         ITEM_PASSWORD_CONSOLE.setRegistryName(PASSWORD_CONSOLE.getRegistryName());
         ITEM_PASSWORD_CONSOLE.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
+        // 灯圈 / 灯圈控制台放物品页（和密码系统、激光链接器同一页，都是"装置"）
+        ITEM_LIGHT_RING.setRegistryName(LIGHT_RING.getRegistryName());
+        ITEM_LIGHT_RING.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
+        ITEM_RING_CONSOLE.setRegistryName(RING_CONSOLE.getRegistryName());
+        ITEM_RING_CONSOLE.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
+        ITEM_ALARM_LIGHT.setRegistryName(ALARM_LIGHT.getRegistryName());
+        ITEM_ALARM_LIGHT.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
+        ITEM_ALARM_CONSOLE.setRegistryName(ALARM_CONSOLE.getRegistryName());
+        ITEM_ALARM_CONSOLE.setCreativeTab(com.jiezhimod.item.ModItems.TAB);
     }
 
     @SubscribeEvent
@@ -130,6 +159,10 @@ public class ModBlocks {
         event.getRegistry().register(ADVANCED_REPEATER);
         event.getRegistry().register(KEYPAD);
         event.getRegistry().register(PASSWORD_CONSOLE);
+        event.getRegistry().register(LIGHT_RING);
+        event.getRegistry().register(RING_CONSOLE);
+        event.getRegistry().register(ALARM_LIGHT);
+        event.getRegistry().register(ALARM_CONSOLE);
     }
 
     @SubscribeEvent
@@ -143,5 +176,9 @@ public class ModBlocks {
         event.getRegistry().register(ITEM_ADVANCED_REPEATER);
         event.getRegistry().register(ITEM_KEYPAD);
         event.getRegistry().register(ITEM_PASSWORD_CONSOLE);
+        event.getRegistry().register(ITEM_LIGHT_RING);
+        event.getRegistry().register(ITEM_RING_CONSOLE);
+        event.getRegistry().register(ITEM_ALARM_LIGHT);
+        event.getRegistry().register(ITEM_ALARM_CONSOLE);
     }
 }

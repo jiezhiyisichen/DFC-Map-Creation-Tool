@@ -24,6 +24,55 @@ import java.util.List;
  */
 public class TileLaserScreen extends TileCustomScreen {
 
+    // ==================== 耗尽时间（实测斜率） ====================
+    //
+    // 需求："计算耗尽时间在弹窗上"。冷凝胶 / 透镜耐久的消耗速度是 HBM 内部逻辑，
+    // 猜公式一定会随版本漂；这里改成**量**：记住上一次读到的比例与当时的刻数，
+    // 两次一减就是每秒掉多少，再拿当前值除一下。
+    //   · 读数没在掉（速度 ≤ 0）→ 不给时间（弹窗上写"消耗速度未知"），绝不瞎报；
+    //   · 每台设备各记各的（下标就是槽位）；
+    //   · 只在服务端算（客户端没有权威数据，也不该重复算）。
+
+    /** 上一次读到的比例；< 0 = 还没采到 */
+    private final float[] lastRatio = {-1.0F, -1.0F, -1.0F, -1.0F};
+    /** 上一次采样时的世界刻 */
+    private final long[] lastSampleTick = {0L, 0L, 0L, 0L};
+
+    /**
+     * 给一台设备算"还有多久耗尽"。
+     *
+     * @param slot 槽位下标（0..{@link LaserLayout#SLOTS}-1）
+     * @param lab  刚读出来的这一台
+     */
+    private void applyEta(int slot, LaserInfo lab) {
+        lab.etaSeconds = -1;
+        if (this.world == null || slot < 0 || slot >= this.lastRatio.length) {
+            return;
+        }
+        int row = lab.warnRow;
+        if (row < 0 || row >= lab.metrics.size()) {
+            this.lastRatio[slot] = -1.0F;
+            return;
+        }
+        double ratio = lab.metrics.get(row).ratio;
+        if (ratio < 0.0D || ratio > 1.0D) {
+            this.lastRatio[slot] = -1.0F;
+            return;
+        }
+        long now = this.world.getTotalWorldTime();
+        float prev = this.lastRatio[slot];
+        long prevTick = this.lastSampleTick[slot];
+        if (prev >= 0.0F && now > prevTick && prev > ratio) {
+            double perTick = (prev - ratio) / (double) (now - prevTick);
+            if (perTick > 1.0E-9D) {
+                long secs = Math.round(ratio / perTick / 20.0D);
+                lab.etaSeconds = (int) Math.max(0L, Math.min(359999L, secs));
+            }
+        }
+        this.lastRatio[slot] = (float) ratio;
+        this.lastSampleTick[slot] = now;
+    }
+
     /** 一台设备一个槽 */
     @Override
     public int maxSlots() {
@@ -160,6 +209,7 @@ public class TileLaserScreen extends TileCustomScreen {
                 lab.label = LaserLayout.labelFor(kind, nth[kind]);
             }
             DfcBridge.readLaser(dev, lab);
+            applyEta(i, lab);
             d.lasers.add(lab);
             d.watches.add(summaryOf(slot, lab));
         }

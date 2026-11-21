@@ -62,6 +62,24 @@ public final class LaserInfo {
      * 空串 = 这一台没有需要弹窗的事。多条警告时画布按槽位顺序轮流显示。
      */
     public String warnText = "";
+    /**
+     * 弹窗标题（"冷凝胶不足" / "更换透镜" / "透镜耐久不足"）。
+     *
+     * 【为什么标题单独一个字段】画布要把它放大加粗画在弹窗第一行，
+     * 而 {@link #warnText} 那串是"设备名 + 具体数字"，直接切字符串既脆又难翻译。
+     */
+    public String warnHead = "";
+    /**
+     * 预计耗尽时间（秒）；-1 = 不消耗 / 还算不出来。
+     *
+     * 【怎么来的】由 {@code TileLaserScreen} 在服务端**实测**：记住上一次的
+     * "预警那一行"的 ratio 与当时的刻数，用两次的差值算出每秒掉多少，
+     * 再拿当前值除一下。不猜 HBM 的消耗公式 —— 那东西会随版本变，
+     * 而"实测斜率"永远准（读数本身停了它就不显示，不会瞎报）。
+     */
+    public int etaSeconds = -1;
+    /** 产生预警的那一行在 {@link #metrics} 里的下标（-1 = 没有）：服务端用它算消耗速度 */
+    public int warnRow = -1;
     /** 4~5 行「名称 + 数值 + 数据条」，ratio &lt; 0 表示这一行不画条 */
     public final java.util.List<LaserMetric> metrics = new java.util.ArrayList<LaserMetric>();
 
@@ -106,6 +124,9 @@ public final class LaserInfo {
         o.on = this.on;
         o.warn = this.warn;
         o.warnText = this.warnText;
+        o.warnHead = this.warnHead;
+        o.etaSeconds = this.etaSeconds;
+        o.warnRow = this.warnRow;
         for (int i = 0; i < this.metrics.size(); i++) {
             o.metrics.add(this.metrics.get(i).copy());
         }
@@ -122,6 +143,9 @@ public final class LaserInfo {
         DfcSnapshot.writeShortString(buf, this.label);
         DfcSnapshot.writeShortString(buf, this.device);
         DfcSnapshot.writeShortString(buf, this.warnText);
+        DfcSnapshot.writeShortString(buf, this.warnHead);
+        buf.writeInt(this.etaSeconds);
+        buf.writeByte(this.warnRow);
         buf.writeByte(this.metrics.size());
         for (int i = 0; i < this.metrics.size(); i++) {
             this.metrics.get(i).writeTo(buf);
@@ -136,6 +160,9 @@ public final class LaserInfo {
         this.label = DfcSnapshot.readShortString(buf);
         this.device = DfcSnapshot.readShortString(buf);
         this.warnText = DfcSnapshot.readShortString(buf);
+        this.warnHead = DfcSnapshot.readShortString(buf);
+        this.etaSeconds = buf.readInt();
+        this.warnRow = buf.readByte();
         this.metrics.clear();
         int n = buf.readByte() & 255;
         for (int i = 0; i < n && i < MAX_METRICS; i++) {

@@ -1,12 +1,16 @@
 package com.jiezhimod.block;
 
 import com.jiezhimod.item.ItemDfcRemote;
+import com.jiezhimod.item.ItemLaserConnector;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.InventoryPlayer;
+import net.minecraft.inventory.ClickType;
 import net.minecraft.inventory.Container;
 import net.minecraft.inventory.InventoryBasic;
 import net.minecraft.inventory.Slot;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraft.util.text.TextFormatting;
 
 /**
  * 自定义显示屏 GUI 的容器。
@@ -183,6 +187,11 @@ public class ContainerCustomScreen extends Container {
         } else {
             // 背包 -> 槽：只收遥控器，且槽必须空
             if (!(cur.getItem() instanceof ItemDfcRemote) || this.getSlot(0).getHasStack()) {
+                // Shift 点击被拒时同样要有解释（不然也是"点了没反应"）
+                if (!player.world.isRemote && cur.getItem() instanceof ItemLaserConnector
+                        && !this.getSlot(0).getHasStack()) {
+                    warnWrongItem(player, cur);
+                }
                 return ItemStack.EMPTY;
             }
             this.getSlot(0).putStack(cur.splitStack(1));
@@ -196,6 +205,53 @@ public class ContainerCustomScreen extends Container {
         this.detectAndSendChanges();
         return copy;
     }
+
+    /**
+     * 往遥控器槽里点了不该放的东西时，**明确告诉玩家为什么**。
+     *
+     * <p>【为什么要专门写这个】v4.4 实机反馈："激光遥控器无法放入"。
+     * 那块屏其实是**自定义显示屏**（8 行那个面板），它的槽位只收 DFC 遥控器；
+     * 激光链接器属于**激光状态显示器**自己的面板。但 {@link Slot#isItemValid} 返回
+     * false 时原版**一点反应都没有** —— 物品弹回、界面无声无息，玩家只会认为"出 bug 了"。
+     * 所以在这里补一句定位明确的提示（同一刻只提示一次，免得连点刷屏）。</p>
+     */
+    @Override
+    public ItemStack slotClick(int slotId, int dragType, ClickType clickTypeIn, EntityPlayer player) {
+        // 先让原版走完（被拒时它本来就什么都不做），再补一句解释：
+        // 不能拦在前面 return，那会把玩家光标上的物品弄没。
+        ItemStack result = super.slotClick(slotId, dragType, clickTypeIn, player);
+        if (slotId == 0 && player != null && player.world != null && !player.world.isRemote) {
+            ItemStack carried = player.inventory.getItemStack();
+            if (!carried.isEmpty() && !(carried.getItem() instanceof ItemDfcRemote)
+                    && !this.getSlot(0).getHasStack()) {
+                warnWrongItem(player, carried);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * 说明"这个槽不收这个东西"。
+     *
+     * 激光链接器是最容易搞错的一个（它属于激光屏的面板），单独给一句可执行的指引。
+     */
+    private static void warnWrongItem(EntityPlayer player, ItemStack carried) {
+        long now = player.world.getTotalWorldTime();
+        if (now == lastHintTick) {
+            return;   // 同一刻只提示一次
+        }
+        lastHintTick = now;
+        String msg = carried.getItem() instanceof ItemLaserConnector
+                ? "这个槽只收【DFC 遥控器】。激光链接器要放进【激光状态显示器】自己的面板"
+                + "（4 行那个），不是这块自定义显示屏。"
+                : "这个槽只收【DFC 遥控器】。";
+        player.sendStatusMessage(new TextComponentString(
+                TextFormatting.AQUA + "[jiezhimod] " + TextFormatting.RESET
+                        + TextFormatting.YELLOW + msg), false);
+    }
+
+    /** 同一刻只提示一次（连点槽位时会连着触发，刷屏没意义） */
+    private static long lastHintTick = -1L;
 
     /**
      * 只装 DFC 遥控器、且只装一个的 1 格容器。

@@ -5,9 +5,11 @@ import com.jiezhimod.block.ModBlocks;
 import com.jiezhimod.client.ClientEventHandler;
 import com.jiezhimod.client.ClientUiCore;
 import com.jiezhimod.item.ModItems;
+import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.block.model.ModelResourceLocation;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.World;
@@ -22,15 +24,42 @@ public class ClientProxy extends CommonProxy {
     public void preInit() {
         MinecraftForge.EVENT_BUS.register(new ClientEventHandler());
         MinecraftForge.EVENT_BUS.register(this);
+        // ★★ 灯圈的颜色（IBlockColor / IItemColor）**必须在这里注册，不能放 init()**。
+        //
+        // 原版 Minecraft 构造函数的真实顺序（对着 forge-...-patched.jar 的 Minecraft.java 数的）：
+        //   第 467 行  beginMinecraftLoading() → loadMods() → preinitializeMods()  ⇒ 模组 preInit
+        //   第 514 行  this.blockColors = BlockColors.create()
+        //                └─ 它内部就 post ColorHandlerEvent.Block（BlockColors.java:163）
+        //   第 515 行  this.itemColors  = ItemColors.create(blockColors)  ⇒ 同理 post Item 事件
+        //   第 535 行  finishMinecraftLoading() → initializeMods()                ⇒ 模组 init
+        //
+        // 也就是说 **颜色事件在 init 之前就已经发完了**。原来写在 init() 里注册监听器，
+        // 事件早跑过去了 —— 于是 IBlockColor 从没注册上，灯圈永远显示贴图原色（白），
+        // 服务端把颜色算得再对（日志里 sync -> #FF3A3A）画面也不会变。
+        // 这是 v4.4 里"灯圈不变色 / 渐变无效"的真正根因。
+        MinecraftForge.EVENT_BUS.register(new com.jiezhimod.client.ring.RingColorHandlers());
+        // 灯圈周围的**彩色光晕**：原版方块光只有亮度没有颜色（光照贴图是一张 16x16 灰度表
+        // 乘一个全局 RGB），"让地面被染成灯的颜色"没有接口可调，只能在方块外面自己画一层
+        // 加法混合的彩色壳。放 preInit 是为了和颜色处理器同批注册，便于一眼看全。
+        MinecraftForge.EVENT_BUS.register(new com.jiezhimod.client.ring.RingGlowRenderer());
     }
 
     @Override
     public void init() {
         // 自定义聊天栏 / 右下角通知叠加 / 通知历史快捷键
         MinecraftForge.EVENT_BUS.register(new ClientUiCore());
+        // 入游提示（v5.2.1）：进世界后在原版聊天栏打一条 "jiezhimod 版本：x.y.z，已经加载…"。
+        // 只在客户端注册；内部用 armed 标志保证每个世界只发一次，详见 WelcomeNotice 的类注释。
+        MinecraftForge.EVENT_BUS.register(new com.jiezhimod.client.WelcomeNotice());
         // 显示器画布的"每帧报到"：重绘预算靠它分帧，漏了就会变成几秒才动一下
         MinecraftForge.EVENT_BUS.register(new com.jiezhimod.client.dfc.ScreenFrameHook());
         ClientRegistry.registerKeyBinding(ClientUiCore.KEY_NOTICE);
+        // 屏幕空间聚光灯（SSS）pass。
+        // ★ v5.1.1：开关默认改为**开启** —— 从 5.0 起这就是默认视觉特性（MODE=2 画的是光照，
+        //   不再是早期那张黑白深度灰度图），不该再要求玩家每次手动加 JVM 参数。
+        //   一条日志都不打就"没光"，排查成本太高（5.1.0 就栽在这里：参数丢失 → 整个 pass 不注册，
+        //   日志里连个 [SSS] 前缀都没有）。
+        com.jiezhimod.client.render.DepthDebugPass.registerIfEnabled();
         // 喷气尾焰粒子的工厂注册由 ClientEventHandler 在客户端 tick 里懒注册
         // （effectRenderer 在 init 阶段还没建好，那时注册会拿到 null）。
         // DFC 显示器的渲染器：整块设备（外壳 + 支架 + 屏幕）全部由 TESR 画，
@@ -42,6 +71,11 @@ public class ClientProxy extends CommonProxy {
         ClientRegistry.bindTileEntitySpecialRenderer(
                 com.jiezhimod.block.TileKeypad.class,
                 new com.jiezhimod.client.keypad.RenderKeypad());
+        // 旋转警示灯（v4.5）：底座 / 圆灯罩 / 旋转灯芯 / 光锥全由 TESR 现画 ——
+        // 贴图画不出「完美的圆」，而且光锥是几何体，烘焙模型根本表达不了。
+        ClientRegistry.bindTileEntitySpecialRenderer(
+                com.jiezhimod.block.TileAlarmLight.class,
+                new com.jiezhimod.client.render.RenderAlarmLight());
     }
 
     @Override
@@ -50,6 +84,14 @@ public class ClientProxy extends CommonProxy {
         JiezhiMod.warn("[GuiClient] id=" + id + " pos=" + x + "," + y + "," + z
                 + " te=" + (world.getTileEntity(new BlockPos(x, y, z)) == null ? "null"
                 : world.getTileEntity(new BlockPos(x, y, z)).getClass().getSimpleName()));
+        if (id == GUI_ALARM_CONSOLE) {
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TileAlarmConsole) {
+                return new com.jiezhimod.client.gui.GuiAlarmConsole(
+                        (com.jiezhimod.block.TileAlarmConsole) te);
+            }
+            return null;
+        }
         if (id == GUI_DEBUG) {
             BlockPos p = new BlockPos(x, y, z);
             return new com.jiezhimod.client.gui.GuiDebug(p,
@@ -71,8 +113,26 @@ public class ClientProxy extends CommonProxy {
             return new com.jiezhimod.client.gui.GuiAdvancedRepeater(p,
                     new com.jiezhimod.block.ContainerAdvancedRepeater(p));
         }
+        if (id == GUI_RING_CONSOLE) {
+            TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            if (te instanceof com.jiezhimod.block.TileRingConsole) {
+                com.jiezhimod.block.TileRingConsole tile =
+                        (com.jiezhimod.block.TileRingConsole) te;
+                return new com.jiezhimod.client.gui.GuiRingConsole(tile,
+                        new com.jiezhimod.block.ContainerRingConsole(tile));
+            }
+        }
         if (id == GUI_LASER_SCREEN) {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            // ★ 旧存档兜底：这一格的方块是激光屏、方块实体却还是自定义屏的
+            //   （4.4 之前的 createTileEntity 坑）。客户端也得就地换掉，
+            //   否则这里 instanceof 不成立 → 服务端开了面板、客户端拿不到 GUI。
+            if (te instanceof com.jiezhimod.block.TileDfcScreen
+                    && !(te instanceof com.jiezhimod.block.TileLaserScreen)) {
+                if (((com.jiezhimod.block.TileDfcScreen) te).healScreenTile()) {
+                    te = world.getTileEntity(new BlockPos(x, y, z));
+                }
+            }
             if (te instanceof com.jiezhimod.block.TileLaserScreen) {
                 com.jiezhimod.block.TileLaserScreen tile =
                         (com.jiezhimod.block.TileLaserScreen) te;
@@ -84,6 +144,14 @@ public class ClientProxy extends CommonProxy {
         }
         if (id == GUI_CUSTOM_SCREEN) {
             TileEntity te = world.getTileEntity(new BlockPos(x, y, z));
+            // ★ 服务端那份容器已经改道了（见 CommonProxy），客户端必须跟着改道，
+            //   否则两边容器不一致 = 槽位错位 / 物品凭空消失。判据一模一样。
+            if (te instanceof com.jiezhimod.block.TileLaserScreen) {
+                com.jiezhimod.block.TileLaserScreen laser =
+                        (com.jiezhimod.block.TileLaserScreen) te;
+                return new com.jiezhimod.client.gui.GuiLaserScreen(laser,
+                        new com.jiezhimod.block.ContainerLaserScreen(player.inventory, laser));
+            }
             if (te instanceof com.jiezhimod.block.TileCustomScreen) {
                 com.jiezhimod.block.TileCustomScreen tile =
                         (com.jiezhimod.block.TileCustomScreen) te;
@@ -152,6 +220,40 @@ public class ClientProxy extends CommonProxy {
         bindItemModel(ModItems.CONNECTOR, "jiezhimod:connector");
         // 激光链接器（激光状态显示器专用，和遥控器分开）
         bindItemModel(ModItems.LASER_CONNECTOR, "jiezhimod:laser_connector");
+        // 灯圈 / 灯圈控制台 / 灯圈链接器（v4.4）
+        //
+        // 【颜色不在这里注册】灯圈的 tint（IBlockColor）必须挂在 ColorHandlerEvent 上：
+        // 原版 Minecraft 的构造顺序是 init()（会触发 ModelRegistryEvent）在前、
+        // blockColors / itemColors 赋值在后 —— 在这里拿 Minecraft.getBlockColors() 是 null，
+        // v4.4 第一版正是因此崩在启动阶段（NPE at ClientProxy.onModelRegistry）。
+        // 见 com.jiezhimod.client.ring.RingColorHandlers。
+        Item ringItem = Item.getItemFromBlock(ModBlocks.LIGHT_RING);
+        if (ringItem != null) {
+            bindItemModel(ringItem, "jiezhimod:light_ring");
+        } else {
+            JiezhiMod.warn("Light ring ItemBlock is missing; its item model is not bound.");
+        }
+
+        // 旋转警示灯 / 控制台 / 链接器（v4.5）
+        // ★ 每个 ItemBlock 都必须在这里绑一次模型，漏了物品栏里就是紫黑格
+        //   （自测有一条 "这些 ItemBlock 没在 onModelRegistry 里绑定模型" 专门盯这个）。
+        Item alarmLightItem = Item.getItemFromBlock(ModBlocks.ALARM_LIGHT);
+        if (alarmLightItem != null) {
+            bindItemModel(alarmLightItem, "jiezhimod:alarm_light");
+        }
+        Item alarmConsoleItem = Item.getItemFromBlock(ModBlocks.ALARM_CONSOLE);
+        if (alarmConsoleItem != null) {
+            bindItemModel(alarmConsoleItem, "jiezhimod:alarm_console");
+        }
+        bindItemModel(com.jiezhimod.item.ModItems.ALARM_CONNECTOR, "jiezhimod:alarm_connector");
+        Item ringConsoleItem = Item.getItemFromBlock(ModBlocks.RING_CONSOLE);
+        if (ringConsoleItem != null) {
+            bindItemModel(ringConsoleItem, "jiezhimod:ring_console");
+        } else {
+            JiezhiMod.warn("Ring console ItemBlock is missing; its item model is not bound.");
+        }
+        bindItemModel(ModItems.RING_CONNECTOR, "jiezhimod:ring_connector");
+
         bindItemModel(ModItems.DEBUG_STICK, "jiezhimod:debug_stick");
         // DFC 自定义显示屏（第三块显示器）
         Item customItem = Item.getItemFromBlock(ModBlocks.DFC_CUSTOM);

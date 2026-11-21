@@ -57,6 +57,7 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
         if (next == this.delay) {
             return this.delay;
         }
+        int before = this.delay;
         this.delay = next;
         this.timer.clampDelay(next);
         this.markDirty();
@@ -66,6 +67,7 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
             IBlockState state = this.world.getBlockState(this.pos);
             // flag 3：既让客户端收到方块状态，也把方块实体（延迟）同步过去
             this.world.notifyBlockUpdate(this.pos, state, state, 3);
+            dbg("setDelay " + before + " -> " + this.delay + " @ " + this.pos);
         }
         return this.delay;
     }
@@ -112,36 +114,45 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
 
         boolean locked = BlockAdvancedRepeater.isLocked(world, pos, state);
         boolean poweredNow = state.getValue(BlockAdvancedRepeater.POWERED);
+        boolean inputNow = state.getValue(BlockAdvancedRepeater.INPUT);
 
         // 内部状态与方块状态对不上（刚读档 / 刚放下 / 被别的东西改过）→ 先对齐，别误判成"输入变了"
         if (this.timer.output() != poweredNow) {
             this.timer.syncOutput(poweredNow);
         }
 
+        // 【输入端那个火把】不管锁没锁都要显示真实输入电平（它只是指示灯）
+        boolean input = BlockAdvancedRepeater.hasInput(world, pos, state);
+
         boolean powered = poweredNow;
         if (!locked) {
-            boolean input = BlockAdvancedRepeater.hasInput(world, pos, state);
-            if (fromSchedule && input != this.timer.output()) {
-                // 计数器可能没在跑（区块刚加载 / 被别的优化 mod 跳过）：直接对齐
+            this.timer.tick(input, this.delay);
+            // 【计划刻只是兜底，不许抄近路】v4.4 实机"设好的延时用一次就没了"的根因：
+            // 原来这里是 `if (fromSchedule) syncOutput(input)` —— 计划刻是**每一个邻居变化**
+            // 都排一次的，它经常在延时还没走完时到点，于是直接跳过延时把输出顶上去。
+            // 现在只有"确实已经等满（甚至超时）"才允许强制对齐。
+            if (fromSchedule && input != this.timer.output()
+                    && this.timer.elapsed() >= this.delay - 1) {
                 this.timer.syncOutput(input);
-                powered = input;
-            } else {
-                this.timer.tick(input, this.delay);
-                powered = this.timer.output();
             }
+            powered = this.timer.output();
         }
 
-        if (powered == poweredNow
-                && state.getValue(BlockAdvancedRepeater.LOCKED) == locked) {
+        // 三个显示位各自独立：输出亮不亮、锁定条、输入火把
+        if (powered == poweredNow && locked == state.getValue(BlockAdvancedRepeater.LOCKED)
+                && input == inputNow) {
             return;
         }
 
         world.setBlockState(pos, state
                 .withProperty(BlockAdvancedRepeater.POWERED, Boolean.valueOf(powered))
-                .withProperty(BlockAdvancedRepeater.LOCKED, Boolean.valueOf(locked)), 2);
-        // flag 2 只同步客户端、不通知邻居，所以这里补一次真正的邻居更新：
-        // 红石粉要重新算连接、活塞要判断伸缩、灯要亮
-        world.notifyNeighborsOfStateChange(pos, state.getBlock(), false);
+                .withProperty(BlockAdvancedRepeater.LOCKED, Boolean.valueOf(locked))
+                .withProperty(BlockAdvancedRepeater.INPUT, Boolean.valueOf(input)), 2);
+        // 只有**输出电平**变了才需要惊动邻居（红石粉重算连接 / 活塞 / 灯）。
+        // 单纯"输入火把亮起来"是纯视觉，通知邻居纯属浪费。
+        if (powered != poweredNow) {
+            world.notifyNeighborsOfStateChange(pos, state.getBlock(), false);
+        }
     }
 
     // ==================== NBT / 同步 ====================
@@ -149,9 +160,27 @@ public class TileAdvancedRepeater extends TileEntity implements ITickable {
     @Override
     public void readFromNBT(NBTTagCompound compound) {
         super.readFromNBT(compound);
-        this.delay = RepeaterDelay.clamp(compound.getInteger(TAG_DELAY));
-        // 计时器不存盘：区块重载后从 0 开始，输出状态以方块状态为准（下一 tick 会对齐）
+        // 【别用 getInteger 兜底】缺键时 getInteger 返回 0，clamp(0) = 1 tick ——
+        // 于是"某个只带部分字段的 NBT 落到这里"就把玩家设的延时悄悄改成 0.05 秒
+        // （实机反馈"设好的延时记不住"）。缺键就该保持默认，不要用 0 顶替。
+        int before = this.delay;
+        if (compound.hasKey(TAG_DELAY)) {
+            this.delay = RepeaterDelay.clamp(compound.getInteger(TAG_DELAY));
+        }
         this.timer.clampDelay(this.delay);
+        if (before != this.delay) {
+            dbg("nbt load delay " + before + " -> " + this.delay
+                    + (compound.hasKey(TAG_DELAY) ? "" : " (no Delay key, kept)"));
+        }
+    }
+
+    /** 排错日志：前 40 条全打，之后闭嘴（用户点名要"日志调试"，但不能刷屏） */
+    private static int dbgCount;
+
+    private static void dbg(String msg) {
+        if (dbgCount++ < 40) {
+            com.jiezhimod.JiezhiMod.warn("[Repeater] " + msg);
+        }
     }
 
     @Override

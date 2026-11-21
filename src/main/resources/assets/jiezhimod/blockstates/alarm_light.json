@@ -1,0 +1,68 @@
+{
+    "variants": {
+        "facing=down,on=false": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 180
+        },
+        "facing=down,on=true": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 180
+        },
+        "facing=east,on=false": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90,
+            "y": 90
+        },
+        "facing=east,on=true": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90,
+            "y": 90
+        },
+        "facing=north,on=false": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90
+        },
+        "facing=north,on=true": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90
+        },
+        "facing=south,on=false": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90,
+            "y": 180
+        },
+        "facing=south,on=true": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90,
+            "y": 180
+        },
+        "facing=up,on=false": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true
+        },
+        "facing=up,on=true": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true
+        },
+        "facing=west,on=false": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90,
+            "y": 270
+        },
+        "facing=west,on=true": {
+            "model": "jiezhimod:alarm_light",
+            "uvlock": true,
+            "x": 90,
+            "y": 270
+        }
+    }
+}

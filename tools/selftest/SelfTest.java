@@ -144,7 +144,8 @@ public class SelfTest {
         testAdvancedRepeater();
         testLabelLayout();
         testLaserDisplay();
-        testLaserScreenGuiLayout();
+        testLaserScreenGuiLayout();        testRingLogic();
+        testAlarmAlertRules();
 
         System.out.println("----------------------------------------");
         System.out.println("PASS=" + passed + "  FAIL=" + failed + "  SKIP=" + skipped);
@@ -1739,11 +1740,11 @@ public class SelfTest {
         check("能量保留 2 位小数（小于 1000 也不例外）", DfcFormat.energy(500.0D).equals("500.00 HE"));
         check("液量带 mB 单位且保留 2 位小数", DfcFormat.amount(12500.0D).equals("12.50 kmB"));
 
-        // 能量爆发（作者 CoreGUI 的同口径指标：最近 1 秒合计打出的 SPK）
-        check("能量爆发带 /s 后缀（这是速率，不是累计量）", DfcFormat.burst(1500.0D).endsWith("/s"));
-        check("能量爆发自动加 SI 前缀", DfcFormat.burst(1500.0D).startsWith("1.50 k"));
-        check("能量爆发含 SPK 单位", DfcFormat.burst(1500.0D).contains("SPK"));
-        check("能量爆发为零时不显示负数", DfcFormat.burst(0.0D).startsWith("0"));
+        // 能量抽取（作者 CoreGUI 的同口径指标：最近 1 秒合计打出的 SPK）
+        check("能量抽取带 /s 后缀（这是速率，不是累计量）", DfcFormat.burst(1500.0D).endsWith("/s"));
+        check("能量抽取自动加 SI 前缀", DfcFormat.burst(1500.0D).startsWith("1.50 k"));
+        check("能量抽取含 SPK 单位", DfcFormat.burst(1500.0D).contains("SPK"));
+        check("能量抽取为零时不显示负数", DfcFormat.burst(0.0D).startsWith("0"));
 
         // 【全局约定】数值一律 2 位小数，唯一例外是时间类（[H:MM:SS] / mm:ss）
         check("时间类保持整数秒（不挂小数）",
@@ -3687,6 +3688,170 @@ public class SelfTest {
                 && com.jiezhimod.block.ContainerLaserScreen.INV_X + 9 * 18 <= W);
     }
 
+    // =====================================================================
+    // 灯圈（v4.4）：颜色插值 / 参数快照 / 控制台动作
+    // =====================================================================
+    /**
+     * 灯圈的核心逻辑全部是**纯函数**（RingColor / RingState / RingConsoleConfig / RingGroup），
+     * 这里把它们逐条钉住 —— 淡入淡出和闪烁是纯数值逻辑，等进了游戏再调就是灾难。
+     */
+    private static void testRingLogic() {
+        section("light ring (color / state / console action)");
+
+        // ---------- RingColor ----------
+        check("颜色：pack 按通道钳制", com.jiezhimod.ring.RingColor.pack(300, -5, 128) == 0xFF0080);
+        check("颜色：通道读取", com.jiezhimod.ring.RingColor.red(0x12FF80) == 0x12
+                && com.jiezhimod.ring.RingColor.green(0x12FF80) == 0xFF
+                && com.jiezhimod.ring.RingColor.blue(0x12FF80) == 0x80);
+        check("颜色：t=0/1 返回端点（不产生舍入误差）",
+                com.jiezhimod.ring.RingColor.lerp(0x000000, 0xFFFFFF, 0.0D) == 0x000000
+                        && com.jiezhimod.ring.RingColor.lerp(0x000000, 0xFFFFFF, 1.0D) == 0xFFFFFF);
+        check("颜色：中间值是灰的（逐通道插值）",
+                com.jiezhimod.ring.RingColor.lerp(0x000000, 0xFFFFFF, 0.5D) == 0x808080);
+        check("颜色：dim 关灯亮度", com.jiezhimod.ring.RingColor.dim(0xFFFFFF, 0.0D) == 0
+                && com.jiezhimod.ring.RingColor.dim(0xFFFFFF, 1.0D) == 0xFFFFFF);
+        check("颜色：parse 接受 #RRGGBB / R,G,B，坏输入回退",
+                com.jiezhimod.ring.RingColor.parse("#FF8000", 1) == 0xFF8000
+                        && com.jiezhimod.ring.RingColor.parse("255,128,0", 1) == 0xFF8000
+                        && com.jiezhimod.ring.RingColor.parse("坏了", 1) == 1);
+
+        // ---------- RingState：颜色淡入 ----------
+        com.jiezhimod.ring.RingState st = new com.jiezhimod.ring.RingState();
+        st.on = true;
+        st.colorFrom = 0x000000;
+        st.colorTo = 0xFF0000;
+        st.colorFadeDur = 20;
+        st.colorFadeElapsed = 0;
+        check("灯圈：淡入 0 刻 = 起始色", st.colorAt(0) == com.jiezhimod.ring.RingColor.dim(0x000000, 1.0D));
+        check("灯圈：淡入 20 刻 = 目标色", st.colorAt(20) == 0xFF0000);
+        check("灯圈：淡入 10 刻 = 半红", st.colorAt(10) == 0x800000);
+        check("灯圈：淡入超时后停在目标色", st.colorAt(1000) == 0xFF0000);
+
+        // ---------- RingState：闪烁 ----------
+        st.blink = true;
+        st.blinkPeriod = 20;
+        st.blinkTotal = 100;
+        st.blinkFadeIn = 0;
+        st.blinkFadeOut = 0;
+        st.blinkElapsed = 0;
+        check("灯圈：闪烁第 0 刻是亮的", st.brightAt(0) == 1.0D);
+        check("灯圈：闪烁第 10 刻是灭的（半周期）", st.brightAt(10) == com.jiezhimod.ring.RingState.OFF_BRIGHT);
+        check("灯圈：闪烁结束回稳态", st.brightAt(100) == 1.0D);
+        // blinkTotal = 0 表示"一直闪"（界面上秒总长填 0）。以前被夹到最小 1 刻，
+        // 玩家看到的闪烁只有 1 刻，"闪一下立刻停" —— 就是"闪烁没效果"的一半原因。
+        st.blinkTotal = 0;
+        check("灯圈：blinkTotal=0 是一直闪（1000 刻还亮）", st.brightAt(1000) == 1.0D);
+        check("灯圈：blinkTotal=0 是一直闪（1010 刻还灭）",
+                st.brightAt(1010) == com.jiezhimod.ring.RingState.OFF_BRIGHT);
+        st.blinkTotal = 100;
+        st.blinkFadeIn = 5;
+        st.blinkFadeOut = 5;
+        check("灯圈：渐变闪烁的中间值介于灭与亮之间",
+                st.brightAt(2) > com.jiezhimod.ring.RingState.OFF_BRIGHT && st.brightAt(2) < 1.0D);
+        // fade in + fade out 吃满周期也要留出亮区（否则永远亮不起来）
+        st.blinkFadeIn = 15;
+        st.blinkFadeOut = 15;
+        boolean hasFull = false;
+        for (int ph = 0; ph < st.blinkPeriod; ph++) {
+            if (st.brightAt(ph) == 1.0D) {
+                hasFull = true;
+                break;
+            }
+        }
+        check("灯圈：淡入淡出吃满周期时仍有全亮相", hasFull);
+        st.blinkFadeIn = 0;
+        st.blinkFadeOut = 0;
+
+        // ---------- RingConsoleConfig：多选 + 接力 ----------
+        com.jiezhimod.ring.RingConsoleConfig cfg = new com.jiezhimod.ring.RingConsoleConfig();
+        cfg.actions = com.jiezhimod.ring.RingConsoleConfig.BIT_COLOR
+                | com.jiezhimod.ring.RingConsoleConfig.BIT_ON;
+        cfg.color = 0x00FF00;
+        com.jiezhimod.ring.RingState after = cfg.apply(st);
+        check("控制台：开灯 + 换色可以同时选",
+                after.on && after.colorTo == 0x00FF00 && after.colorFrom == st.colorTo(0));
+        check("控制台：开灯同时没选闪烁 -> 闪烁被关掉", !after.blink);
+        check("控制台：什么都没选就是空配置",
+                new com.jiezhimod.ring.RingConsoleConfig().isEmpty());
+
+        // 闪烁总时长 0 = 一直闪（GUI 里秒总长填 0）：apply 不许把它夹成 1 刻
+        com.jiezhimod.ring.RingConsoleConfig forever = new com.jiezhimod.ring.RingConsoleConfig();
+        forever.actions = com.jiezhimod.ring.RingConsoleConfig.BIT_BLINK;
+        forever.blinkTotal = 0;
+        check("控制台：闪烁总时长 0 表示一直闪（不被夹成 1 刻）",
+                forever.apply(new com.jiezhimod.ring.RingState()).blinkTotal == 0);
+
+        // 接力：A 淡入到红，B 再淡入到蓝 —— B 的起点必须是"A 走到一半的颜色"
+        com.jiezhimod.ring.RingState cur = new com.jiezhimod.ring.RingState();
+        cur.on = true;
+        cur.colorFrom = 0x000000;
+        cur.colorTo = 0xFF0000;
+        cur.colorFadeDur = 20;
+        cur.colorFadeElapsed = 10;      // A 已经走了一半
+        com.jiezhimod.ring.RingConsoleConfig b = new com.jiezhimod.ring.RingConsoleConfig();
+        b.actions = com.jiezhimod.ring.RingConsoleConfig.BIT_COLOR;
+        b.color = 0x0000FF;
+        b.colorFade = true;
+        b.colorFadeTicks = 10;
+        com.jiezhimod.ring.RingState next = b.apply(cur);
+        check("控制台：接力时从当前颜色继续（不是跳回起点）",
+                next.colorFrom == com.jiezhimod.ring.RingColor.lerp(0x000000, 0xFF0000, 0.5D)
+                        && next.colorTo == 0x0000FF && next.colorFadeElapsed == 0);
+
+        // ---------- RingGroup ----------
+        long[] members = new long[]{123L, 456L};
+        com.jiezhimod.ring.RingGroup g =
+                new com.jiezhimod.ring.RingGroup(0, 123L, members);
+        check("灯圈组：新组的版本号是 0，状态是默认（灭）",
+                g.version() == 0 && !g.state().on);
+        com.jiezhimod.ring.RingState on = new com.jiezhimod.ring.RingState();
+        on.on = true;
+        on.colorTo = 0x00FFFF;
+        check("灯圈组：setState 变了返回 true 且版本号 +1",
+                g.setState(on, 100L) && g.version() == 1 && g.stamp() == 100L);
+        check("灯圈组：setState 相同状态返回 false（不重复广播）", !g.setState(on.copy(), 101L));
+        com.jiezhimod.ring.RingState snap = g.snapshot(110L);
+        check("灯圈组：snapshot 会把已走过的刻数补进快照",
+                snap.colorFadeElapsed == 0 || snap.colorFadeDur == 0);
+        check("灯圈组：成员数就是洪水填充的结果", g.members.length == 2);
+
+        // ---------- 编解码往返 ----------
+        try {
+            com.jiezhimod.ring.RingState a = new com.jiezhimod.ring.RingState();
+            a.on = true;
+            a.colorFrom = 0x112233;
+            a.colorTo = 0x445566;
+            a.colorFadeDur = 30;
+            a.blink = true;
+            a.blinkPeriod = 12;
+            a.blinkTotal = 240;
+            a.blinkFadeIn = 3;
+            a.blinkFadeOut = 4;
+            io.netty.buffer.ByteBuf buf = io.netty.buffer.Unpooled.buffer();
+            a.writeTo(buf);
+            com.jiezhimod.ring.RingState back = new com.jiezhimod.ring.RingState();
+            back.readFrom(buf);
+            check("灯圈：状态网络往返字段一致", a.sameAs(back));
+
+            com.jiezhimod.ring.RingConsoleConfig c0 = new com.jiezhimod.ring.RingConsoleConfig();
+            c0.actions = com.jiezhimod.ring.RingConsoleConfig.BIT_BLINK
+                    | com.jiezhimod.ring.RingConsoleConfig.BIT_OFF;
+            c0.color = 0x123456;
+            c0.colorFade = true;
+            c0.blinkPeriod = 25;
+            c0.blinkTotal = 500;
+            io.netty.buffer.ByteBuf buf2 = io.netty.buffer.Unpooled.buffer();
+            c0.writeTo(buf2);
+            com.jiezhimod.ring.RingConsoleConfig c1 = new com.jiezhimod.ring.RingConsoleConfig();
+            c1.readFrom(buf2);
+            check("灯圈：控制台配置网络往返字段一致",
+                    c1.actions == c0.actions && c1.color == c0.color && c1.colorFade == c0.colorFade
+                            && c1.blinkPeriod == c0.blinkPeriod && c1.blinkTotal == c0.blinkTotal);
+        } catch (Throwable t) {
+            check("灯圈：编解码测试抛异常 " + t, false);
+        }
+    }
+
     /** 2×2 的四个格子不许压在一起 */
     private static boolean cellsDoNotOverlap() {
         for (int i = 0; i < LaserLayout.SLOTS; i++) {
@@ -3702,4 +3867,135 @@ public class SelfTest {
         }
         return true;
     }
+
+    // =====================================================================
+    // 警示灯 ← 显示屏 告警联动（v4.5）
+    // =====================================================================
+
+    /**
+     * 告警映射是**纯函数**（{@code AlertRules}），所以这里能把四个等级全部钉死。
+     * 这几个断言的意义：进游戏之后"灯不变色"只可能是联动没接上或没发包，
+     * 不可能是阈值算错 —— 那部分已经在这里被穷举过了。
+     */
+    private static void testAlarmAlertRules() {
+        com.jiezhimod.dfc.DfcSnapshot d = new com.jiezhimod.dfc.DfcSnapshot();
+        d.linked = true;
+        d.temperature = 1000.0D;
+        d.meltingPoint = 4000;
+        // 稳态：3 台稳定器、稳定度满标度 —— 不然"稳定度不足"会把下面每一条都盖成橙色
+        d.stabilizers = 3;
+        d.stabilization = 10.0D;
+
+        // 未连数据源：一律不报警（否则刚放下的灯就红着）
+        com.jiezhimod.dfc.DfcSnapshot cold = new com.jiezhimod.dfc.DfcSnapshot();
+        check("告警：没连数据源 = 正常",
+                com.jiezhimod.alarm.AlertRules.evaluate(cold).level
+                        == com.jiezhimod.alarm.AlertRules.OK);
+        check("告警：null 快照不崩",
+                com.jiezhimod.alarm.AlertRules.evaluate(null).level
+                        == com.jiezhimod.alarm.AlertRules.OK);
+
+        check("告警：1000/4000 正常",
+                com.jiezhimod.alarm.AlertRules.evaluate(d).level
+                        == com.jiezhimod.alarm.AlertRules.OK);
+
+        // 温度过热 = 黄（85% 熔点）
+        d.temperature = 3400.0D;
+        com.jiezhimod.alarm.AlertSignal hot = com.jiezhimod.alarm.AlertRules.evaluate(d);
+        check("告警：超过熔点 85% = 警告（黄）",
+                hot.level == com.jiezhimod.alarm.AlertRules.WARN && "hot".equals(hot.key));
+        check("告警：警告色是黄",
+                com.jiezhimod.alarm.AlertRules.colorFor(hot.level)
+                        == com.jiezhimod.alarm.AlertRules.COLOR_WARN);
+
+        // 达到熔点 = 橙
+        d.temperature = 4100.0D;
+        com.jiezhimod.alarm.AlertSignal melt = com.jiezhimod.alarm.AlertRules.evaluate(d);
+        check("告警：达到熔点 = 危急（橙）",
+                melt.level == com.jiezhimod.alarm.AlertRules.HIGH && "melt".equals(melt.key));
+        check("告警：危急色是橙",
+                com.jiezhimod.alarm.AlertRules.colorFor(melt.level)
+                        == com.jiezhimod.alarm.AlertRules.COLOR_HIGH);
+
+        // 进入熔毁 = 红（优先级高于温度）
+        d.temperature = 4100.0D;
+        d.collapsing = 0.3D;
+        com.jiezhimod.alarm.AlertSignal col = com.jiezhimod.alarm.AlertRules.evaluate(d);
+        check("告警：进入熔毁 = 熔毁（红）且压过温度",
+                col.level == com.jiezhimod.alarm.AlertRules.CRIT && "collapse".equals(col.key));
+        check("告警：熔毁色是红",
+                com.jiezhimod.alarm.AlertRules.colorFor(col.level)
+                        == com.jiezhimod.alarm.AlertRules.COLOR_CRIT);
+
+        // finalPhase 与 collapsing 一样算熔毁
+        d.collapsing = 0.0D;
+        d.finalPhase = true;
+        check("告警：最终阶段也算熔毁",
+                com.jiezhimod.alarm.AlertRules.evaluate(d).level
+                        == com.jiezhimod.alarm.AlertRules.CRIT);
+        d.finalPhase = false;
+
+        // 引爆器
+        d.detonation = true;
+        com.jiezhimod.alarm.AlertSignal det = com.jiezhimod.alarm.AlertRules.evaluate(d);
+        check("告警：启动引爆器 = 熔毁（红）",
+                det.level == com.jiezhimod.alarm.AlertRules.CRIT && "detonation".equals(det.key));
+        d.detonation = false;
+
+        // 堆芯已熔毁
+        d.destroyed = true;
+        check("告警：堆芯熔毁 = 熔毁（红）",
+                com.jiezhimod.alarm.AlertRules.evaluate(d).level
+                        == com.jiezhimod.alarm.AlertRules.CRIT);
+        d.destroyed = false;
+
+        // 激光部件：SL 透镜耐久低 = 黄；OL 冷凝胶 = 橙；透镜将断 = 红
+        com.jiezhimod.dfc.LaserInfo sl = new com.jiezhimod.dfc.LaserInfo(
+                com.jiezhimod.dfc.LaserInfo.KIND_SL, "SL1", "DFC稳定器");
+        sl.warn = com.jiezhimod.dfc.LaserInfo.WARN_YELLOW;
+        sl.warnHead = "透镜耐久不足";
+        sl.warnText = "SL1 · 剩余耐久 40%";
+        d.lasers.add(sl);
+        d.temperature = 1000.0D;
+        com.jiezhimod.alarm.AlertSignal laser = com.jiezhimod.alarm.AlertRules.evaluate(d);
+        check("告警：SL1 透镜耐久低 = 警告（黄）",
+                laser.level == com.jiezhimod.alarm.AlertRules.WARN && "laser".equals(laser.key));
+        check("告警：激光告警明细带部件名", laser.detail.contains("SL1"));
+
+        com.jiezhimod.dfc.LaserInfo ol = new com.jiezhimod.dfc.LaserInfo(
+                com.jiezhimod.dfc.LaserInfo.KIND_OL, "OL1", "DFC接收器");
+        ol.warn = com.jiezhimod.dfc.LaserInfo.WARN_ORANGE;
+        ol.warnHead = "冷凝胶不足";
+        ol.warnText = "OL1 · 剩余 12%";
+        d.lasers.add(ol);
+        check("告警：OL1 冷凝胶不足 = 危急（橙）",
+                com.jiezhimod.alarm.AlertRules.evaluate(d).level
+                        == com.jiezhimod.alarm.AlertRules.HIGH);
+
+        sl.warn = com.jiezhimod.dfc.LaserInfo.WARN_RED;
+        check("告警：透镜将断压过冷凝胶 = 熔毁（红）",
+                com.jiezhimod.alarm.AlertRules.evaluate(d).level
+                        == com.jiezhimod.alarm.AlertRules.CRIT);
+
+        // 灯的行为：正常时灭、告警时亮，且越严重转越快
+        check("告警：正常时灯是灭的",
+                !com.jiezhimod.alarm.AlertRules.litFor(com.jiezhimod.alarm.AlertRules.OK));
+        check("告警：警告时灯亮",
+                com.jiezhimod.alarm.AlertRules.litFor(com.jiezhimod.alarm.AlertRules.WARN));
+        check("告警：转速随等级单调递增",
+                com.jiezhimod.alarm.AlertRules.rpmFor(com.jiezhimod.alarm.AlertRules.OK)
+                        < com.jiezhimod.alarm.AlertRules.rpmFor(com.jiezhimod.alarm.AlertRules.WARN)
+                        && com.jiezhimod.alarm.AlertRules.rpmFor(com.jiezhimod.alarm.AlertRules.WARN)
+                        < com.jiezhimod.alarm.AlertRules.rpmFor(com.jiezhimod.alarm.AlertRules.HIGH)
+                        && com.jiezhimod.alarm.AlertRules.rpmFor(com.jiezhimod.alarm.AlertRules.HIGH)
+                        < com.jiezhimod.alarm.AlertRules.rpmFor(com.jiezhimod.alarm.AlertRules.CRIT));
+        check("告警：四级的颜色两两不同",
+                com.jiezhimod.alarm.AlertRules.COLOR_OK
+                        != com.jiezhimod.alarm.AlertRules.COLOR_WARN
+                        && com.jiezhimod.alarm.AlertRules.COLOR_WARN
+                        != com.jiezhimod.alarm.AlertRules.COLOR_HIGH
+                        && com.jiezhimod.alarm.AlertRules.COLOR_HIGH
+                        != com.jiezhimod.alarm.AlertRules.COLOR_CRIT);
+    }
+
 }

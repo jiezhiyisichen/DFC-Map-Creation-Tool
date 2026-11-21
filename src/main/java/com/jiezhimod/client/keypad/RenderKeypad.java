@@ -32,10 +32,10 @@ import org.lwjgl.opengl.GL13;
 public class RenderKeypad extends TileEntitySpecialRenderer<TileKeypad> {
 
     /**
-     * 面板离模型顶面的高度。模型顶面在 y=0.5，这里再抬 2mm ——
+     * 面板离模型顶面的高度。模型顶面在 y=1.0（v4.4 起密码盘抬到整格），这里再抬 2mm ——
      * 太近会 z-fighting（画面出条纹），太远会看出"面板浮在半空"。
      */
-    private static final float PANEL_Y = 0.502F;
+    private static final float PANEL_Y = 1.002F;
 
     /** 排错用：每台密码盘只打一次首帧日志 */
     private static final java.util.Set<String> LOGGED = new java.util.HashSet<String>();

@@ -31,6 +31,10 @@ public class ModItems {
      * 玩家必然记错（实机反馈"设置 SL 却把核心记进去了"正是这么来的）。
      */
     public static final Item LASER_CONNECTOR = new ItemLaserConnector();
+    /** 灯圈链接器：蹲下右键灯圈记录 → 蹲下右键灯圈控制台绑定（v4.4） */
+    public static final Item RING_CONNECTOR = new ItemRingConnector();
+    /** 警示灯链接器（v4.5）：蹲下右键灯记录 → 蹲下右键控制台绑定 */
+    public static final Item ALARM_CONNECTOR = new ItemAlarmConnector();
     /** 调试棒：蹲下右键任意本模组方块，打开调试界面（显示器可调刷新率） */
     public static final Item DEBUG_STICK = new ItemDebugStick();
 
@@ -52,6 +56,8 @@ public class ModItems {
         DFC_REMOTE.setCreativeTab(TAB);
         CONNECTOR.setCreativeTab(TAB);
         LASER_CONNECTOR.setCreativeTab(TAB);
+        RING_CONNECTOR.setCreativeTab(TAB);
+        ALARM_CONNECTOR.setCreativeTab(TAB);
         DEBUG_STICK.setCreativeTab(TAB);
     }
 
@@ -65,6 +71,8 @@ public class ModItems {
         event.getRegistry().register(DFC_REMOTE);
         event.getRegistry().register(CONNECTOR);
         event.getRegistry().register(LASER_CONNECTOR);
+        event.getRegistry().register(RING_CONNECTOR);
+        event.getRegistry().register(ALARM_CONNECTOR);
         event.getRegistry().register(DEBUG_STICK);
     }
 }

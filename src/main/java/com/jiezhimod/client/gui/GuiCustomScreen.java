@@ -368,12 +368,37 @@ public class GuiCustomScreen extends GuiContainer {
      * 且 HINT_Y + 18 &lt;= BTN_ROW_Y，SelfTest 有断言。
      */
     private void drawHint(int px, int py) {
+        // 手里（或光标上）拿着激光链接器时，把底部提示换成橙色的一句明确指引：
+        // 这块是自定义显示屏，激光链接器属于激光状态显示器 —— 否则玩家只会看到
+        // "放不进去、没有任何反应"（v4.4 实机反馈"激光遥控器无法放入"）。
+        if (heldLaserConnector()) {
+            List<String> warn = this.fontRenderer.listFormattedStringToWidth(
+                    I18n.format("gui.jiezhimod.custom.hint.laser"), W - MARGIN * 2);
+            for (int i = 0; i < warn.size() && i < 2; i++) {
+                this.fontRenderer.drawString(warn.get(i), px + MARGIN,
+                        py + ContainerCustomScreen.HINT_Y + i * 9, 0xFFE0805A);
+            }
+            return;
+        }
         List<String> hint = this.fontRenderer.listFormattedStringToWidth(
                 I18n.format("gui.jiezhimod.custom.hint", this.tile.maxSlots()), W - MARGIN * 2);
         for (int i = 0; i < hint.size() && i < 2; i++) {
             this.fontRenderer.drawString(hint.get(i), px + MARGIN,
                     py + ContainerCustomScreen.HINT_Y + i * 9, 0xFF777777);
         }
+    }
+
+    /** 光标上（优先）或主手里拿着的是不是激光链接器 */
+    private boolean heldLaserConnector() {
+        if (this.mc == null || this.mc.player == null) {
+            return false;
+        }
+        ItemStack carried = this.mc.player.inventory.getItemStack();
+        if (!carried.isEmpty()) {
+            return carried.getItem() instanceof com.jiezhimod.item.ItemLaserConnector;
+        }
+        ItemStack held = this.mc.player.getHeldItemMainhand();
+        return held.getItem() instanceof com.jiezhimod.item.ItemLaserConnector;
     }
 
     /**

@@ -364,24 +364,96 @@ public final class DfcBridge {
         if (lens == null) {
             return -1.0F;
         }
-        Object inv = getFieldValue(te, "inventory");
-        if (!(inv instanceof IItemHandler)) {
-            return -1.0F;
-        }
         try {
-            ItemStack stack = ((IItemHandler) inv).getStackInSlot(0);
+            ItemStack stack = findLensStack(te);
             if (stack == null || stack.isEmpty()) {
                 return -1.0F;
             }
-            int max = stack.getMaxDamage();
-            if (max <= 0) {
-                return -1.0F;
-            }
-            int left = max - stack.getItemDamage();
-            return Math.max(0.0F, Math.min(100.0F, 100.0F * left / (float) max));
+            return lensHealthOf(stack);
         } catch (Throwable t) {
             return -1.0F;
         }
+    }
+
+    /**
+     * 从稳定器的背包里翻出那块透镜。
+     *
+     * 【为什么要翻背包而不是只取第 0 格】HBM 的 {@code TileEntityMachineBase} 用的是
+     * {@code ItemStack[] inventory}（**不是** {@code IItemHandler}）——
+     * v4.4 之前这里判 {@code instanceof IItemHandler}，永远不成立，
+     * 所以画面上"透镜耐久"永远显示 {@code --}（实机反馈就是这个）。
+     * 现在三种容器形态都试一遍，再退一步"按物品类型扫"。
+     */
+    private static ItemStack findLensStack(TileEntity te) {
+        // ① 标准 IInventory（HBM 的机器基类实现了它）
+        if (te instanceof net.minecraft.inventory.IInventory) {
+            net.minecraft.inventory.IInventory inv = (net.minecraft.inventory.IInventory) te;
+            for (int i = 0; i < inv.getSizeInventory(); i++) {
+                ItemStack st = inv.getStackInSlot(i);
+                if (isLensItem(st)) {
+                    return st;
+                }
+            }
+        }
+        // ② IItemHandler
+        Object handler = getFieldValue(te, "inventory");
+        if (handler instanceof IItemHandler) {
+            IItemHandler h = (IItemHandler) handler;
+            for (int i = 0; i < h.getSlots(); i++) {
+                ItemStack st = h.getStackInSlot(i);
+                if (isLensItem(st)) {
+                    return st;
+                }
+            }
+        }
+        // ③ 直接是 ItemStack[] 字段
+        if (handler instanceof ItemStack[]) {
+            for (ItemStack st : (ItemStack[]) handler) {
+                if (isLensItem(st)) {
+                    return st;
+                }
+            }
+        }
+        return null;
+    }
+
+    /** 是不是 HBM 的透镜物品（类名里带 ItemLens，避免引类） */
+    private static boolean isLensItem(ItemStack st) {
+        return st != null && !st.isEmpty()
+                && st.getItem().getClass().getName().endsWith("ItemLens");
+    }
+
+    /**
+     * 透镜剩余耐久百分比。
+     *
+     * <p>HBM 的透镜**不是** damageable 物品（{@code getMaxDamage()} 是 0），
+     * 耐久存在 NBT 里，由 {@code ItemLens.getLensDamage(ItemStack)} 读写，
+     * 上限在实例字段 {@code field_77699_b}（long）里 —— 直接照它的 GUI 口径算：
+     * {@code (max - damage) / max * 100}。</p>
+     */
+    private static float lensHealthOf(ItemStack stack) throws Exception {
+        Class<?> cls = stack.getItem().getClass();
+        java.lang.reflect.Method getDamage = cls.getMethod("getLensDamage", ItemStack.class);
+        Object dmgObj = getDamage.invoke(null, stack);
+        long damage = dmgObj instanceof Number ? ((Number) dmgObj).longValue() : 0L;
+
+        long max = 0L;
+        for (String f : new String[]{"field_77699_b", "maxDamage", "maxLensDamage"}) {
+            try {
+                java.lang.reflect.Field fld = cls.getField(f);
+                if (fld.getType() == long.class || fld.getType() == int.class) {
+                    max = fld.getLong(stack.getItem());
+                    break;
+                }
+            } catch (Throwable ignored) {
+                // 换下一个名字
+            }
+        }
+        if (max <= 0L) {
+            return -1.0F;
+        }
+        long left = Math.max(0L, max - damage);
+        return Math.max(0.0F, Math.min(100.0F, 100.0F * left / (float) max));
     }
 
     // ==================== 激光状态显示器（v4.2，第五页） ====================
@@ -483,24 +555,44 @@ public final class DfcBridge {
         lab.metric("开启状态", lab.on ? "运行中" : "停止", -1.0D);
 
         int warn = LaserLayout.lensWarn(health);
+        lab.warnRow = lab.metrics.size();      // 这一行就是"会掉"的那一行，服务端拿它算耗尽时间
         lab.metric("透镜耐久", health < 0.0F ? "--" : DfcFormat.percentRaw(health),
                 health < 0.0F ? -1.0D : clamp01(health / 100.0D), warn);
         lab.warn = warn;
         if (warn >= LaserInfo.WARN_YELLOW) {
-            lab.warnText = (warn >= LaserInfo.WARN_RED ? "更换透镜 " : "透镜耐久不足 ")
-                    + lab.label + " · 剩余耐久 " + DfcFormat.percentRaw(health);
+            lab.warnHead = warn >= LaserInfo.WARN_RED ? "更换透镜" : "透镜耐久不足";
+            lab.warnText = lab.label + " · 剩余耐久 " + DfcFormat.percentRaw(health);
         }
     }
 
     /** 发射器（PL，加热用）：开启 / 等级 / 剩余电量 / 冷凝胶（不足 → 图上打三角） */
     private static void readLaserEmitter(TileEntity te, LaserInfo lab) {
-        lab.on = getBoolField(te, "isOn", false) || callBool(te, "leafia$isActive", false);
-
         long power = getLongField(te, "power", 0L);
         long maxPower = getLongField(te, "maxPower", 0L);
         int watts = getIntField(te, "watts", 0);
 
-        lab.metric("开启状态", lab.on ? "发射中" : "停止", -1.0D);
+        // ★ "开关拨上去了" ≠ "正在发射"。
+        // 实机反馈：发射器开关是开的、但**没电**，屏幕上却写着"发射中"。
+        // 判据改成三层：
+        //   ① 开关开着（isOn）
+        //   ② 真的在出光（leafia$isActive，没这个方法就退化成"有电"）
+        //   ③ 有电（power > 0）—— 没电绝不可能发射，这一条是硬门槛
+        boolean switchedOn = getBoolField(te, "isOn", false);
+        boolean active = callBool(te, "leafia$isActive", power > 0L);
+        lab.on = switchedOn && active && power > 0L;
+
+        String state;
+        if (lab.on) {
+            state = "发射中";
+        } else if (switchedOn && power <= 0L) {
+            state = "已开启 · 无电";      // 最容易被误判成"在发射"的那一种
+        } else if (switchedOn) {
+            state = "已开启 · 待机";      // 有电但这一 tick 没出光（没冷凝胶 / 没对准）
+        } else {
+            state = "停止";
+        }
+
+        lab.metric("开启状态", state, -1.0D);
         lab.metric("等级", watts + " 级", -1.0D);
         lab.metric("剩余电量", DfcFormat.si(power, "HE"), maxPower > 0 ? clamp01(power / (double) maxPower) : -1.0D);
 
@@ -512,8 +604,10 @@ public final class DfcBridge {
         lab.metric("冷凝胶", DfcFormat.percent(cold), cold, warn);
 
         lab.warn = warn;
+        lab.warnRow = lab.metrics.size() - 1;
         if (warn >= LaserInfo.WARN_YELLOW) {
-            lab.warnText = "冷凝胶不足 " + lab.label + " · 剩余 " + DfcFormat.percent(cold);
+            lab.warnHead = "冷凝胶不足";
+            lab.warnText = lab.label + " · 剩余 " + DfcFormat.percent(cold);
         }
     }
 
@@ -528,7 +622,11 @@ public final class DfcBridge {
         long maxPower = getLongField(te, "maxPower", 0L);
 
         lab.metric("开启状态", lab.on ? "接收中" : "无激光", -1.0D);
-        lab.metric("等级", level > 0.0D ? String.format(java.util.Locale.ROOT, "%.2f", level) : "--", -1.0D);
+        // ★ leafia$level 是 **0~1 的系数**，不是"级数"：它自己的 GUI 也是 ×100 显示的
+        //   （CoreReceiverGUI 里 `leafia$getLevel() * 100`，输入框按百分比保存）。
+        //   v4.4 之前直接打原值，于是"等级"永远显示 1.00（实机反馈"读取错误"）。
+        lab.metric("等级", level > 0.0D
+                ? String.format(java.util.Locale.ROOT, "%.2f", level * 100.0D) : "--", -1.0D);
         lab.metric("发电量", DfcFormat.spk(joules), -1.0D);
         lab.metric("储能", DfcFormat.si(power, "HE"), maxPower > 0 ? clamp01(power / (double) maxPower) : -1.0D);
 
@@ -539,9 +637,11 @@ public final class DfcBridge {
         lab.metric("冷凝胶", DfcFormat.percent(cold), cold, warn);
 
         lab.warn = warn;
+        lab.warnRow = lab.metrics.size() - 1;
         if (warn >= LaserInfo.WARN_YELLOW) {
             // 接收器这里的弹窗是需求点名的：必须把"还剩多少冷凝胶"写出来
-            lab.warnText = "冷凝胶不足 " + lab.label + " · 剩余 " + DfcFormat.percent(cold);
+            lab.warnHead = "冷凝胶不足";
+            lab.warnText = lab.label + " · 剩余 " + DfcFormat.percent(cold);
         }
     }
 

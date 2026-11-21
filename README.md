@@ -11,7 +11,7 @@
 <p align="center">
   <a href="https://minecraft.net"><img alt="Minecraft" src="https://img.shields.io/badge/Minecraft-1.12.2-62B47A?style=flat-square"></a>
   <a href="https://files.minecraftforge.net/net/minecraftforge/forge/index_1.12.2.html"><img alt="Forge" src="https://img.shields.io/badge/Forge-14.23.5.2864-5A8DEE?style=flat-square"></a>
-  <img alt="Version" src="https://img.shields.io/badge/版本-5.4.9-FF6BD6?style=flat-square">
+  <img alt="Version" src="https://img.shields.io/badge/版本-5.6-FF6BD6?style=flat-square">
   <img alt="Java" src="https://img.shields.io/badge/Java-8-ED8B00?style=flat-square">
   <img alt="Side" src="https://img.shields.io/badge/端-客户端%20%2B%20服务端-FFC55C?style=flat-square">
   <img alt="License" src="https://img.shields.io/badge/许可证-署名·非商业-94E2BE?style=flat-square">

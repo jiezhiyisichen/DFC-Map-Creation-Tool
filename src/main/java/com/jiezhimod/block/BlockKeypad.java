@@ -33,8 +33,14 @@ import net.minecraft.world.World;
  */
 public class BlockKeypad extends BlockContainer {
 
-    /** 半格高的外形：水平占满 1 格，竖直只有上半 8/16 */
-    private static final AxisAlignedBB SHAPE = new AxisAlignedBB(0.0D, 0.0D, 0.0D, 1.0D, 0.5D, 1.0D);
+    /**
+     * 外形：整格（v4.4 从半格抬高到一格）。
+     *
+     * 【为什么要抬】半格时面板太贴地，玩家站在旁边要低头戳，而且被地毯 / 台阶挡住视线；
+     * 抬到整格之后面板与普通方块同高，放置 / 点击的手感和控制台一致。
+     * （模型与 TESR 的面板高度也同步抬了，见 RenderKeypad.PANEL_Y 与 keypad.json。）
+     */
+    private static final AxisAlignedBB SHAPE = new AxisAlignedBB(0.0D, 0.0D, 0.0D, 1.0D, 1.0D, 1.0D);
 
     public BlockKeypad() {
         super(Material.IRON);

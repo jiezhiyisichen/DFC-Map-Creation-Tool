@@ -33,6 +33,7 @@ gui.jiezhimod.custom.close=关闭
 gui.jiezhimod.custom.empty=（空）
 gui.jiezhimod.custom.offline=离线
 gui.jiezhimod.custom.hint=放入 DFC 遥控器，点「添加」接入它记录的全部设备（最多 %s 条）
+gui.jiezhimod.custom.hint.laser=这是「自定义显示屏」的遥控器槽，只收 DFC 遥控器。激光链接器要放进「激光状态显示器」自己的面板（4 行那个）。
 gui.jiezhimod.custom.add=添加
 gui.jiezhimod.custom.add.hint=把遥控器放进槽位
 gui.jiezhimod.custom.remote=遥控器
@@ -74,7 +75,7 @@ tooltip.jiezhimod.dfc_screen.4=手持 DFC 遥控器右键：绑定一台暗核�
 tooltip.jiezhimod.dfc_monitor.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
 tooltip.jiezhimod.dfc_monitor.1=对着天花板下表面放置，就会向下垂挂在头顶
 tooltip.jiezhimod.dfc_monitor.2=显示：DFC发射器 / DFC接收器 / DFC燃料罐
-tooltip.jiezhimod.dfc_monitor.3=　　　DFC燃料喷射器 / DFC能量 / DFC能量爆发
+tooltip.jiezhimod.dfc_monitor.3=　　　DFC燃料喷射器 / DFC能量 / DFC能量抽取
 tooltip.jiezhimod.dfc_monitor.4=右键：开机 / 关机
 tooltip.jiezhimod.dfc_monitor.5=手持 DFC 遥控器右键：绑定一台暗核聚变堆核心
 tooltip.jiezhimod.dfc_custom.0=占 4 宽 × 3 高 = %s 格，吊装在天花板下
@@ -217,3 +218,80 @@ gui.jiezhimod.laser.empty=（空）
 gui.jiezhimod.laser.empty.hint=用激光链接器接入一台激光
 gui.jiezhimod.laser.offline=离线
 gui.jiezhimod.laser.hint=蹲下右键激光部件记录 → 把链接器放进槽位点「添加」；最多 %s 台，一行一台，行首是类型短名
+tile.light_ring.name=灯圈
+tile.ring_console.name=灯圈控制台
+item.ring_connector.name=灯圈链接器
+tooltip.jiezhimod.ring_connector.0=把灯圈和灯圈控制台连起来的小工具
+tooltip.jiezhimod.ring_connector.1=蹲下右键灯圈 = 记录（相邻的灯圈自动算同一组）
+tooltip.jiezhimod.ring_connector.2=蹲下右键灯圈控制台 = 绑定（整组一起被控制）
+tooltip.jiezhimod.ring_connector.3=蹲下右键空气 = 清空记录
+gui.jiezhimod.ring.title=灯圈控制台
+gui.jiezhimod.ring.apply=应用
+gui.jiezhimod.ring.close=关闭
+gui.jiezhimod.ring.actions=收到红石信号后（可多选）
+gui.jiezhimod.ring.rgb=颜色 RGB
+gui.jiezhimod.ring.presets=预设色
+gui.jiezhimod.ring.act.color=切换颜色至
+gui.jiezhimod.ring.act.on=开启灯圈
+gui.jiezhimod.ring.act.off=关闭灯圈
+gui.jiezhimod.ring.act.blink=闪烁
+gui.jiezhimod.ring.mode.instant=直接切换
+gui.jiezhimod.ring.mode.fade=慢慢变换
+gui.jiezhimod.ring.mode.plain=普通（立即）
+gui.jiezhimod.ring.mode.fadein=淡入
+gui.jiezhimod.ring.mode.fadeout=淡出
+gui.jiezhimod.ring.mode.blinkplain=普通闪烁（重复关开）
+gui.jiezhimod.ring.mode.blinkfade=渐变闪烁（带淡入淡出）
+gui.jiezhimod.ring.row.color=切换颜色
+gui.jiezhimod.ring.row.on=开启灯圈
+gui.jiezhimod.ring.row.off=关闭灯圈
+gui.jiezhimod.ring.row.blink=闪烁参数
+gui.jiezhimod.ring.sec=秒
+gui.jiezhimod.ring.blink.period=秒/周期
+gui.jiezhimod.ring.blink.total=总长(0=常闪)
+gui.jiezhimod.ring.blink.in=秒淡入
+gui.jiezhimod.ring.blink.out=秒淡出
+gui.jiezhimod.ring.bind.none=未绑定灯圈（用灯圈链接器绑定）
+gui.jiezhimod.ring.bind.ok=已绑定灯圈 %s %s %s（整组一起被控制）
+gui.jiezhimod.ring.last=上次触发：%s
+gui.jiezhimod.ring.saved=已自动保存
+gui.jiezhimod.ring.pick=左侧勾选要做的事，这里就会出现对应的设置
+gui.jiezhimod.ring.hint=改动即时生效；多台控制台用红石中继器延迟串起来，就能做"淡入到红 → 停两秒 → 淡入到蓝"
+
+# ===== 旋转警示灯（v4.5）=====
+tile.alarm_light.name=旋转警示灯
+tile.alarm_console.name=警示灯控制台
+item.alarm_connector.name=警示灯链接器
+tooltip.jiezhimod.alarm_light.0=金属底座 + 旋转灯芯 + 圆形灯罩，光会扫过周围
+tooltip.jiezhimod.alarm_light.1=贴着哪一面放，灯口就朝那一面（天花板/地板/墙都行）
+tooltip.jiezhimod.alarm_light.2=手持染料右键：直接把颜色刷上去
+tooltip.jiezhimod.alarm_light.3=用警示灯链接器接到控制台，或接到显示屏做告警灯
+tooltip.jiezhimod.alarm_light.4=联动显示屏：按告警等级自动变色（黄 / 橙 / 红）并加速旋转
+tooltip.jiezhimod.alarm_console.0=配颜色与转速，红石通电时推给所有绑定的灯
+tooltip.jiezhimod.alarm_console.1=绑定：蹲下右键警示灯记录 → 蹲下右键本方块
+tooltip.jiezhimod.alarm_console.2=红石上升沿开灯、下降沿关灯
+tooltip.jiezhimod.alarm_connector.0=把旋转警示灯接到控制台，或接一块显示屏做告警灯
+tooltip.jiezhimod.alarm_connector.1=蹲下右键警示灯 = 记录（接着右键控制台完成绑定）
+tooltip.jiezhimod.alarm_connector.2=蹲下右键显示屏 = 记录为告警数据源（接着右键警示灯）
+tooltip.jiezhimod.alarm_connector.3=蹲下右键空气 = 清空记录
+tooltip.jiezhimod.alarm_connector.4=联动：温度过热=黄 达到熔点=橙 进入熔毁=红
+tooltip.jiezhimod.alarm_connector.5=激光部件透镜 / 冷凝胶告警同样按等级点亮
+alert.jiezhimod.level.0=正常
+alert.jiezhimod.level.1=警告
+alert.jiezhimod.level.2=危急
+alert.jiezhimod.level.3=熔毁
+alert.jiezhimod.ok=运行正常
+alert.jiezhimod.hot=温度过热
+alert.jiezhimod.melt=达到熔点
+alert.jiezhimod.collapse=进入熔毁
+alert.jiezhimod.detonation=引爆器已启动
+alert.jiezhimod.destroyed=堆芯已熔毁
+alert.jiezhimod.stab=稳定度不足
+alert.jiezhimod.laser=激光部件告警
+alert.jiezhimod.off=显示屏已关闭
+alert.jiezhimod.nosrc=数据源不可用
+gui.jiezhimod.alarm.title=警示灯控制台
+gui.jiezhimod.alarm.rgb=颜色 RGB
+gui.jiezhimod.alarm.rpm=转速
+gui.jiezhimod.alarm.still=不转
+gui.jiezhimod.alarm.bound=已绑定

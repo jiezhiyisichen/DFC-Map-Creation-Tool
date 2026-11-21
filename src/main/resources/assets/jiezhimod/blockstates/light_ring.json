@@ -1,0 +1,52 @@
+{
+  "variants": {
+    "level=0": {
+      "model": "jiezhimod:light_ring_off"
+    },
+    "level=1": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=2": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=3": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=4": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=5": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=6": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=7": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=8": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=9": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=10": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=11": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=12": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=13": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=14": {
+      "model": "jiezhimod:light_ring"
+    },
+    "level=15": {
+      "model": "jiezhimod:light_ring"
+    }
+  }
+}

@@ -143,7 +143,7 @@ public final class ScreenCanvas {
     // 常量真源在 ScreenLayout（纯函数类，离线自测能断言），这里只是方便画布内部引用。
     /** 页面 0：核心遥测（温度 / 稳定度 / 能量 / 崩溃圆盘 / 事件日志） */
     public static final int PAGE_CORE = ScreenLayout.PAGE_CORE;
-    /** 页面 1：部件遥测（发射器 / 接收器 / 燃料 / 燃料喷射器 / 积蓄能量 / 能量爆发） */
+    /** 页面 1：部件遥测（发射器 / 接收器 / 燃料 / 燃料喷射器 / 积蓄能量 / 能量抽取） */
     public static final int PAGE_COMPONENTS = ScreenLayout.PAGE_COMPONENTS;
     /** 页面 2：自定义数据列表（最多 8 项，外部设备读数） */
     public static final int PAGE_CUSTOM = ScreenLayout.PAGE_CUSTOM;
@@ -1227,7 +1227,7 @@ public final class ScreenCanvas {
     //
     // 布局与第一页共用同一套三栏：左 4..86 / 中 90..160 / 右 164..252，
     // 每栏上下两块（Row1 23..99，Row2 105..188）。六个区块：
-    //   发射器 / 接收器 | 燃料 / 燃料喷射器 | 积蓄能量 / 能量爆发
+    //   发射器 / 接收器 | 燃料 / 燃料喷射器 | 积蓄能量 / 能量抽取
     //
     // 【为什么全部是"合计"】一台反应堆周边可能挂十几台发射器，逐台列出来
     // 在 256x192 上根本放不下，操作员要的也只是"一共几台、总共多少"。
@@ -1275,7 +1275,7 @@ public final class ScreenCanvas {
      * 部件页的块标题。
      *
      * 标题一律写**游戏语言文件里的官方中文名**（「DFC发射器」「DFC接收器」
-     * 「DFC燃料喷射器」「DFC燃料」「DFC能量爆发」…），跟创造模式物品栏里对得上，
+     * 「DFC燃料喷射器」「DFC燃料」「DFC能量抽取」…），跟创造模式物品栏里对得上，
      * 玩家看到屏幕上的名字才知道它说的是哪台机器。
      *
      * 官方名比自造的两字标题长得多（「DFC燃料喷射器」= 3 字母 + 6 汉字），
@@ -1399,7 +1399,7 @@ public final class ScreenCanvas {
      *
      * 标题用「DFC能量」：这一项在游戏语言文件里**没有**现成的名字
      * （作者 CoreGUI 直接写英文 "Contained Energy"），所以取官方缩写 DFC + 一个中性词，
-     * 和旁边那块「DFC能量爆发」成对。
+     * 和旁边那块「DFC能量抽取」成对。
      */
     private void drawStoredEnergyBlock(int x, int y, int w, DfcSnapshot d) {
         panel(x, y, w, PROW1_H);
@@ -1424,14 +1424,16 @@ public final class ScreenCanvas {
     }
 
     /**
-     * DFC能量爆发：最近 1 秒吐给接收器的能量之和（作者 CoreGUI 的 "Expelling Energy" 同口径）。
+     * DFC能量抽取：最近 1 秒**从核心抽走**的能量之和（作者 CoreGUI 的 "Expelling Energy" 同口径）。
      *
-     * 标题「DFC能量爆发」不是自造词 —— 它是整合包语言文件里的官方名字
-     * （{@code subtitles.block.dfc.energyburst=DFC能量爆发}，就是核心放能那一声的字幕）。
+     * 【标题为什么叫「抽取」而不是整合包里的「能量爆发」】
+     * {@code subtitles.block.dfc.energyburst=DFC能量爆发} 是核心放能那一声的字幕，
+     * 挂在屏幕上容易被理解成"核心要炸了"。按玩家要求改成「DFC能量抽取」——
+     * 读数本身的语义没变（每秒吐给接收器的能量总和），只是换了个不吓人的说法。
      */
     private void drawBurstBlock(int x, int y, int w, DfcSnapshot d) {
         panel(x, y, w, PROW2_H);
-        blockTitle("DFC能量爆发", x + 4, y + 14, w);
+        blockTitle("DFC能量抽取", x + 4, y + 14, w);
 
         if (!d.linked) {
             text("--", x + 4, y + 40, TXT_DIM, fMonoBold(19));
@@ -2311,6 +2313,22 @@ public final class ScreenCanvas {
      * 一条带子写不下四条；按 2.5 秒轮换，玩家抬头扫一眼就能看出是哪几台。
      * 用本帧相位算，不读挂钟 —— 离线导出才能复现同一张图。
      */
+    /**
+     * 激光页的告警层。
+     *
+     * 【为什么从"底部一条"改成"居中弹窗"】实机反馈："弹窗不够明显，应该是 DFC 引爆器
+     * 那种弹窗，并且把耗尽时间算在弹窗上"。原来那一条只有 16 逻辑像素高、压在页面最底下，
+     * 玩家盯的是中间四台设备的读数，根本注意不到。
+     *
+     * <p>现在的做法：**整页压暗 + 居中卡片**（和熔毁报错页同一套"把视线抓过来"的思路），
+     * 卡片里三行：</p>
+     * <ol>
+     *   <li>标题（三角图标 + "冷凝胶不足" / "更换透镜"），边框每 0.4 秒闪一次；</li>
+     *   <li>哪一台 + 还剩多少（{@code warnText}）；</li>
+     *   <li><b>预计多久耗尽</b>（{@code etaSeconds}，服务端实测斜率算的；测不到就说"未知"）；</li>
+     * </ol>
+     * 没有告警时仍然只画底部那一行"激光状态正常"（不需要抢注意力）。
+     */
     private void drawLaserBanner(DfcSnapshot d) {
         int count = 0;
         for (int i = 0; i < d.lasers.size(); i++) {
@@ -2336,20 +2354,50 @@ public final class ScreenCanvas {
         if (hit == null) {
             return;
         }
-        int color = LaserLayout.warnColor(hit.warn);
-        rect(LaserLayout.BANNER_X, LaserLayout.BANNER_Y, LaserLayout.BANNER_W,
-                LaserLayout.BANNER_H, hit.warn >= LaserInfo.WARN_RED ? 0xFF2A0B0B : 0xFF2A1C08);
-        rect(LaserLayout.BANNER_X, LaserLayout.BANNER_Y, 3, LaserLayout.BANNER_H,
-                LaserLayout.warnColor(hit.warn));
-        drawWarnTriangle(LaserLayout.BANNER_X + 7, LaserLayout.BANNER_Y + 4, 9, 8, hit.warn);
 
-        Font f = fCjk(9);
-        String msg = hit.warnText == null ? "" : hit.warnText;
-        text(clip(msg, LaserLayout.BANNER_W - 26, f), LaserLayout.BANNER_X + 21,
-                LaserLayout.BANNER_Y + 11, color, f);
+        int x = LaserLayout.WARN_X;
+        int y = LaserLayout.WARN_Y;
+        int w = LaserLayout.WARN_W;
+        int h = LaserLayout.WARN_H;
+        int edge = LaserLayout.warnColor(hit.warn);
+        boolean red = hit.warn >= LaserInfo.WARN_RED;
+
+        // ① 整页压暗：底下四台设备的读数退成背景，注意力落到卡片上
+        rect(0, 0, LW, LH, red ? 0xB0160505 : 0xB0140E04);
+
+        // ② 卡片本体 + 闪动的边框（0.4 秒一换，比整屏闪不刺眼但足够抓眼）
+        rect(x, y, w, h, red ? 0xFF2A0C0C : 0xFF2A1E0A);
+        boolean blink = (this.framePhaseMs / 400L) % 2L == 0L;
+        // 灭的那半周期：同色压到 35% 透明度（别用纯黑，那样像边框消失了）
+        int border = blink ? edge : ((edge & 0x00FFFFFF) | 0x59000000);
+        rect(x, y, w, 2, border);
+        rect(x, y + h - 2, w, 2, border);
+        rect(x, y, 2, h, border);
+        rect(x + w - 2, y, 2, h, border);
+
+        // ③ 标题：三角 + 大字
+        drawWarnTriangle(x + 10, y + LaserLayout.WARN_TITLE_DY - 9, 11, 10, hit.warn);
+        String head = hit.warnHead == null || hit.warnHead.isEmpty() ? "需要注意" : hit.warnHead;
+        textCenterIn(head, x + 24, w - 34, y + LaserLayout.WARN_TITLE_DY, edge, fCjkBold(12));
+
+        // ④ 哪一台 · 还剩多少
+        String body = hit.warnText == null ? "" : hit.warnText;
+        textCenterIn(clip(body, w - 24, fCjk(9)), x + 12, w - 24, y + LaserLayout.WARN_BODY_DY,
+                0xFFD8C8B8, fCjk(9));
+
+        // ⑤ 预计耗尽时间（需求点名的这一行）
+        String eta;
+        if (hit.etaSeconds >= 0) {
+            eta = "预计 " + DfcFormat.countdown(hit.etaSeconds * 20.0D) + " 后耗尽";
+        } else {
+            eta = "耗尽时间：测不到消耗速度";
+        }
+        textCenterIn(clip(eta, w - 24, fCjkBold(10)), x + 12, w - 24, y + LaserLayout.WARN_ETA_DY,
+                blink ? edge : 0xFFB89A6A, fCjkBold(10));
+
+        // ⑥ 多台时标明"还有几项"，并让玩家知道会轮换
         if (count > 1) {
-            textRight(count + " 项", LaserLayout.BANNER_X + LaserLayout.BANNER_W - 3,
-                    LaserLayout.BANNER_Y + 11, 0xFF8A6A3A, fCjk(8));
+            textRight(count + " 项", x + w - 8, y + h - 6, 0xFF8A6A3A, fCjk(8));
         }
     }
 
@@ -2547,7 +2595,7 @@ public final class ScreenCanvas {
         rect(x, y, w, h, 0xFF12202B);
         int fw = Math.round(w * Math.max(0.0F, Math.min(1.0F, ratio)));
         if (fw == 0 && ratio > 0.0F) {
-            // 【为什么留 1 像素的地板】DFC 的"能量爆发"相对容量只有千分之几，
+            // 【为什么留 1 像素的地板】DFC 的"能量抽取"相对容量只有千分之几，
             // 取整后是 0 像素 —— 一条完全空着的槽在屏幕上和"没画"分不清，
             // 操作员会以为坏了。留 1 像素是"确实有流量"的最低可读信号。
             fw = 1;

@@ -177,8 +177,86 @@ public class TileDfcScreen extends TileEntity implements ITickable {
 
     // ==================== 生命周期 ====================
 
+    /**
+     * 这一格的方块**应该**配哪种方块实体；{@code null} = 就是自己（核心屏 / 监视器）。
+     *
+     * <p>顺序不能乱：{@code BlockDfcLaser extends BlockCustomScreen}，先判激光。</p>
+     */
+    private static TileEntity desiredTileFor(net.minecraft.block.Block b) {
+        if (b instanceof BlockDfcLaser) {
+            return new TileLaserScreen();
+        }
+        if (b instanceof BlockCustomScreen) {
+            return new TileCustomScreen();
+        }
+        if (b instanceof BlockDfcLabel) {
+            return new TileLabelScreen();
+        }
+        return null;
+    }
+
+    /** 只试一次，避免 setTileEntity 没生效时每刻都造两个方块实体（那才是真卡顿） */
+    private boolean healTried;
+
+    /**
+     * 旧存档自愈（v4.4）：方块实体和方块不是一对时，就地换成正确的那一个。
+     *
+     * <p>【为什么会不配对】1.12.2 实际调用的是 {@code Block.createTileEntity}，
+     * 而 {@code BlockDfcScreen} 覆写了它、直接 {@code new TileDfcScreen()}。
+     * 于是所有只覆写 {@code createNewTileEntity} 的子类方块（标注屏 v4.1、激光屏 v4.2）
+     * **从来没拿到过自己的方块实体** —— 画面照画（选页判据是方块），
+     * 面板/配置/读数却全是父类那一套。
+     * 更麻烦的是读档：原版 {@code TileEntity.create} **按 NBT 里的 id 造类**，
+     * 所以只修 {@code createTileEntity} 只能救新放的方块，老存档里那块还是错的。</p>
+     *
+     * <p>NBT 原样搬过去（子类的键是超集），所以配置不会丢；换完旧实例立刻 invalidate。
+     * 在 {@code update()} 里调用时世界正处于方块实体遍历中，
+     * {@code World#setTileEntity} 会走 Forge 的待定队列，不会在遍历中改集合。</p>
+     *
+     * @return 是否真的换掉了（换掉了就说明这一格已经不是自己，调用方立刻 return）
+     */
+    public boolean healScreenTile() {
+        if (this.healTried || this.world == null || this.pos == null) {
+            return false;
+        }
+        this.healTried = true;
+        TileEntity want = desiredTileFor(this.world.getBlockState(this.pos).getBlock());
+        if (want == null || want.getClass().isInstance(this)) {
+            return false;
+        }
+        try {
+            NBTTagCompound tag = new NBTTagCompound();
+            this.writeToNBT(tag);
+            tag.removeTag("id");          // 新类会写自己的 id，留着旧的会被当成别的方块实体
+            want.setWorld(this.world);
+            want.setPos(this.pos);
+            want.readFromNBT(tag);
+            want.markDirty();
+            this.invalidate();
+            this.world.setTileEntity(this.pos, want);
+        } catch (Throwable t) {
+            // 【绝不能把读档搞崩】迁移只是"锦上添花"：失败就算了，旧方块实体继续用，
+            // 顶多还是那个面板不对的毛病；抛出去就会变成"区块加载失败 / 存档打不开"。
+            com.jiezhimod.JiezhiMod.warn("[Screen] heal failed at " + this.pos
+                    + " (keep the old tile): " + t);
+            return false;
+        }
+        com.jiezhimod.JiezhiMod.warn("[Screen] healed tile at " + this.pos + " -> "
+                + want.getClass().getSimpleName());
+        return true;
+    }
+
+    @Override
+    public void onLoad() {
+        super.onLoad();
+        healScreenTile();
+    }
+
     @Override
     public void update() {
+        if (healScreenTile()) {
+            return;   // 这一格已经换成正确的方块实体了
+        }
         if (this.world == null) {
             return;
         }
